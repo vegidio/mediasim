@@ -16,9 +16,9 @@ type Media struct {
 // Similarity represents a similarity score for a media object.
 type Similarity struct {
 	// Name of the media being compared.
-	Name string
+	Name string `json:"name"`
 	// Score is a number between 0 (not similar) and 1 (identical).
-	Score float64
+	Score float64 `json:"score"`
 }
 
 func (s Similarity) String() string {
@@ -28,9 +28,9 @@ func (s Similarity) String() string {
 // Comparison represents a comparison of a media with another media.
 type Comparison struct {
 	// Name is the name of the media being compared.
-	Name string
+	Name string `json:"name"`
 	// Similarities is a list of similarity scores for the media being compared with this media.
-	Similarities []Similarity
+	Similarities []Similarity `json:"similarities"`
 }
 
 func (c Comparison) String() string {

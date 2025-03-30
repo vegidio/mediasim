@@ -3,6 +3,7 @@ package mediasim
 import (
 	"github.com/vitali-fedulov/images4"
 	"math"
+	"slices"
 )
 
 const MaxDifference = 2804
@@ -46,6 +47,16 @@ func CompareMedia(media []Media, threshold float64) []Comparison {
 		}
 
 		if len(similarities) > 0 {
+			// Sort the similarities in descending order
+			slices.SortFunc(similarities, func(a, b Similarity) int {
+				if a.Score > b.Score {
+					return -1
+				} else if a.Score < b.Score {
+					return 1
+				}
+				return 0
+			})
+
 			comparisons = append(comparisons, Comparison{
 				Name:         media[i].Name,
 				Similarities: similarities,
