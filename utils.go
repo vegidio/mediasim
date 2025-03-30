@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 )
 
 var ValidFileTypes = []string{".jpg", ".jpeg", ".png", ".gif"}
@@ -61,11 +62,12 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 //
 // Parameters:
 //   - directory: The path to the directory containing the files.
+//   - parallel: The number of files to process in parallel.
 //
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue reading the directory.
-func LoadMediaFromDirectory(directory string) (<-chan Media, error) {
+func LoadMediaFromDirectory(directory string, parallel int) (<-chan Media, error) {
 	result := make(chan Media)
 
 	files, err := os.ReadDir(directory)
@@ -76,18 +78,32 @@ func LoadMediaFromDirectory(directory string) (<-chan Media, error) {
 	go func() {
 		defer close(result)
 
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, parallel)
+
 		for _, file := range files {
-			ext := strings.ToLower(filepath.Ext(file.Name()))
+			wg.Add(1)
+			sem <- struct{}{}
 
-			if !file.IsDir() && slices.Contains(ValidFileTypes, ext) {
-				filePath := filepath.Join(directory, file.Name())
-				media, mediaErr := LoadMediaFromFile(filePath)
+			go func(file os.DirEntry) {
+				defer wg.Done()
+				defer func() { <-sem }()
 
-				if mediaErr == nil {
-					result <- *media
+				ext := strings.ToLower(filepath.Ext(file.Name()))
+
+				if !file.IsDir() && slices.Contains(ValidFileTypes, ext) {
+					filePath := filepath.Join(directory, file.Name())
+					media, mediaErr := LoadMediaFromFile(filePath)
+
+					if mediaErr == nil {
+						result <- *media
+					}
 				}
-			}
+			}(file)
 		}
+
+		wg.Wait()
+		close(sem)
 	}()
 
 	return result, nil

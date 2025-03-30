@@ -7,6 +7,15 @@ import (
 
 const MaxDifference = 2804
 
+// CompareMedia compares media items based on a similarity threshold. It returns a list of comparisons where each
+// comparison contains media items that are similar to each other.
+//
+// Parameters:
+//   - media: an array of Media items to be compared.
+//   - threshold: a float64 value representing the similarity threshold.
+//
+// Returns:
+//   - An array of Comparison containing media items that are similar to each other.
 func CompareMedia(media []Media, threshold float64) []Comparison {
 	comparisons := make([]Comparison, 0)
 	compared := make([]bool, len(media))
