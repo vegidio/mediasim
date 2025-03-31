@@ -58,6 +58,47 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 	return &media, nil
 }
 
+// LoadMediaFromFiles loads Media objects from an array of file paths.
+//
+// Parameters:
+//   - filePaths: An array of strings containing the paths to the image files or videos.
+//   - parallel: The number of files to process in parallel.
+//
+// Returns:
+//   - A channel that will receive Media objects for each valid file processed.
+//   - An error if there is an issue opening or decoding any of the files.
+func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) {
+	result := make(chan Media)
+
+	go func() {
+		defer close(result)
+
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, parallel)
+
+		for _, file := range filePaths {
+			wg.Add(1)
+			sem <- struct{}{}
+
+			go func(filePath string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+
+				media, mediaErr := LoadMediaFromFile(filePath)
+
+				if mediaErr == nil {
+					result <- *media
+				}
+			}(file)
+		}
+
+		wg.Wait()
+		close(sem)
+	}()
+
+	return result, nil
+}
+
 // LoadMediaFromDirectory loads Media objects from all files in the given directory.
 //
 // Parameters:
@@ -68,43 +109,21 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue reading the directory.
 func LoadMediaFromDirectory(directory string, parallel int) (<-chan Media, error) {
-	result := make(chan Media)
+	filePaths := make([]string, 0)
 
 	files, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, err
 	}
 
-	go func() {
-		defer close(result)
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file.Name()))
 
-		var wg sync.WaitGroup
-		sem := make(chan struct{}, parallel)
-
-		for _, file := range files {
-			wg.Add(1)
-			sem <- struct{}{}
-
-			go func(file os.DirEntry) {
-				defer wg.Done()
-				defer func() { <-sem }()
-
-				ext := strings.ToLower(filepath.Ext(file.Name()))
-
-				if !file.IsDir() && slices.Contains(ValidFileTypes, ext) {
-					filePath := filepath.Join(directory, file.Name())
-					media, mediaErr := LoadMediaFromFile(filePath)
-
-					if mediaErr == nil {
-						result <- *media
-					}
-				}
-			}(file)
+		if !file.IsDir() && slices.Contains(ValidFileTypes, ext) {
+			filePath := filepath.Join(directory, file.Name())
+			filePaths = append(filePaths, filePath)
 		}
+	}
 
-		wg.Wait()
-		close(sem)
-	}()
-
-	return result, nil
+	return LoadMediaFromFiles(filePaths, parallel)
 }
