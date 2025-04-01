@@ -15,6 +15,7 @@ func main() {
 	var directory string
 	var threshold float64
 	var output string
+	var mediaType string
 
 	cmd := &cli.Command{
 		Name:            "mediasim",
@@ -54,7 +55,7 @@ func main() {
 					return nil
 				},
 				Action: func(ctx context.Context, command *cli.Command, _ string) error {
-					m, err := compareDirectory(directory, threshold, output)
+					m, err := compareDirectory(directory, threshold, mediaType, output)
 					media = m
 					return err
 				},
@@ -68,6 +69,21 @@ func main() {
 				Validator: func(f float64) error {
 					if f < 0 || f > 1 {
 						return fmt.Errorf("threshold must be between 0 and 1")
+					}
+
+					return nil
+				},
+			},
+			&cli.StringFlag{
+				Name:        "media-type",
+				Aliases:     []string{"mt"},
+				Usage:       "type of media to compare; image | video | all",
+				Value:       "all",
+				DefaultText: "all",
+				Destination: &mediaType,
+				Validator: func(s string) error {
+					if s != "image" && s != "video" && s != "all" {
+						return fmt.Errorf("invalid media type")
 					}
 
 					return nil

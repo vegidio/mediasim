@@ -42,10 +42,21 @@ func compareFiles(files []string, threshold float64, output string) ([]mediasim.
 	return media, nil
 }
 
-func compareDirectory(directory string, threshold float64, output string) ([]mediasim.Media, error) {
+func compareDirectory(directory string, threshold float64, mediaType string, output string) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
 	msg := pterm.Sprintf("🧮 Calculating similarity in the directory %s", pterm.FgLightGreen.Sprintf(directory))
+
+	// Determine what media types to include
+	var hasImage, hasVideo bool
+	if mediaType == "image" {
+		hasImage = true
+	} else if mediaType == "video" {
+		hasVideo = true
+	} else {
+		hasImage = true
+		hasVideo = true
+	}
 
 	if output == "report" {
 		pterm.Println()
@@ -53,7 +64,7 @@ func compareDirectory(directory string, threshold float64, output string) ([]med
 	}
 
 	media := make([]mediasim.Media, 0)
-	newMedia, err := mediasim.LoadMediaFromDirectory(directory, 5)
+	newMedia, err := mediasim.LoadMediaFromDirectory(directory, hasImage, hasVideo, 5)
 	if err != nil {
 		return media, fmt.Errorf("error loading from directory: " + err.Error())
 	}

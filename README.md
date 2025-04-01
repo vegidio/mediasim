@@ -9,7 +9,7 @@
 
 You can use **mediasim** in two ways: as a command-line interface (CLI) tool or a Go library.
 
-The CLI tool is a standalone application that can be used to compare the similarity between images, while the library can be integrated into your own Go projects.
+The CLI tool is a standalone application that can be used to compare the similarity between media files, while the library can be integrated into your own Go projects.
 
 The binaries are available for Windows, macOS, and Linux. Download the [latest release](https://github.com/vegidio/mediasim/releases) that matches your computer architecture and operating system.
 

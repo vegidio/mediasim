@@ -17,13 +17,13 @@ import (
 )
 
 var ValidImageTypes = []string{".jpg", ".jpeg", ".png", ".gif"}
-var ValidVideoTypes = []string{".mp4"}
+var ValidVideoTypes = []string{".mp4", ".mkv", ".mov", ".webm"}
 
 // LoadMediaFromImages creates a Media object from the given image or video.
 //
 // Parameters:
 //   - name: The name of the media.
-//   - images: The image to be converted into a Media object.
+//   - images: The images to be converted into a Media object.
 //
 // Returns:
 //   - A Media object containing the name and the converted image.
@@ -47,7 +47,7 @@ func LoadMediaFromImages(name string, images []image.Image) Media {
 // LoadMediaFromFile loads a Media object from the given file path.
 //
 // Parameters:
-//   - filePath: The path to the image file or video.
+//   - filePath: The path to the image or video file.
 //
 // Returns:
 //   - A pointer to a Media object containing the name and the converted image.
@@ -55,8 +55,7 @@ func LoadMediaFromImages(name string, images []image.Image) Media {
 func LoadMediaFromFile(filePath string) (*Media, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println("Error opening image:", err)
-		return nil, err
+		return nil, fmt.Errorf("error opening file: %w", err)
 	}
 
 	defer file.Close()
@@ -88,7 +87,7 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 // LoadMediaFromFiles loads Media objects from an array of file paths.
 //
 // Parameters:
-//   - filePaths: An array of strings containing the paths to the image files or videos.
+//   - filePaths: An array of strings containing the paths to the image or video files.
 //   - parallel: The number of files to process in parallel.
 //
 // Returns:
@@ -135,7 +134,7 @@ func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) 
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue reading the directory.
-func LoadMediaFromDirectory(directory string, parallel int) (<-chan Media, error) {
+func LoadMediaFromDirectory(directory string, hasImage bool, hasVideo bool, parallel int) (<-chan Media, error) {
 	filePaths := make([]string, 0)
 
 	files, err := os.ReadDir(directory)
@@ -145,8 +144,10 @@ func LoadMediaFromDirectory(directory string, parallel int) (<-chan Media, error
 
 	for _, file := range files {
 		ext := strings.ToLower(filepath.Ext(file.Name()))
+		includeImage := hasImage && slices.Contains(ValidImageTypes, ext)
+		includeVideo := hasVideo && slices.Contains(ValidVideoTypes, ext)
 
-		if !file.IsDir() && (slices.Contains(ValidImageTypes, ext) || slices.Contains(ValidVideoTypes, ext)) {
+		if !file.IsDir() && (includeImage || includeVideo) {
 			filePath := filepath.Join(directory, file.Name())
 			filePaths = append(filePaths, filePath)
 		}
