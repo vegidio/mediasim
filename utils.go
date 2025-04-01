@@ -2,6 +2,8 @@ package mediasim
 
 import (
 	"fmt"
+	"github.com/samber/lo"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"github.com/vitali-fedulov/images4"
 	"image"
 	_ "image/gif"
@@ -14,20 +16,31 @@ import (
 	"sync"
 )
 
-var ValidFileTypes = []string{".jpg", ".jpeg", ".png", ".gif"}
+var ValidImageTypes = []string{".jpg", ".jpeg", ".png", ".gif"}
+var ValidVideoTypes = []string{".mp4"}
 
-// LoadMediaFromImage creates a Media object from the given image or video.
+// LoadMediaFromImages creates a Media object from the given image or video.
 //
 // Parameters:
 //   - name: The name of the media.
-//   - img: The image to be converted into a Media object.
+//   - images: The image to be converted into a Media object.
 //
 // Returns:
 //   - A Media object containing the name and the converted image.
-func LoadMediaFromImage(name string, img image.Image) Media {
+func LoadMediaFromImages(name string, images []image.Image) Media {
+	mediaType := "image"
+	if len(images) > 1 {
+		mediaType = "video"
+	}
+
+	frames := lo.Map(images, func(img image.Image, _ int) images4.IconT {
+		return images4.Icon(img)
+	})
+
 	return Media{
-		Name:  name,
-		Image: images4.Icon(img),
+		Name:   name,
+		Type:   mediaType,
+		Frames: frames,
 	}
 }
 
@@ -48,13 +61,27 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 
 	defer file.Close()
 
-	img, _, err := image.Decode(file)
-	if err != nil {
-		fmt.Println("Error decoding image:", err)
-		return nil, err
+	ext := strings.ToLower(filepath.Ext(file.Name()))
+	images := make([]image.Image, 0)
+
+	if slices.Contains(ValidImageTypes, ext) {
+		img, _, imgErr := image.Decode(file)
+		if imgErr != nil {
+			return nil, imgErr
+		}
+
+		images = append(images, img)
+
+	} else if slices.Contains(ValidVideoTypes, ext) {
+		videos, vidErr := extractFrames(file.Name())
+		if vidErr != nil {
+			return nil, vidErr
+		}
+
+		images = append(images, videos...)
 	}
 
-	media := LoadMediaFromImage(filePath, img)
+	media := LoadMediaFromImages(filePath, images)
 	return &media, nil
 }
 
@@ -119,7 +146,7 @@ func LoadMediaFromDirectory(directory string, parallel int) (<-chan Media, error
 	for _, file := range files {
 		ext := strings.ToLower(filepath.Ext(file.Name()))
 
-		if !file.IsDir() && slices.Contains(ValidFileTypes, ext) {
+		if !file.IsDir() && (slices.Contains(ValidImageTypes, ext) || slices.Contains(ValidVideoTypes, ext)) {
 			filePath := filepath.Join(directory, file.Name())
 			filePaths = append(filePaths, filePath)
 		}
@@ -127,3 +154,62 @@ func LoadMediaFromDirectory(directory string, parallel int) (<-chan Media, error
 
 	return LoadMediaFromFiles(filePaths, parallel)
 }
+
+// region - Private functions
+
+func loadFrames(directory string) ([]image.Image, error) {
+	images := make([]image.Image, 0)
+
+	files, err := os.ReadDir(directory)
+	if err != nil {
+		return images, err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() {
+			fullPath := filepath.Join(directory, file.Name())
+
+			f, fErr := os.Open(fullPath)
+			if fErr != nil {
+				return images, fErr
+			}
+
+			img, _, imgErr := image.Decode(f)
+			if imgErr != nil {
+				return images, imgErr
+			}
+
+			f.Close()
+			images = append(images, img)
+		}
+	}
+
+	return images, nil
+}
+
+func extractFrames(filePath string) ([]image.Image, error) {
+	images := make([]image.Image, 0)
+
+	tempDir, _ := os.MkdirTemp("", "mediasim-*")
+	defer os.RemoveAll(tempDir)
+
+	path := filepath.Join(tempDir, "frame_%04d.jpg")
+	err := ffmpeg.Input(filePath).
+		Filter("fps", ffmpeg.Args{"1"}).
+		Output(path).
+		Silent(true).
+		Run()
+
+	if err != nil {
+		return images, fmt.Errorf("error exporting video frames: %v", err)
+	}
+
+	images, err = loadFrames(tempDir)
+	if err != nil {
+		return images, fmt.Errorf("error loading video frames: %v", err)
+	}
+
+	return images, nil
+}
+
+// endregion

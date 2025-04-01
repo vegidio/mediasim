@@ -9,8 +9,10 @@ import (
 type Media struct {
 	// Name of the media.
 	Name string
-	// Image frame of the media.
-	Image images4.IconT
+	// Type of the media (e.g., image, video).
+	Type string
+	// Frames is the array of frames of the media.
+	Frames []images4.IconT
 }
 
 // Similarity represents a similarity score for a media object.

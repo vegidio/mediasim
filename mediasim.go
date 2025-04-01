@@ -6,8 +6,6 @@ import (
 	"slices"
 )
 
-const MaxDifference = 2804
-
 // CompareMedia compares media items based on a similarity threshold. It returns a list of comparisons where each
 // comparison contains media items that are similar to each other.
 //
@@ -33,7 +31,15 @@ func CompareMedia(media []Media, threshold float64) []Comparison {
 				continue
 			}
 
-			similarity := calculateSimilarity(media[i].Image, media[j].Image)
+			var similarity float64
+
+			if media[i].Type == "image" && media[j].Type == "image" {
+				similarity = calculateImageSimilarity(media[i].Frames[0], media[j].Frames[0])
+			} else if media[i].Type == "video" && media[j].Type == "video" {
+				similarity = calculateVideoSimilarity(media[i].Frames, media[j].Frames)
+			} else {
+				continue
+			}
 
 			if similarity >= threshold {
 				similarities = append(similarities, Similarity{
@@ -67,8 +73,32 @@ func CompareMedia(media []Media, threshold float64) []Comparison {
 	return comparisons
 }
 
-func calculateSimilarity(image1, image2 images4.IconT) float64 {
-	m1, m2, m3 := images4.EucMetric(image1, image2)
+// region - Private functions
+
+func calculateImageSimilarity(frame1, frame2 images4.IconT) float64 {
+	const MaxDifference = 2804
+
+	m1, m2, m3 := images4.EucMetric(frame1, frame2)
 	difference := math.Sqrt(m1+m2/2+m3/2) / MaxDifference
 	return 1 - difference
 }
+
+func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
+	matrix := make([][]float64, len(frames1))
+
+	iLength := len(frames1)
+	jLength := len(frames2)
+	maxValue := math.Max(float64(iLength), float64(jLength))
+
+	for i := 0; i < iLength; i++ {
+		for j := 0; j < jLength; j++ {
+			similarity := calculateImageSimilarity(frames1[i], frames2[j])
+			matrix[i] = append(matrix[i], similarity)
+		}
+	}
+
+	distance, _ := dtw(matrix)
+	return distance / maxValue
+}
+
+// endregion
