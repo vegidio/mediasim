@@ -20,7 +20,7 @@ tasks:
       GOARCH: "{{.arch}}"
     cmds:
       - |
-        go build -o {{.ROOT_DIR}}/build/mediasim {{.ROOT_DIR}}/cmd
+        go build -o {{.ROOT_DIR}}/build/{{.file}} {{.ROOT_DIR}}/cmd
         {{if .isPackage}}7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim_{{.os}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.file}}"{{end}}
 
   package:
