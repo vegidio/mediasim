@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/samber/lo"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	downloader "github.com/vegidio/ffmpeg-downloader"
 	"github.com/vitali-fedulov/images4"
 	"image"
 	_ "image/gif"
@@ -18,6 +19,7 @@ import (
 
 var ValidImageTypes = []string{".jpg", ".jpeg", ".png", ".gif"}
 var ValidVideoTypes = []string{".mp4", ".mkv", ".mov", ".webm"}
+var FFmpegPath = getFFmpegPath("mediasim")
 
 // LoadMediaFromImages creates a Media object from the given image or video.
 //
@@ -158,6 +160,25 @@ func LoadMediaFromDirectory(directory string, hasImage bool, hasVideo bool, para
 
 // region - Private functions
 
+func getFFmpegPath(configName string) string {
+	installed := downloader.IsSystemInstalled()
+	if installed {
+		return ""
+	}
+
+	path, installed := downloader.IsStaticallyInstalled(configName)
+	if installed {
+		return path
+	}
+
+	path, err := downloader.Download(configName)
+	if err != nil {
+		return ""
+	}
+
+	return path
+}
+
 func loadFrames(directory string) ([]image.Image, error) {
 	images := make([]image.Image, 0)
 
@@ -195,11 +216,17 @@ func extractFrames(filePath string) ([]image.Image, error) {
 	defer os.RemoveAll(tempDir)
 
 	path := filepath.Join(tempDir, "frame_%04d.jpg")
-	err := ffmpeg.Input(filePath).
+	command := ffmpeg.Input(filePath).
 		Filter("fps", ffmpeg.Args{"1"}).
 		Output(path).
-		Silent(true).
-		Run()
+		Silent(true)
+
+	var err error
+	if FFmpegPath == "" {
+		err = command.Run()
+	} else {
+		err = command.SetFfmpegPath(FFmpegPath).Run()
+	}
 
 	if err != nil {
 		return images, fmt.Errorf("error exporting video frames: %v", err)
