@@ -82,6 +82,10 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 		images = append(images, videos...)
 	}
 
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no valid images found in file: %s", filePath)
+	}
+
 	media := LoadMediaFromImages(filePath, images)
 	return &media, nil
 }
@@ -234,7 +238,31 @@ func extractFrames(filePath string) ([]image.Image, error) {
 
 	images, err = loadFrames(tempDir)
 	if err != nil {
-		return images, fmt.Errorf("error loading video frames: %v", err)
+		return images, fmt.Errorf("error loading multiple frames: %v", err)
+	}
+
+	if len(images) > 0 {
+		return images, nil
+	}
+
+	path = filepath.Join(tempDir, "frame.jpg")
+	command = ffmpeg.Input(filePath).
+		Output(path, ffmpeg.KwArgs{"vframes": 1}).
+		Silent(true)
+
+	if FFmpegPath == "" {
+		err = command.Run()
+	} else {
+		err = command.SetFfmpegPath(FFmpegPath).Run()
+	}
+
+	if err != nil {
+		return images, fmt.Errorf("error exporting video frame: %v", err)
+	}
+
+	images, err = loadFrames(tempDir)
+	if err != nil {
+		return images, fmt.Errorf("error loading single frame: %v", err)
 	}
 
 	return images, nil
