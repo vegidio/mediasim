@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/samber/lo"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	_ "github.com/vegidio/avif-go"
 	downloader "github.com/vegidio/ffmpeg-downloader"
 	"github.com/vitali-fedulov/images4"
 	"image"
@@ -17,7 +18,7 @@ import (
 	"sync"
 )
 
-var ValidImageTypes = []string{".jpg", ".jpeg", ".png", ".gif"}
+var ValidImageTypes = []string{".avif", ".jpg", ".jpeg", ".png", ".gif"}
 var ValidVideoTypes = []string{".mp4", ".mkv", ".mov", ".webm"}
 var FFmpegPath = getFFmpegPath("mediasim")
 

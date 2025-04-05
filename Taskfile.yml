@@ -15,12 +15,12 @@ tasks:
     vars:
       file: "{{if eq .os `windows`}}mediasim.exe{{else}}mediasim{{end}}"
     env:
-      CGO_ENABLED: 0
+      CGO_ENABLED: 1
       GOOS: "{{.os}}"
       GOARCH: "{{.arch}}"
     cmds:
       - |
-        go build -o {{.ROOT_DIR}}/build/{{.file}} {{.ROOT_DIR}}/cmd
+        go build -o "{{.ROOT_DIR}}/build/{{.file}}" "{{.ROOT_DIR}}/cmd"
         {{if .isPackage}}7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim_{{.os}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.file}}"{{end}}
 
   package:
