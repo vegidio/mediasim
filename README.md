@@ -27,7 +27,7 @@ $ mediasim -f <media1>,<media2> ...
 
 Where:
 
--   `-f` (mandatory): the path to the media files you want to compare. You must pass at least two files, separated by comma.
+- `-f` (mandatory): the path to the media files you want to compare. You must pass at least two files, separated by comma.
 
 ---
 
@@ -39,15 +39,15 @@ $ mediasim -d <directory>
 
 Where:
 
--   `-d` (mandatory): the path to the directory where the media files are located.
--   `-mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
+- `-d` (mandatory): the path to the directory where the media files are located.
+- `-mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
 
 ---
 
 Other parameters you can use:
 
--   `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only files with 80% similarity or higher will be reported.
--   `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
+- `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only files with 80% similarity or higher will be reported.
+- `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
@@ -85,8 +85,8 @@ $ xattr -d com.apple.quarantine <path-to-app>
 
 In order to build this project you will need the following dependencies installed in your computer:
 
--   [Golang](https://go.dev/doc/install)
--   [Task](https://taskfile.dev/installation/)
+- [Golang](https://go.dev/doc/install)
+- [Task](https://taskfile.dev/installation/)
 
 ### Compiling
 
@@ -98,8 +98,8 @@ $ task build os=<operating-system> arch=<architecture>
 
 Where:
 
--   `<operating-system>`: can be `windows`, `darwin` (macOS), or `linux`.
--   `<architecture>`: can be `amd64` or `arm64`.
+- `<operating-system>`: can be `windows`, `darwin` (macOS), or `linux`.
+- `<architecture>`: can be `amd64` or `arm64`.
 
 For example, if I wanted to build the CLI for Windows, on architecture AMD64, I would run the command:
 

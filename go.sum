@@ -109,6 +109,12 @@ github.com/vegidio/avif-go v0.0.0-20250406125651-3208c51eb38c h1:RRJ+XTgOXDH8fnU
 github.com/vegidio/avif-go v0.0.0-20250406125651-3208c51eb38c/go.mod h1:sByU0YYF90aMhhpfI9kvp8Tk4JSM6WheZX8D3LWvF6M=
 github.com/vegidio/avif-go v0.0.0-20250406130644-6f3397c8ff56 h1:JdKGJHjbgRgIuCbBR6Ig6VvTjUKB6nyuH07OLxtQC/U=
 github.com/vegidio/avif-go v0.0.0-20250406130644-6f3397c8ff56/go.mod h1:sByU0YYF90aMhhpfI9kvp8Tk4JSM6WheZX8D3LWvF6M=
+github.com/vegidio/avif-go v0.0.0-20250408090325-23ae5c43c4ca h1:BW9hf7pOVpJdG8XJGVyI5v8MLrGn1Y3qkKHPu0yJCxo=
+github.com/vegidio/avif-go v0.0.0-20250408090325-23ae5c43c4ca/go.mod h1:sByU0YYF90aMhhpfI9kvp8Tk4JSM6WheZX8D3LWvF6M=
+github.com/vegidio/avif-go v0.0.0-20250408192100-8faa7980d828 h1:h4bHtd82ZEXGyw7CV1bG3H8H4aZxhcixqRjEHi5yAso=
+github.com/vegidio/avif-go v0.0.0-20250408192100-8faa7980d828/go.mod h1:sByU0YYF90aMhhpfI9kvp8Tk4JSM6WheZX8D3LWvF6M=
+github.com/vegidio/avif-go v0.0.0-20250408200740-9de750920dff h1:IALfS38gP4keF+DapAG4hqn7rW/HxAxijM7MOxq8w3g=
+github.com/vegidio/avif-go v0.0.0-20250408200740-9de750920dff/go.mod h1:sByU0YYF90aMhhpfI9kvp8Tk4JSM6WheZX8D3LWvF6M=
 github.com/vegidio/ffmpeg-downloader v0.0.0-20250402110939-5c21c4f9b16f h1:AFcDrm7JVGtednMmB7XBHdoyg3ifIxV6k7An58jrGRw=
 github.com/vegidio/ffmpeg-downloader v0.0.0-20250402110939-5c21c4f9b16f/go.mod h1:Os3Iobg+CnPBPkXykO3UBINlWYWAC1SkpPBe1BDj0uk=
 github.com/vitali-fedulov/images4 v1.3.1 h1:r8q2iDD3Gq63rE1IxRvpa3KsUUtdGNYFg4RoTtkmwYA=

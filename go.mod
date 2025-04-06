@@ -1,4 +1,4 @@
-module mediasim
+module github.com/vegidio/mediasim
 
 go 1.24
 
@@ -7,7 +7,7 @@ require (
 	github.com/samber/lo v1.49.1
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/urfave/cli/v3 v3.0.0-beta1
-	github.com/vegidio/avif-go v0.0.0-20250406130644-6f3397c8ff56
+	github.com/vegidio/avif-go v0.0.0-20250408200740-9de750920dff
 	github.com/vegidio/ffmpeg-downloader v0.0.0-20250402110939-5c21c4f9b16f
 	github.com/vitali-fedulov/images4 v1.3.1
 )

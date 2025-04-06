@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/pterm/pterm"
 	"github.com/urfave/cli/v3"
-	"mediasim"
+	"github.com/vegidio/mediasim"
 	"os"
 )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pterm/pterm"
-	"mediasim"
+	"github.com/vegidio/mediasim"
 	"strconv"
 	"time"
 )
