@@ -7,6 +7,9 @@ import (
 	_ "github.com/vegidio/avif-go"
 	downloader "github.com/vegidio/ffmpeg-downloader"
 	"github.com/vitali-fedulov/images4"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -18,8 +21,8 @@ import (
 	"sync"
 )
 
-var ValidImageTypes = []string{".avif", ".jpg", ".jpeg", ".png", ".gif"}
-var ValidVideoTypes = []string{".mp4", ".mkv", ".mov", ".webm"}
+var ValidImageTypes = []string{".avif", ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp"}
+var ValidVideoTypes = []string{".avi", ".mp4", ".mkv", ".mov", ".webm"}
 var FFmpegPath = getFFmpegPath("mediasim")
 
 // LoadMediaFromImages creates a Media object from the given image or video.
