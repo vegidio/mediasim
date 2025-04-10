@@ -149,8 +149,6 @@ func LoadMediaFromDirectory(directory string, hasImage bool, hasVideo bool, para
 	filePaths := make([]string, 0)
 
 	err := filepath.Walk(directory, func(path string, f os.FileInfo, err error) error {
-		var inf os.FileInfo
-		inf, err = os.Stat(path)
 		if err == nil {
 			ext := strings.ToLower(filepath.Ext(path))
 			includeImage := hasImage && slices.Contains(ValidImageTypes, ext)
