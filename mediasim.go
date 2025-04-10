@@ -86,19 +86,15 @@ func calculateImageSimilarity(frame1, frame2 images4.IconT) float64 {
 func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
 	matrix := make([][]float64, len(frames1))
 
-	iLength := len(frames1)
-	jLength := len(frames2)
-	maxValue := math.Max(float64(iLength), float64(jLength))
-
-	for i := 0; i < iLength; i++ {
-		for j := 0; j < jLength; j++ {
+	for i := 0; i < len(frames1); i++ {
+		for j := 0; j < len(frames2); j++ {
 			similarity := calculateImageSimilarity(frames1[i], frames2[j])
 			matrix[i] = append(matrix[i], similarity)
 		}
 	}
 
-	distance, _ := dtw(matrix)
-	return distance / maxValue
+	distance, path := dtw(matrix)
+	return distance / float64(len(path))
 }
 
 // endregion

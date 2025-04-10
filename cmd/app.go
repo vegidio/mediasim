@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func compareFiles(files []string, threshold float64, output string) ([]mediasim.Media, error) {
+func compareFiles(files []string, output string) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
 	msg := pterm.Sprintf("🧮 Calculating similarity in %s files", pterm.FgLightGreen.Sprintf(strconv.Itoa(len(files))))

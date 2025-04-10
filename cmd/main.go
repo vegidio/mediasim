@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pterm/pterm"
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"github.com/vegidio/mediasim"
 	"os"
@@ -25,19 +26,23 @@ func main() {
 		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
-				Name:        "files",
-				Aliases:     []string{"f"},
-				Usage:       "compare two or more files",
-				Destination: &files,
+				Name:    "files",
+				Aliases: []string{"f"},
+				Usage:   "compare two or more files",
 				Validator: func(v []string) error {
 					if len(v) < 2 {
 						return fmt.Errorf("at least two files must be specified")
 					}
 
+					files = lo.Map(v, func(file string, _ int) string {
+						fullFile, _ := expandPath(file)
+						return fullFile
+					})
+
 					return nil
 				},
 				Action: func(ctx context.Context, command *cli.Command, v []string) error {
-					m, err := compareFiles(files, threshold, output)
+					m, err := compareFiles(files, output)
 					media = m
 					return err
 				},
