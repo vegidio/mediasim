@@ -2,14 +2,6 @@ package mediasim
 
 import (
 	"fmt"
-	"github.com/samber/lo"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
-	_ "github.com/vegidio/avif-go"
-	downloader "github.com/vegidio/ffmpeg-downloader"
-	"github.com/vitali-fedulov/images4"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -19,6 +11,15 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/samber/lo"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
+	_ "github.com/vegidio/avif-go"
+	downloader "github.com/vegidio/ffmpeg-downloader"
+	"github.com/vitali-fedulov/images4"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 )
 
 var ValidImageTypes = []string{".avif", ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp"}
@@ -147,20 +148,20 @@ func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) 
 func LoadMediaFromDirectory(directory string, hasImage bool, hasVideo bool, parallel int) (<-chan Media, error) {
 	filePaths := make([]string, 0)
 
-	files, err := os.ReadDir(directory)
+	err := filepath.Walk(directory, func(path string, f os.FileInfo, err error) error {
+		if err == nil {
+			ext := strings.ToLower(filepath.Ext(path))
+			includeImage := hasImage && slices.Contains(ValidImageTypes, ext)
+			includeVideo := hasVideo && slices.Contains(ValidVideoTypes, ext)
+			if !inf.IsDir() && (includeImage || includeVideo) {
+				filePaths = append(filePaths, path)
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
-	}
-
-	for _, file := range files {
-		ext := strings.ToLower(filepath.Ext(file.Name()))
-		includeImage := hasImage && slices.Contains(ValidImageTypes, ext)
-		includeVideo := hasVideo && slices.Contains(ValidVideoTypes, ext)
-
-		if !file.IsDir() && (includeImage || includeVideo) {
-			filePath := filepath.Join(directory, file.Name())
-			filePaths = append(filePaths, filePath)
-		}
 	}
 
 	return LoadMediaFromFiles(filePaths, parallel)
