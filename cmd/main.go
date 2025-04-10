@@ -15,6 +15,7 @@ func main() {
 	var directory string
 	var threshold float64
 	var output string
+	var recursive bool
 	var mediaType string
 
 	cmd := &cli.Command{
@@ -55,7 +56,7 @@ func main() {
 					return nil
 				},
 				Action: func(ctx context.Context, command *cli.Command, _ string) error {
-					m, err := compareDirectory(directory, threshold, mediaType, output)
+					m, err := compareDirectory(directory, recursive, mediaType, output)
 					media = m
 					return err
 				},
@@ -73,6 +74,14 @@ func main() {
 
 					return nil
 				},
+			},
+			&cli.BoolFlag{
+				Name:        "recursive",
+				Aliases:     []string{"r"},
+				Usage:       "recursively search for files in the directory",
+				Value:       false,
+				DefaultText: "false",
+				Destination: &recursive,
 			},
 			&cli.StringFlag{
 				Name:        "media-type",

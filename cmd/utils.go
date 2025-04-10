@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os/user"
+	"path/filepath"
 	"strings"
 )
 
 func expandPath(path string) (string, error) {
+	path = filepath.Clean(path)
+
 	if strings.HasPrefix(path, "~") {
 		usr, err := user.Current()
 		if err != nil {

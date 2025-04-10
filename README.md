@@ -34,12 +34,13 @@ Where:
 If you want to compare a folder with multiple files, run the command below:
 
 ```bash
-$ mediasim -d <directory>
+$ mediasim -d <directory> -r
 ```
 
 Where:
 
 - `-d` (mandatory): the path to the directory where the media files are located.
+- `-r` (optional): include this flag if you want to recursively search for similarities in subdirectories (default is `false`).
 - `-mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
 
 ---

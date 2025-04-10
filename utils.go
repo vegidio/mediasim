@@ -136,27 +136,53 @@ func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) 
 	return result, nil
 }
 
-// LoadMediaFromDirectory loads Media objects from all files in the given directory.
+// DirectoryOptions represents the configuration options for loading media from a directory.
+//
+// Fields:
+//   - IncludeImages: A flag indicating whether to include image files.
+//   - IncludeVideos: A flag indicating whether to include video files.
+//   - IsRecursive: A flag indicating whether to search subdirectories recursively.
+//   - Parallel: The number of files to process in parallel.
+type DirectoryOptions struct {
+	IncludeImages bool
+	IncludeVideos bool
+	IsRecursive   bool
+	Parallel      int
+}
+
+// LoadMediaFromDirectory loads Media objects from a specified directory based on the provided options.
 //
 // Parameters:
-//   - directory: The path to the directory containing the files.
-//   - parallel: The number of files to process in parallel.
+//   - directory: The path to the directory containing media files.
+//   - options: A DirectoryOptions struct specifying the configuration for loading media.
 //
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
-//   - An error if there is an issue reading the directory.
-func LoadMediaFromDirectory(directory string, hasImage bool, hasVideo bool, parallel int) (<-chan Media, error) {
+//   - An error if there is an issue accessing the directory or processing the files.
+func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan Media, error) {
 	filePaths := make([]string, 0)
 
-	err := filepath.Walk(directory, func(path string, f os.FileInfo, err error) error {
-		if err == nil {
-			ext := strings.ToLower(filepath.Ext(path))
-			includeImage := hasImage && slices.Contains(ValidImageTypes, ext)
-			includeVideo := hasVideo && slices.Contains(ValidVideoTypes, ext)
-			if !inf.IsDir() && (includeImage || includeVideo) {
-				filePaths = append(filePaths, path)
+	err := filepath.Walk(directory, func(path string, file os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if file.IsDir() {
+			return nil
+		} else if !options.IsRecursive {
+			if fileDir := filepath.Dir(path); fileDir != directory {
+				return nil
 			}
 		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+		includeImages := options.IncludeImages && slices.Contains(ValidImageTypes, ext)
+		includeVideos := options.IncludeVideos && slices.Contains(ValidVideoTypes, ext)
+
+		if includeImages || includeVideos {
+			filePaths = append(filePaths, path)
+		}
+
 		return nil
 	})
 
@@ -164,7 +190,7 @@ func LoadMediaFromDirectory(directory string, hasImage bool, hasVideo bool, para
 		return nil, err
 	}
 
-	return LoadMediaFromFiles(filePaths, parallel)
+	return LoadMediaFromFiles(filePaths, options.Parallel)
 }
 
 // region - Private functions
