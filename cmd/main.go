@@ -17,6 +17,8 @@ func main() {
 	var threshold float64
 	var output string
 	var recursive bool
+	var imageFlip bool
+	var imageRotate bool
 	var mediaType string
 
 	cmd := &cli.Command{
@@ -24,6 +26,16 @@ func main() {
 		Usage:           "a tool to calculate the similarity between images/videos",
 		UsageText:       "mediasim [-f <media1>,<media2> ...] [-d <directory>] [-t <threshold>]",
 		HideHelpCommand: true,
+		Commands: []*cli.Command{
+			{
+				Name:    "files",
+				Aliases: []string{"-f"},
+				Usage:   "compare media in a directory",
+				Action: func(ctx context.Context, command *cli.Command) error {
+					directory = command.Args().First()
+				},
+			},
+		},
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name:    "files",
@@ -42,7 +54,7 @@ func main() {
 					return nil
 				},
 				Action: func(ctx context.Context, command *cli.Command, v []string) error {
-					m, err := compareFiles(files, output)
+					m, err := compareFiles(files, imageFlip, imageRotate, output)
 					media = m
 					return err
 				},
@@ -61,7 +73,7 @@ func main() {
 					return nil
 				},
 				Action: func(ctx context.Context, command *cli.Command, _ string) error {
-					m, err := compareDirectory(directory, recursive, mediaType, output)
+					m, err := compareDirectory(directory, recursive, imageFlip, imageRotate, mediaType, output)
 					media = m
 					return err
 				},
@@ -87,6 +99,22 @@ func main() {
 				Value:       false,
 				DefaultText: "false",
 				Destination: &recursive,
+			},
+			&cli.BoolFlag{
+				Name:        "image-flip",
+				Aliases:     []string{"if"},
+				Usage:       "flip the image vertically and horizontally during comparison",
+				Value:       false,
+				DefaultText: "false",
+				Destination: &imageFlip,
+			},
+			&cli.BoolFlag{
+				Name:        "image-rotate",
+				Aliases:     []string{"ir"},
+				Usage:       "rotate the image in 90º, 180º and 270º during comparison",
+				Value:       false,
+				DefaultText: "false",
+				Destination: &imageRotate,
 			},
 			&cli.StringFlag{
 				Name:        "media-type",
@@ -132,7 +160,7 @@ func main() {
 			case "json":
 				printComparisonJson(comparisons)
 			case "csv":
-				printComparisonSingle(comparisons)
+				printComparisonCsv(comparisons)
 			}
 
 			return nil

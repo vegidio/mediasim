@@ -2,6 +2,15 @@ package mediasim
 
 import (
 	"fmt"
+	"github.com/disintegration/imaging"
+	"github.com/samber/lo"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
+	_ "github.com/vegidio/avif-go"
+	downloader "github.com/vegidio/ffmpeg-downloader"
+	"github.com/vitali-fedulov/images4"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -11,15 +20,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-
-	"github.com/samber/lo"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
-	_ "github.com/vegidio/avif-go"
-	downloader "github.com/vegidio/ffmpeg-downloader"
-	"github.com/vitali-fedulov/images4"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
 )
 
 var ValidImageTypes = []string{".avif", ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp"}
@@ -34,7 +34,10 @@ var FFmpegPath = getFFmpegPath("mediasim")
 //
 // Returns:
 //   - A Media object containing the name and the converted image.
-func LoadMediaFromImages(name string, images []image.Image) Media {
+func LoadMediaFromImages(name string, images []image.Image, imageFlip, imageRotate bool) Media {
+	flippedFrames := make([]images4.IconT, 0)
+	rotatedFrames := make([]images4.IconT, 0)
+
 	mediaType := "image"
 	if len(images) > 1 {
 		mediaType = "video"
@@ -44,10 +47,29 @@ func LoadMediaFromImages(name string, images []image.Image) Media {
 		return images4.Icon(img)
 	})
 
+	if mediaType == "image" {
+		if imageFlip {
+			flippedFrames = []images4.IconT{
+				images4.Icon(imaging.FlipH(images[0])),
+				images4.Icon(imaging.FlipV(images[0])),
+			}
+		}
+
+		if imageRotate {
+			rotatedFrames = []images4.IconT{
+				images4.Icon(imaging.Rotate90(images[0])),
+				images4.Icon(imaging.Rotate180(images[0])),
+				images4.Icon(imaging.Rotate270(images[0])),
+			}
+		}
+	}
+
 	return Media{
-		Name:   name,
-		Type:   mediaType,
-		Frames: frames,
+		Name:          name,
+		Type:          mediaType,
+		Frames:        frames,
+		FlippedFrames: flippedFrames,
+		RotatedFrames: rotatedFrames,
 	}
 }
 
@@ -59,7 +81,7 @@ func LoadMediaFromImages(name string, images []image.Image) Media {
 // Returns:
 //   - A pointer to a Media object containing the name and the converted image.
 //   - An error if there is an issue opening or decoding the file.
-func LoadMediaFromFile(filePath string) (*Media, error) {
+func LoadMediaFromFile(filePath string, imageFlip, imageRotate bool) (*Media, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
@@ -91,7 +113,7 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 		return nil, fmt.Errorf("no valid images found in file: %s", filePath)
 	}
 
-	media := LoadMediaFromImages(filePath, images)
+	media := LoadMediaFromImages(filePath, images, imageFlip, imageRotate)
 	return &media, nil
 }
 
@@ -104,7 +126,7 @@ func LoadMediaFromFile(filePath string) (*Media, error) {
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue opening or decoding any of the files.
-func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) {
+func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, parallel int) (<-chan Media, error) {
 	result := make(chan Media)
 
 	go func() {
@@ -121,7 +143,7 @@ func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) 
 				defer wg.Done()
 				defer func() { <-sem }()
 
-				media, mediaErr := LoadMediaFromFile(filePath)
+				media, mediaErr := LoadMediaFromFile(filePath, imageFlip, imageRotate)
 
 				if mediaErr == nil {
 					result <- *media
@@ -146,6 +168,8 @@ func LoadMediaFromFiles(filePaths []string, parallel int) (<-chan Media, error) 
 type DirectoryOptions struct {
 	IncludeImages bool
 	IncludeVideos bool
+	ImageFlip     bool
+	ImageRotate   bool
 	IsRecursive   bool
 	Parallel      int
 }
@@ -190,7 +214,7 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 		return nil, err
 	}
 
-	return LoadMediaFromFiles(filePaths, options.Parallel)
+	return LoadMediaFromFiles(filePaths, options.ImageFlip, options.ImageRotate, options.Parallel)
 }
 
 // region - Private functions

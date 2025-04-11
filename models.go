@@ -13,6 +13,10 @@ type Media struct {
 	Type string
 	// Frames is the array of frames of the media.
 	Frames []images4.IconT
+	// FlippedFrames is the array of flipped frames of the media.
+	FlippedFrames []images4.IconT
+	// RotatedFrames is the array of rotated frames of the media.
+	RotatedFrames []images4.IconT
 }
 
 // Similarity represents a similarity score for a media object.

@@ -3,6 +3,7 @@ module github.com/vegidio/mediasim
 go 1.24
 
 require (
+	github.com/disintegration/imaging v1.6.2
 	github.com/pterm/pterm v0.12.80
 	github.com/samber/lo v1.49.1
 	github.com/u2takey/ffmpeg-go v0.5.0

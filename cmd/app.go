@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func compareFiles(files []string, output string) ([]mediasim.Media, error) {
+func compareFiles(files []string, imageFlip, imageRotate bool, output string) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
 	msg := pterm.Sprintf("🧮 Calculating similarity in %s files", pterm.FgLightGreen.Sprintf(strconv.Itoa(len(files))))
@@ -21,7 +21,7 @@ func compareFiles(files []string, output string) ([]mediasim.Media, error) {
 	}
 
 	media := make([]mediasim.Media, 0)
-	newMedia, err := mediasim.LoadMediaFromFiles(files, 5)
+	newMedia, err := mediasim.LoadMediaFromFiles(files, imageFlip, imageRotate, 5)
 	if err != nil {
 		return media, fmt.Errorf("error loading media files: " + err.Error())
 	}
@@ -42,7 +42,14 @@ func compareFiles(files []string, output string) ([]mediasim.Media, error) {
 	return media, nil
 }
 
-func compareDirectory(directory string, recursive bool, mediaType string, output string) ([]mediasim.Media, error) {
+func compareDirectory(
+	directory string,
+	recursive bool,
+	imageFlip bool,
+	imageRotate bool,
+	mediaType string,
+	output string,
+) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
 	media := make([]mediasim.Media, 0)
@@ -67,6 +74,8 @@ func compareDirectory(directory string, recursive bool, mediaType string, output
 	newMedia, err := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
+		ImageFlip:     imageFlip,
+		ImageRotate:   imageRotate,
 		IsRecursive:   recursive,
 		Parallel:      5,
 	})
@@ -121,7 +130,7 @@ func printComparisonJson(comparisons []mediasim.Comparison) {
 	pterm.Println(string(jsonBytes))
 }
 
-func printComparisonSingle(comparisons []mediasim.Comparison) {
+func printComparisonCsv(comparisons []mediasim.Comparison) {
 	for _, comparison := range comparisons {
 		for _, similarity := range comparison.Similarities {
 			pterm.Printf("%.8f,%s,%s\n", similarity.Score, comparison.Name, similarity.Name)
