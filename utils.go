@@ -126,8 +126,8 @@ func LoadMediaFromFile(filePath string, imageFlip, imageRotate bool) (*Media, er
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue opening or decoding any of the files.
-func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, parallel int) (<-chan Media, error) {
-	result := make(chan Media)
+func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, parallel int) <-chan Result[Media] {
+	result := make(chan Result[Media])
 
 	go func() {
 		defer close(result)
@@ -146,7 +146,9 @@ func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, paralle
 				media, mediaErr := LoadMediaFromFile(filePath, imageFlip, imageRotate)
 
 				if mediaErr == nil {
-					result <- *media
+					result <- Result[Media]{Data: *media}
+				} else {
+					result <- Result[Media]{Err: mediaErr}
 				}
 			}(file)
 		}
@@ -155,7 +157,7 @@ func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, paralle
 		close(sem)
 	}()
 
-	return result, nil
+	return result
 }
 
 // DirectoryOptions represents the configuration options for loading media from a directory.
@@ -183,7 +185,7 @@ type DirectoryOptions struct {
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue accessing the directory or processing the files.
-func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan Media, error) {
+func LoadMediaFromDirectory(directory string, options DirectoryOptions) <-chan Result[Media] {
 	filePaths := make([]string, 0)
 
 	err := filepath.Walk(directory, func(path string, file os.FileInfo, err error) error {
@@ -211,7 +213,11 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 	})
 
 	if err != nil {
-		return nil, err
+		result := make(chan Result[Media], 1)
+		defer close(result)
+
+		result <- Result[Media]{Err: err}
+		return result
 	}
 
 	return LoadMediaFromFiles(filePaths, options.ImageFlip, options.ImageRotate, options.Parallel)

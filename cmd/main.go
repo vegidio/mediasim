@@ -20,64 +20,80 @@ func main() {
 	var imageFlip bool
 	var imageRotate bool
 	var mediaType string
+	var err error
 
 	cmd := &cli.Command{
 		Name:            "mediasim",
-		Usage:           "a tool to calculate the similarity between images/videos",
-		UsageText:       "mediasim [-f <media1>,<media2> ...] [-d <directory>] [-t <threshold>]",
+		Usage:           "a tool to calculate the similarity of images & videos",
+		UsageText:       "mediasim <command> [-t <threshold>] [--if] [--ir] [-o <output>]",
 		HideHelpCommand: true,
 		Commands: []*cli.Command{
 			{
-				Name:    "files",
-				Aliases: []string{"-f"},
-				Usage:   "compare media in a directory",
+				Name:      "files",
+				Usage:     "compare between two or more files",
+				UsageText: "mediasim files <file1> <file2> [<file3> ...] ",
+				Flags:     []cli.Flag{},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					directory = command.Args().First()
-				},
-			},
-		},
-		Flags: []cli.Flag{
-			&cli.StringSliceFlag{
-				Name:    "files",
-				Aliases: []string{"f"},
-				Usage:   "compare two or more files",
-				Validator: func(v []string) error {
-					if len(v) < 2 {
-						return fmt.Errorf("at least two files must be specified")
+					files = command.Args().Slice()
+
+					if len(files) < 2 {
+						pterm.Println()
+						err = fmt.Errorf("at least two files must be specified")
+						return nil
 					}
 
-					files = lo.Map(v, func(file string, _ int) string {
+					files = lo.Map(files, func(file string, _ int) string {
 						fullFile, _ := expandPath(file)
 						return fullFile
 					})
 
+					media, err = compareFiles(files, imageFlip, imageRotate, output)
 					return nil
 				},
-				Action: func(ctx context.Context, command *cli.Command, v []string) error {
-					m, err := compareFiles(files, imageFlip, imageRotate, output)
-					media = m
-					return err
-				},
 			},
-			&cli.StringFlag{
-				Name:    "dir",
-				Aliases: []string{"d"},
-				Usage:   "compare media in a directory",
-				Validator: func(path string) error {
-					fullDir, err := expandPath(path)
+			{
+				Name:      "dir",
+				Usage:     "compare media in a directory",
+				UsageText: "mediasim dir <directory> [-r] [--mt <media-type>]",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:        "recursive",
+						Aliases:     []string{"r"},
+						Usage:       "recursively search for files in the directory",
+						Value:       false,
+						DefaultText: "false",
+						Destination: &recursive,
+					},
+					&cli.StringFlag{
+						Name:        "media-type",
+						Aliases:     []string{"mt"},
+						Usage:       "type of media to compare; image | video | all",
+						Value:       "all",
+						DefaultText: "all",
+						Destination: &mediaType,
+						Validator: func(s string) error {
+							if s != "image" && s != "video" && s != "all" {
+								err = fmt.Errorf("invalid media type")
+								return nil
+							}
+
+							return nil
+						},
+					},
+				},
+				Action: func(ctx context.Context, command *cli.Command) error {
+					directory = command.Args().First()
+					directory, err = expandPath(directory)
 					if err != nil {
-						return fmt.Errorf("directory path %s is invalid", directory)
+						return nil
 					}
 
-					directory = fullDir
+					media, err = compareDirectory(directory, recursive, imageFlip, imageRotate, mediaType, output)
 					return nil
 				},
-				Action: func(ctx context.Context, command *cli.Command, _ string) error {
-					m, err := compareDirectory(directory, recursive, imageFlip, imageRotate, mediaType, output)
-					media = m
-					return err
-				},
 			},
+		},
+		Flags: []cli.Flag{
 			&cli.FloatFlag{
 				Name:        "threshold",
 				Aliases:     []string{"t"},
@@ -86,19 +102,12 @@ func main() {
 				Destination: &threshold,
 				Validator: func(f float64) error {
 					if f < 0 || f > 1 {
-						return fmt.Errorf("threshold must be between 0 and 1")
+						err = fmt.Errorf("threshold must be between 0 and 1")
+						return nil
 					}
 
 					return nil
 				},
-			},
-			&cli.BoolFlag{
-				Name:        "recursive",
-				Aliases:     []string{"r"},
-				Usage:       "recursively search for files in the directory",
-				Value:       false,
-				DefaultText: "false",
-				Destination: &recursive,
 			},
 			&cli.BoolFlag{
 				Name:        "image-flip",
@@ -117,21 +126,6 @@ func main() {
 				Destination: &imageRotate,
 			},
 			&cli.StringFlag{
-				Name:        "media-type",
-				Aliases:     []string{"mt"},
-				Usage:       "type of media to compare; image | video | all",
-				Value:       "all",
-				DefaultText: "all",
-				Destination: &mediaType,
-				Validator: func(s string) error {
-					if s != "image" && s != "video" && s != "all" {
-						return fmt.Errorf("invalid media type")
-					}
-
-					return nil
-				},
-			},
-			&cli.StringFlag{
 				Name:        "output",
 				Aliases:     []string{"o"},
 				Usage:       "format how similarity is reported; report | json | csv",
@@ -140,16 +134,21 @@ func main() {
 				Destination: &output,
 				Validator: func(s string) error {
 					if s != "report" && s != "json" && s != "csv" {
-						return fmt.Errorf("invalid output format")
+						err = fmt.Errorf("invalid output format")
+						return nil
 					}
 
 					return nil
 				},
 			},
 		},
-		Action: func(ctx context.Context, command *cli.Command) error {
-			if directory == "" && len(files) == 0 {
-				return fmt.Errorf("either the --dir/-d or --files/-f parameters must be specified")
+		After: func(ctx context.Context, command *cli.Command) error {
+			if err != nil {
+				return err
+			}
+
+			if media == nil {
+				return nil
 			}
 
 			comparisons := calculateSimilarity(media, threshold, output)
@@ -165,9 +164,13 @@ func main() {
 
 			return nil
 		},
+		Action: func(ctx context.Context, command *cli.Command) error {
+			pterm.Println()
+			return fmt.Errorf("either the command <files> or <dir> must be used")
+		},
 	}
 
-	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		pterm.FgRed.Printf("\n🧨 %s\n", err.Error())
+	if err = cmd.Run(context.Background(), os.Args); err != nil {
+		pterm.FgRed.Printf("🧨 %s\n", err.Error())
 	}
 }

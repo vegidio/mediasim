@@ -21,18 +21,19 @@ func compareFiles(files []string, imageFlip, imageRotate bool, output string) ([
 	}
 
 	media := make([]mediasim.Media, 0)
-	newMedia, err := mediasim.LoadMediaFromFiles(files, imageFlip, imageRotate, 5)
-	if err != nil {
-		return media, fmt.Errorf("error loading media files: " + err.Error())
-	}
+	results := mediasim.LoadMediaFromFiles(files, imageFlip, imageRotate, 5)
 
-	for m := range newMedia {
+	for r := range results {
+		if r.Err != nil {
+			return media, fmt.Errorf("error loading media files: " + r.Err.Error())
+		}
+
 		if output == "report" {
 			count++
 			updateSpinner(msg, count)
 		}
 
-		media = append(media, m)
+		media = append(media, r.Data)
 	}
 
 	if output == "report" {
@@ -71,7 +72,7 @@ func compareDirectory(
 		stopSpinner = createSpinner(msg, count)
 	}
 
-	newMedia, err := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
+	results := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
 		ImageFlip:     imageFlip,
@@ -80,17 +81,17 @@ func compareDirectory(
 		Parallel:      5,
 	})
 
-	if err != nil {
-		return media, fmt.Errorf("error loading from directory: " + err.Error())
-	}
+	for r := range results {
+		if r.Err != nil {
+			return media, fmt.Errorf("error loading from directory: " + r.Err.Error())
+		}
 
-	for m := range newMedia {
 		if output == "report" {
 			count++
 			updateSpinner(msg, count)
 		}
 
-		media = append(media, m)
+		media = append(media, r.Data)
 	}
 
 	if output == "report" {
