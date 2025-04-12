@@ -17,8 +17,8 @@ func main() {
 	var threshold float64
 	var output string
 	var recursive bool
-	var imageFlip bool
-	var imageRotate bool
+	var frameFlip bool
+	var frameRotate bool
 	var mediaType string
 	var err error
 
@@ -47,7 +47,7 @@ func main() {
 						return fullFile
 					})
 
-					media, err = compareFiles(files, imageFlip, imageRotate, output)
+					media, err = compareFiles(files, frameFlip, frameRotate, output)
 					return nil
 				},
 			},
@@ -88,7 +88,7 @@ func main() {
 						return nil
 					}
 
-					media, err = compareDirectory(directory, recursive, imageFlip, imageRotate, mediaType, output)
+					media, err = compareDirectory(directory, recursive, frameFlip, frameRotate, mediaType, output)
 					return nil
 				},
 			},
@@ -110,20 +110,20 @@ func main() {
 				},
 			},
 			&cli.BoolFlag{
-				Name:        "image-flip",
-				Aliases:     []string{"if"},
-				Usage:       "flip the image vertically and horizontally during comparison",
+				Name:        "frame-flip",
+				Aliases:     []string{"ff"},
+				Usage:       "flip the frame vertically and horizontally during comparison",
 				Value:       false,
 				DefaultText: "false",
-				Destination: &imageFlip,
+				Destination: &frameFlip,
 			},
 			&cli.BoolFlag{
-				Name:        "image-rotate",
-				Aliases:     []string{"ir"},
-				Usage:       "rotate the image in 90º, 180º and 270º during comparison",
+				Name:        "frame-rotate",
+				Aliases:     []string{"fr"},
+				Usage:       "rotate the frame in 90º, 180º and 270º during comparison",
 				Value:       false,
 				DefaultText: "false",
-				Destination: &imageRotate,
+				Destination: &frameRotate,
 			},
 			&cli.StringFlag{
 				Name:        "output",

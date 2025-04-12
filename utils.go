@@ -31,13 +31,11 @@ var FFmpegPath = getFFmpegPath("mediasim")
 // Parameters:
 //   - name: The name of the media.
 //   - images: The images to be converted into a Media object.
+//   - options: The configuration options for loading frames.
 //
 // Returns:
-//   - A Media object containing the name and the converted image.
-func LoadMediaFromImages(name string, images []image.Image, imageFlip, imageRotate bool) Media {
-	flippedFrames := make([]images4.IconT, 0)
-	rotatedFrames := make([]images4.IconT, 0)
-
+//   - A Media object containing the name, type and frames of the media.
+func LoadMediaFromImages(name string, images []image.Image, options FrameOptions) Media {
 	mediaType := "image"
 	if len(images) > 1 {
 		mediaType = "video"
@@ -48,28 +46,26 @@ func LoadMediaFromImages(name string, images []image.Image, imageFlip, imageRota
 	})
 
 	if mediaType == "image" {
-		if imageFlip {
-			flippedFrames = []images4.IconT{
+		if options.FrameFlip {
+			frames = append(frames, []images4.IconT{
 				images4.Icon(imaging.FlipH(images[0])),
 				images4.Icon(imaging.FlipV(images[0])),
-			}
+			}...)
 		}
 
-		if imageRotate {
-			rotatedFrames = []images4.IconT{
+		if options.FrameRotate {
+			frames = append(frames, []images4.IconT{
 				images4.Icon(imaging.Rotate90(images[0])),
 				images4.Icon(imaging.Rotate180(images[0])),
 				images4.Icon(imaging.Rotate270(images[0])),
-			}
+			}...)
 		}
 	}
 
 	return Media{
-		Name:          name,
-		Type:          mediaType,
-		Frames:        frames,
-		FlippedFrames: flippedFrames,
-		RotatedFrames: rotatedFrames,
+		Name:   name,
+		Type:   mediaType,
+		Frames: frames,
 	}
 }
 
@@ -77,11 +73,12 @@ func LoadMediaFromImages(name string, images []image.Image, imageFlip, imageRota
 //
 // Parameters:
 //   - filePath: The path to the image or video file.
+//   - options: The configuration options for loading frames.
 //
 // Returns:
 //   - A pointer to a Media object containing the name and the converted image.
 //   - An error if there is an issue opening or decoding the file.
-func LoadMediaFromFile(filePath string, imageFlip, imageRotate bool) (*Media, error) {
+func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
@@ -113,7 +110,7 @@ func LoadMediaFromFile(filePath string, imageFlip, imageRotate bool) (*Media, er
 		return nil, fmt.Errorf("no valid images found in file: %s", filePath)
 	}
 
-	media := LoadMediaFromImages(filePath, images, imageFlip, imageRotate)
+	media := LoadMediaFromImages(filePath, images, options)
 	return &media, nil
 }
 
@@ -121,19 +118,20 @@ func LoadMediaFromFile(filePath string, imageFlip, imageRotate bool) (*Media, er
 //
 // Parameters:
 //   - filePaths: An array of strings containing the paths to the image or video files.
-//   - parallel: The number of files to process in parallel.
+//   - options: The configuration options for loading multiple files.
 //
 // Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue opening or decoding any of the files.
-func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, parallel int) <-chan Result[Media] {
+func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[Media] {
+	options.SetDefaults()
 	result := make(chan Result[Media])
 
 	go func() {
 		defer close(result)
 
 		var wg sync.WaitGroup
-		sem := make(chan struct{}, parallel)
+		sem := make(chan struct{}, options.Parallel)
 
 		for _, file := range filePaths {
 			wg.Add(1)
@@ -143,7 +141,10 @@ func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, paralle
 				defer wg.Done()
 				defer func() { <-sem }()
 
-				media, mediaErr := LoadMediaFromFile(filePath, imageFlip, imageRotate)
+				media, mediaErr := LoadMediaFromFile(filePath, FrameOptions{
+					FrameFlip:   options.FrameFlip,
+					FrameRotate: options.FrameRotate,
+				})
 
 				if mediaErr == nil {
 					result <- Result[Media]{Data: *media}
@@ -160,22 +161,6 @@ func LoadMediaFromFiles(filePaths []string, imageFlip, imageRotate bool, paralle
 	return result
 }
 
-// DirectoryOptions represents the configuration options for loading media from a directory.
-//
-// Fields:
-//   - IncludeImages: A flag indicating whether to include image files.
-//   - IncludeVideos: A flag indicating whether to include video files.
-//   - IsRecursive: A flag indicating whether to search subdirectories recursively.
-//   - Parallel: The number of files to process in parallel.
-type DirectoryOptions struct {
-	IncludeImages bool
-	IncludeVideos bool
-	ImageFlip     bool
-	ImageRotate   bool
-	IsRecursive   bool
-	Parallel      int
-}
-
 // LoadMediaFromDirectory loads Media objects from a specified directory based on the provided options.
 //
 // Parameters:
@@ -186,6 +171,7 @@ type DirectoryOptions struct {
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue accessing the directory or processing the files.
 func LoadMediaFromDirectory(directory string, options DirectoryOptions) <-chan Result[Media] {
+	options.SetDefaults()
 	filePaths := make([]string, 0)
 
 	err := filepath.Walk(directory, func(path string, file os.FileInfo, err error) error {
@@ -220,7 +206,11 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) <-chan R
 		return result
 	}
 
-	return LoadMediaFromFiles(filePaths, options.ImageFlip, options.ImageRotate, options.Parallel)
+	return LoadMediaFromFiles(filePaths, FilesOptions{
+		FrameFlip:   options.FrameFlip,
+		FrameRotate: options.FrameRotate,
+		Parallel:    options.Parallel,
+	})
 }
 
 // region - Private functions
@@ -277,7 +267,11 @@ func loadFrames(directory string) ([]image.Image, error) {
 func extractFrames(filePath string) ([]image.Image, error) {
 	images := make([]image.Image, 0)
 
-	tempDir, _ := os.MkdirTemp("", "mediasim-*")
+	tempDir, err := os.MkdirTemp("", "mediasim-*")
+	if err != nil {
+		return images, fmt.Errorf("error creating temp directory: %v", err)
+	}
+
 	defer os.RemoveAll(tempDir)
 
 	path := filepath.Join(tempDir, "frame_%04d.jpg")
@@ -286,7 +280,6 @@ func extractFrames(filePath string) ([]image.Image, error) {
 		Output(path).
 		Silent(true)
 
-	var err error
 	if FFmpegPath == "" {
 		err = command.Run()
 	} else {
@@ -299,7 +292,7 @@ func extractFrames(filePath string) ([]image.Image, error) {
 
 	images, err = loadFrames(tempDir)
 	if err != nil {
-		return images, fmt.Errorf("error loading multiple frames: %v", err)
+		return images, fmt.Errorf("error loading videos frames: %v", err)
 	}
 
 	if len(images) > 0 {

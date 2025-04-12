@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func compareFiles(files []string, imageFlip, imageRotate bool, output string) ([]mediasim.Media, error) {
+func compareFiles(files []string, frameFlip, frameRotate bool, output string) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
 	msg := pterm.Sprintf("🧮 Calculating similarity in %s files", pterm.FgLightGreen.Sprintf(strconv.Itoa(len(files))))
@@ -21,7 +21,11 @@ func compareFiles(files []string, imageFlip, imageRotate bool, output string) ([
 	}
 
 	media := make([]mediasim.Media, 0)
-	results := mediasim.LoadMediaFromFiles(files, imageFlip, imageRotate, 5)
+	results := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
+		Parallel:    5,
+		FrameFlip:   frameFlip,
+		FrameRotate: frameRotate,
+	})
 
 	for r := range results {
 		if r.Err != nil {
@@ -46,8 +50,8 @@ func compareFiles(files []string, imageFlip, imageRotate bool, output string) ([
 func compareDirectory(
 	directory string,
 	recursive bool,
-	imageFlip bool,
-	imageRotate bool,
+	frameFlip bool,
+	frameRotate bool,
 	mediaType string,
 	output string,
 ) ([]mediasim.Media, error) {
@@ -75,10 +79,10 @@ func compareDirectory(
 	results := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
-		ImageFlip:     imageFlip,
-		ImageRotate:   imageRotate,
 		IsRecursive:   recursive,
 		Parallel:      5,
+		FrameFlip:     frameFlip,
+		FrameRotate:   frameRotate,
 	})
 
 	for r := range results {

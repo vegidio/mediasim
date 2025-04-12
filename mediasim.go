@@ -34,16 +34,7 @@ func CompareMedia(media []Media, threshold float64) []Comparison {
 			var similarity float64
 
 			if media[i].Type == "image" && media[j].Type == "image" {
-				frames := []images4.IconT{media[j].Frames[0]}
-
-				if len(media[j].FlippedFrames) > 1 {
-					frames = append(frames, media[j].FlippedFrames...)
-				}
-				if len(media[j].RotatedFrames) > 1 {
-					frames = append(frames, media[j].RotatedFrames...)
-				}
-
-				similarity = calculateImageSimilarity(media[i].Frames[0], frames)
+				similarity = calculateImageSimilarity(media[i].Frames[0], media[j].Frames)
 			} else if media[i].Type == "video" && media[j].Type == "video" {
 				similarity = calculateVideoSimilarity(media[i].Frames, media[j].Frames)
 			} else {
@@ -88,7 +79,8 @@ func calculateImageSimilarity(frame1 images4.IconT, frames2 []images4.IconT) flo
 	const MaxDifference = 2804
 	similarity := 0.0
 
-	// Image the frames2 has more than 1 frame, it means that this image has flipped and rotated frames to check
+	// Even though we are comparing two images, frames2 can have more than one frame if we are also comparing the
+	// flipped and rotated versions of the same image.
 	for _, frame2 := range frames2 {
 		m1, m2, m3 := images4.EucMetric(frame1, frame2)
 		difference := math.Sqrt(m1+m2/2+m3/2) / MaxDifference

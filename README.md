@@ -22,26 +22,26 @@ The binaries are available for Windows, macOS, and Linux. Download the [latest r
 If you want to compare two or more files, run the command below in the terminal:
 
 ```bash
-$ mediasim -f <media1>,<media2> ...
+$ mediasim files <media1> <media2> [<media3> ...]
 ```
 
 Where:
 
-- `-f` (mandatory): the path to the media files you want to compare. You must pass at least two files, separated by comma.
+- `files` (mandatory): the path to the media files you want to compare. You must pass at least two files, separated by space.
 
 ---
 
 If you want to compare a folder with multiple files, run the command below:
 
 ```bash
-$ mediasim -d <directory> -r
+$ mediasim dir <directory> [-r] [--mt <media-type>]
 ```
 
 Where:
 
-- `-d` (mandatory): the path to the directory where the media files are located.
-- `-r` (optional): include this flag if you want to recursively search for similarities in subdirectories.
-- `-mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
+- `dir` (mandatory): the path to the directory where the media files are located.
+- `-r` (optional): include this flag if you want to recursively search subdirectories for similarities.
+- `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
 
 ---
 
@@ -49,6 +49,8 @@ Other parameters you can use:
 
 - `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only files with 80% similarity or higher will be reported.
 - `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
+- `--ff` (optional): include this flag if you want to flip the frames vertically and horizontally before comparing them.
+- `--fr` (optional): include this flag if you want to rotate the frames in multiple angles before comparing them.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
