@@ -38,6 +38,7 @@ jobs:
       - name: Build binaries
         run: |
           brew install go-task
+          node scripts/replace.mjs mediasim.go "<version>=>${{ needs.version.outputs.VERSION }}"
           task package oses=darwin archs='amd64 arm64'
 
       - name: Save artifacts
@@ -61,6 +62,7 @@ jobs:
       - name: Build binaries
         run: |
           npm install -g @go-task/cli
+          node scripts/replace.mjs mediasim.go "<version>=>${{ needs.version.outputs.VERSION }}"
           task package oses=linux archs=amd64
 
       - name: Save artifacts
@@ -84,6 +86,7 @@ jobs:
       - name: Build binaries
         run: |
           npm install -g @go-task/cli
+          node scripts/replace.mjs mediasim.go "<version>=>${{ needs.version.outputs.VERSION }}"
           task package oses=linux archs=arm64
 
       - name: Save artifacts
@@ -107,6 +110,7 @@ jobs:
       - name: Build binaries
         run: |
           npm install -g @go-task/cli
+          node scripts/replace.mjs mediasim.go "<version>=>${{ needs.version.outputs.VERSION }}"
           task package oses=windows archs=amd64
 
       - name: Save artifacts

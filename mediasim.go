@@ -6,6 +6,8 @@ import (
 	"slices"
 )
 
+const Version = "<version>"
+
 // CompareMedia compares media files based on a similarity threshold. It returns a list of comparisons where each
 // comparison contains media files that are similar to each other.
 //

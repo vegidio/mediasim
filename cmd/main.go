@@ -26,11 +26,12 @@ func main() {
 		Name:            "mediasim",
 		Usage:           "a tool to calculate the similarity of images & videos",
 		UsageText:       "mediasim <command> [-t <threshold>] [--if] [--ir] [-o <output>]",
+		Version:         mediasim.Version,
 		HideHelpCommand: true,
 		Commands: []*cli.Command{
 			{
 				Name:      "files",
-				Usage:     "compare between two or more files",
+				Usage:     "compare two or more files",
 				UsageText: "mediasim files <file1> <file2> [<file3> ...] ",
 				Flags:     []cli.Flag{},
 				Action: func(ctx context.Context, command *cli.Command) error {
