@@ -18,6 +18,7 @@ func compareFiles(files []string, frameFlip, frameRotate bool, output string) ([
 	if output == "report" {
 		pterm.Println()
 		stopSpinner = createSpinner(msg, count)
+		defer stopSpinner()
 	}
 
 	media := make([]mediasim.Media, 0)
@@ -29,7 +30,7 @@ func compareFiles(files []string, frameFlip, frameRotate bool, output string) ([
 
 	for r := range results {
 		if r.Err != nil {
-			return media, fmt.Errorf("error loading media files: " + r.Err.Error())
+			return media, fmt.Errorf("error loading media files: %w", r.Err)
 		}
 
 		if output == "report" {
@@ -38,10 +39,6 @@ func compareFiles(files []string, frameFlip, frameRotate bool, output string) ([
 		}
 
 		media = append(media, r.Data)
-	}
-
-	if output == "report" {
-		stopSpinner()
 	}
 
 	return media, nil
@@ -74,6 +71,7 @@ func compareDirectory(
 	if output == "report" {
 		pterm.Println()
 		stopSpinner = createSpinner(msg, count)
+		defer stopSpinner()
 	}
 
 	results := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
@@ -87,7 +85,7 @@ func compareDirectory(
 
 	for r := range results {
 		if r.Err != nil {
-			return media, fmt.Errorf("error loading from directory: " + r.Err.Error())
+			return nil, fmt.Errorf("error loading from directory: %w", r.Err)
 		}
 
 		if output == "report" {
@@ -96,10 +94,6 @@ func compareDirectory(
 		}
 
 		media = append(media, r.Data)
-	}
-
-	if output == "report" {
-		stopSpinner()
 	}
 
 	return media, nil

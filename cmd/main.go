@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v3"
 	"github.com/vegidio/mediasim"
 	"os"
+	"time"
 )
 
 func main() {
@@ -38,9 +39,7 @@ func main() {
 					files = command.Args().Slice()
 
 					if len(files) < 2 {
-						pterm.Println()
-						err = fmt.Errorf("at least two files must be specified")
-						return nil
+						return fmt.Errorf("at least two files must be specified")
 					}
 
 					files = lo.Map(files, func(file string, _ int) string {
@@ -49,6 +48,10 @@ func main() {
 					})
 
 					media, err = compareFiles(files, frameFlip, frameRotate, output)
+					if err != nil {
+						return err
+					}
+
 					return nil
 				},
 			},
@@ -74,8 +77,7 @@ func main() {
 						Destination: &mediaType,
 						Validator: func(s string) error {
 							if s != "image" && s != "video" && s != "all" {
-								err = fmt.Errorf("invalid media type")
-								return nil
+								return fmt.Errorf("invalid media type")
 							}
 
 							return nil
@@ -90,6 +92,10 @@ func main() {
 					}
 
 					media, err = compareDirectory(directory, recursive, frameFlip, frameRotate, mediaType, output)
+					if err != nil {
+						return err
+					}
+
 					return nil
 				},
 			},
@@ -103,8 +109,7 @@ func main() {
 				Destination: &threshold,
 				Validator: func(f float64) error {
 					if f < 0 || f > 1 {
-						err = fmt.Errorf("threshold must be between 0 and 1")
-						return nil
+						return fmt.Errorf("threshold must be between 0 and 1")
 					}
 
 					return nil
@@ -135,8 +140,7 @@ func main() {
 				Destination: &output,
 				Validator: func(s string) error {
 					if s != "report" && s != "json" && s != "csv" {
-						err = fmt.Errorf("invalid output format")
-						return nil
+						return fmt.Errorf("invalid output format")
 					}
 
 					return nil
@@ -144,11 +148,7 @@ func main() {
 			},
 		},
 		After: func(ctx context.Context, command *cli.Command) error {
-			if err != nil {
-				return err
-			}
-
-			if media == nil {
+			if len(media) == 0 {
 				return nil
 			}
 
@@ -166,12 +166,13 @@ func main() {
 			return nil
 		},
 		Action: func(ctx context.Context, command *cli.Command) error {
-			pterm.Println()
 			return fmt.Errorf("either the command <files> or <dir> must be used")
 		},
 	}
 
 	if err = cmd.Run(context.Background(), os.Args); err != nil {
-		pterm.FgRed.Printf("🧨 %s\n", err.Error())
+		// Give some time for the animations to stop before printing the error
+		time.Sleep(250 * time.Millisecond)
+		pterm.FgRed.Printf("\n🧨 %s\n", err.Error())
 	}
 }

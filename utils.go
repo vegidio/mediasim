@@ -81,7 +81,7 @@ func LoadMediaFromImages(name string, images []image.Image, options FrameOptions
 func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error opening file: %w", err)
+		return nil, fmt.Errorf("error opening file '%s': %w", filePath, err)
 	}
 
 	defer file.Close()
@@ -107,7 +107,7 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	}
 
 	if len(images) == 0 {
-		return nil, fmt.Errorf("no valid images found in file: %s", filePath)
+		return nil, fmt.Errorf("no valid images found in file '%s'", filePath)
 	}
 
 	media := LoadMediaFromImages(filePath, images, options)
@@ -176,7 +176,7 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) <-chan R
 
 	err := filepath.Walk(directory, func(path string, file os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("error walking directory '%s': %w", directory, err)
 		}
 
 		if file.IsDir() {
@@ -269,7 +269,7 @@ func extractFrames(filePath string) ([]image.Image, error) {
 
 	tempDir, err := os.MkdirTemp("", "mediasim-*")
 	if err != nil {
-		return images, fmt.Errorf("error creating temp directory: %v", err)
+		return images, fmt.Errorf("error creating temp directory: %w", err)
 	}
 
 	defer os.RemoveAll(tempDir)
@@ -287,12 +287,12 @@ func extractFrames(filePath string) ([]image.Image, error) {
 	}
 
 	if err != nil {
-		return images, fmt.Errorf("error exporting video frames: %v", err)
+		return images, fmt.Errorf("error exporting video frames from '%s': %w", filePath, err)
 	}
 
 	images, err = loadFrames(tempDir)
 	if err != nil {
-		return images, fmt.Errorf("error loading videos frames: %v", err)
+		return images, fmt.Errorf("error loading videos frames from '%s': %w", filePath, err)
 	}
 
 	if len(images) > 0 {
@@ -311,12 +311,12 @@ func extractFrames(filePath string) ([]image.Image, error) {
 	}
 
 	if err != nil {
-		return images, fmt.Errorf("error exporting video frame: %v", err)
+		return images, fmt.Errorf("error exporting video frame: %w", err)
 	}
 
 	images, err = loadFrames(tempDir)
 	if err != nil {
-		return images, fmt.Errorf("error loading single frame: %v", err)
+		return images, fmt.Errorf("error loading single frame: %w", err)
 	}
 
 	return images, nil
