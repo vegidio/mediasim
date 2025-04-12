@@ -21,6 +21,7 @@ func main() {
 	var frameFlip bool
 	var frameRotate bool
 	var mediaType string
+	var ignoreErrors bool
 	var err error
 
 	cmd := &cli.Command{
@@ -47,7 +48,7 @@ func main() {
 						return fullFile
 					})
 
-					media, err = compareFiles(files, frameFlip, frameRotate, output)
+					media, err = compareFiles(files, frameFlip, frameRotate, output, ignoreErrors)
 					if err != nil {
 						return err
 					}
@@ -91,7 +92,16 @@ func main() {
 						return nil
 					}
 
-					media, err = compareDirectory(directory, recursive, frameFlip, frameRotate, mediaType, output)
+					media, err = compareDirectory(
+						directory,
+						recursive,
+						frameFlip,
+						frameRotate,
+						mediaType,
+						output,
+						ignoreErrors,
+					)
+
 					if err != nil {
 						return err
 					}
@@ -145,6 +155,14 @@ func main() {
 
 					return nil
 				},
+			},
+			&cli.BoolFlag{
+				Name:        "ignore-errors",
+				Aliases:     []string{"ir"},
+				Usage:       "continues processing files even if an error occurs",
+				Value:       false,
+				DefaultText: "false",
+				Destination: &ignoreErrors,
 			},
 		},
 		After: func(ctx context.Context, command *cli.Command) error {

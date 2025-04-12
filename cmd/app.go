@@ -10,7 +10,13 @@ import (
 	"time"
 )
 
-func compareFiles(files []string, frameFlip, frameRotate bool, output string) ([]mediasim.Media, error) {
+func compareFiles(
+	files []string,
+	frameFlip,
+	frameRotate bool,
+	output string,
+	ignoreErrors bool,
+) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
 	msg := pterm.Sprintf("🧮 Calculating similarity in %s files", pterm.FgLightGreen.Sprintf(strconv.Itoa(len(files))))
@@ -30,6 +36,10 @@ func compareFiles(files []string, frameFlip, frameRotate bool, output string) ([
 
 	for r := range results {
 		if r.Err != nil {
+			if ignoreErrors {
+				continue
+			}
+			
 			return media, fmt.Errorf("error loading media files: %w", r.Err)
 		}
 
@@ -51,6 +61,7 @@ func compareDirectory(
 	frameRotate bool,
 	mediaType string,
 	output string,
+	ignoreErrors bool,
 ) ([]mediasim.Media, error) {
 	var stopSpinner context.CancelFunc
 	count := 0
@@ -85,6 +96,10 @@ func compareDirectory(
 
 	for r := range results {
 		if r.Err != nil {
+			if ignoreErrors {
+				continue
+			}
+
 			return nil, fmt.Errorf("error loading from directory: %w", r.Err)
 		}
 

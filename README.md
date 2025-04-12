@@ -40,7 +40,7 @@ $ mediasim dir <directory> [-r] [--mt <media-type>]
 Where:
 
 - `dir` (mandatory): the path to the directory where the media files are located.
-- `-r` (optional): include this flag if you want to recursively search subdirectories for similarities.
+- `-r` (optional): recursively search for files in subdirectories include in the comparison.
 - `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
 
 ---
@@ -49,8 +49,9 @@ Other parameters you can use:
 
 - `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only files with 80% similarity or higher will be reported.
 - `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
-- `--ff` (optional): include this flag if you want to flip the frames vertically and horizontally before comparing them.
-- `--fr` (optional): include this flag if you want to rotate the frames in multiple angles before comparing them.
+- `--ff` (optional): flips the frames vertically and horizontally before comparing them.
+- `--fr` (optional): rotates the frames in multiple angles before comparing them.
+- `--ir` (optional): ignores errors and continues the comparison even if some files are not valid.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
