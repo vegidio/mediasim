@@ -274,10 +274,28 @@ func extractFrames(filePath string) ([]image.Image, error) {
 
 	defer os.RemoveAll(tempDir)
 
+	// Export 1 frame per second
 	path := filepath.Join(tempDir, "frame_%04d.jpg")
 	command := ffmpeg.Input(filePath).
 		Filter("fps", ffmpeg.Args{"1"}).
 		Output(path).
+		Silent(true)
+
+	if FFmpegPath == "" {
+		_ = command.Run()
+	} else {
+		_ = command.SetFfmpegPath(FFmpegPath).Run()
+	}
+
+	images, _ = loadFrames(tempDir)
+	if len(images) > 0 {
+		return images, nil
+	}
+
+	// Failed to export multiple frames, so let's try to export a single frame
+	path = filepath.Join(tempDir, "frame.jpg")
+	command = ffmpeg.Input(filePath).
+		Output(path, ffmpeg.KwArgs{"vframes": 1}).
 		Silent(true)
 
 	if FFmpegPath == "" {
@@ -293,30 +311,6 @@ func extractFrames(filePath string) ([]image.Image, error) {
 	images, err = loadFrames(tempDir)
 	if err != nil {
 		return images, fmt.Errorf("error loading videos frames from '%s': %w", filePath, err)
-	}
-
-	if len(images) > 0 {
-		return images, nil
-	}
-
-	path = filepath.Join(tempDir, "frame.jpg")
-	command = ffmpeg.Input(filePath).
-		Output(path, ffmpeg.KwArgs{"vframes": 1}).
-		Silent(true)
-
-	if FFmpegPath == "" {
-		err = command.Run()
-	} else {
-		err = command.SetFfmpegPath(FFmpegPath).Run()
-	}
-
-	if err != nil {
-		return images, fmt.Errorf("error exporting video frame: %w", err)
-	}
-
-	images, err = loadFrames(tempDir)
-	if err != nil {
-		return images, fmt.Errorf("error loading single frame: %w", err)
 	}
 
 	return images, nil

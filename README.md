@@ -1,7 +1,7 @@
 # Media Similarity (mediasim)
 
 <p align="center">
-<img src="docs/images/icon.avif" width="300" alt="mediasim"/>
+<img src="docs/images/icon.avif" width="240" alt="mediasim"/>
 <br/>
 <strong>mediasim</strong> is a CLI tool and Go library to calculate the similarity of images & videos.
 
@@ -40,18 +40,18 @@ $ mediasim dir <directory> [-r] [--mt <media-type>]
 Where:
 
 - `dir` (mandatory): the path to the directory where the media files are located.
-- `-r` (optional): recursively search for files in subdirectories include in the comparison.
+- `-r` (optional): recursively search for files in subdirectories to include in the comparison.
 - `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
 
 ---
 
 Other parameters you can use:
 
-- `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only files with 80% similarity or higher will be reported.
+- `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only similarities of 80% or higher will be reported.
 - `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
-- `--ff` (optional): flips the frames vertically and horizontally before comparing them.
-- `--fr` (optional): rotates the frames in multiple angles before comparing them.
-- `--ir` (optional): ignores errors and continues the comparison even if some files are not valid.
+- `--ff` (optional): flips the frames vertically and horizontally during the comparison.
+- `--fr` (optional): rotates the frames in multiple angles during the comparison.
+- `--ie` (optional): ignores errors and continues the comparison even if some files are not valid.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
@@ -63,7 +63,7 @@ If the comparison of videos is not working, it may be due to the fact that you d
 
 When FFmpeg is not found, **mediasim** will try to automatically download and install it for you. Even though this will work in most cases, it may fail for unpredictable reasons.
 
-The best option to make sure the video comparison is working is to install FFmpeg yourself in your computer and make sure it is available in your `PATH`.
+The best option to have the video comparison working is to install FFmpeg yourself in your computer and make sure it is available in your `PATH`.
 
 ### Video Comparison Is Taking Too Long
 

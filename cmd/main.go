@@ -158,7 +158,7 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:        "ignore-errors",
-				Aliases:     []string{"ir"},
+				Aliases:     []string{"ie"},
 				Usage:       "continues processing files even if an error occurs",
 				Value:       false,
 				DefaultText: "false",
