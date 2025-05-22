@@ -6,12 +6,26 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
+	_ "github.com/vegidio/avif-go"
 	"github.com/vegidio/mediasim"
 	"os"
 	"time"
 )
 
 func main() {
+	// Add support for AVIF images
+	mediasim.AddImageType(".avif")
+
+	cmd := buildCliCommands()
+
+	if err := cmd.Run(context.Background(), os.Args); err != nil {
+		// Give some time for the animations to stop before printing the error
+		time.Sleep(250 * time.Millisecond)
+		pterm.FgRed.Printf("\n🧨 %s\n", err.Error())
+	}
+}
+
+func buildCliCommands() *cli.Command {
 	var media []mediasim.Media
 	var files []string
 	var directory string
@@ -24,7 +38,7 @@ func main() {
 	var ignoreErrors bool
 	var err error
 
-	cmd := &cli.Command{
+	return &cli.Command{
 		Name:            "mediasim",
 		Usage:           "a tool to calculate the similarity of images & videos",
 		UsageText:       "mediasim <command> [-t <threshold>] [--if] [--ir] [-o <output>]",
@@ -186,11 +200,5 @@ func main() {
 		Action: func(ctx context.Context, command *cli.Command) error {
 			return fmt.Errorf("either the command <files> or <dir> must be used")
 		},
-	}
-
-	if err = cmd.Run(context.Background(), os.Args); err != nil {
-		// Give some time for the animations to stop before printing the error
-		time.Sleep(250 * time.Millisecond)
-		pterm.FgRed.Printf("\n🧨 %s\n", err.Error())
 	}
 }

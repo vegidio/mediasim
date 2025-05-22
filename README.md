@@ -67,7 +67,7 @@ The best option to have the video comparison working is to install FFmpeg yourse
 
 ### Video Comparison Is Taking Too Long
 
-Comparing videos is inherently resource-intensive because it requires analyzing multiple frames from each video to get an accurate similarity score. For instance, comparing two 15-second videos requires roughly 100 times more CPU resources than comparing two images.
+Comparing videos is inherently resource-intensive because it requires analyzing multiple frames from each video to get an accurate similarity score. For instance, comparing two 15-second videos requires roughly 25.000 times more CPU resources than comparing two images.
 
 Therefore, if you have many videos to compare, especially long ones, the process may take a significant amount of time, and unfortunately, there is not much that can be done to speed it up.
 

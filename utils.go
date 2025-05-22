@@ -5,7 +5,6 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/samber/lo"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	_ "github.com/vegidio/avif-go"
 	downloader "github.com/vegidio/ffmpeg-downloader"
 	"github.com/vitali-fedulov/images4"
 	_ "golang.org/x/image/bmp"
@@ -22,9 +21,8 @@ import (
 	"sync"
 )
 
-var ValidImageTypes = []string{".avif", ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp"}
-var ValidVideoTypes = []string{".avi", ".mp4", ".mkv", ".mov", ".webm"}
-var FFmpegPath = getFFmpegPath("mediasim")
+// Holds the file path to the FFmpeg binary. Defaults to the system-installed path if not explicitly set.
+var ffmpegPath = getFFmpegPath("mediasim")
 
 // LoadMediaFromImages creates a Media object from the given image or video.
 //
@@ -89,7 +87,7 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	ext := strings.ToLower(filepath.Ext(file.Name()))
 	images := make([]image.Image, 0)
 
-	if slices.Contains(ValidImageTypes, ext) {
+	if slices.Contains(validImageTypes, ext) {
 		img, _, imgErr := image.Decode(file)
 		if imgErr != nil {
 			return nil, imgErr
@@ -97,7 +95,7 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 
 		images = append(images, img)
 
-	} else if slices.Contains(ValidVideoTypes, ext) {
+	} else if slices.Contains(validVideoTypes, ext) {
 		videos, vidErr := extractFrames(file.Name())
 		if vidErr != nil {
 			return nil, vidErr
@@ -188,8 +186,8 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) <-chan R
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
-		includeImages := options.IncludeImages && slices.Contains(ValidImageTypes, ext)
-		includeVideos := options.IncludeVideos && slices.Contains(ValidVideoTypes, ext)
+		includeImages := options.IncludeImages && slices.Contains(validImageTypes, ext)
+		includeVideos := options.IncludeVideos && slices.Contains(validVideoTypes, ext)
 
 		if includeImages || includeVideos {
 			filePaths = append(filePaths, path)
@@ -281,10 +279,10 @@ func extractFrames(filePath string) ([]image.Image, error) {
 		Output(path).
 		Silent(true)
 
-	if FFmpegPath == "" {
+	if ffmpegPath == "" {
 		_ = command.Run()
 	} else {
-		_ = command.SetFfmpegPath(FFmpegPath).Run()
+		_ = command.SetFfmpegPath(ffmpegPath).Run()
 	}
 
 	images, _ = loadFrames(tempDir)
@@ -298,10 +296,10 @@ func extractFrames(filePath string) ([]image.Image, error) {
 		Output(path, ffmpeg.KwArgs{"vframes": 1}).
 		Silent(true)
 
-	if FFmpegPath == "" {
+	if ffmpegPath == "" {
 		err = command.Run()
 	} else {
-		err = command.SetFfmpegPath(FFmpegPath).Run()
+		err = command.SetFfmpegPath(ffmpegPath).Run()
 	}
 
 	if err != nil {

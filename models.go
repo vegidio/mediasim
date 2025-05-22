@@ -8,7 +8,7 @@ import (
 // Result is a generic struct that represents the result of an operation.
 //
 // Parameters:
-//   - Data is a data of type T.
+//   - Data is data of type T.
 //   - Err is an error that indicates if the operation failed.
 type Result[T any] struct {
 	Data T
@@ -37,7 +37,7 @@ func (s Similarity) String() string {
 	return fmt.Sprintf(`{Name: %s, Score: %.8f}`, s.Name, s.Score)
 }
 
-// Comparison represents a comparison of a media with another media.
+// Comparison represents a comparison of a media with other media.
 type Comparison struct {
 	// Name is the name of the media being compared.
 	Name string `json:"name"`
