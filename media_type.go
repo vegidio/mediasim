@@ -6,7 +6,7 @@ import (
 )
 
 var validImageTypes = []string{".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp"}
-var validVideoTypes = []string{".avi", ".mp4", ".mkv", ".mov", ".webm"}
+var validVideoTypes = []string{".avi", ".m4v", ".mp4", ".mkv", ".mov", ".webm"}
 
 // AddImageType adds one or more image type extensions to the list of valid image types.
 func AddImageType(types ...string) {

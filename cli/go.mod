@@ -6,8 +6,9 @@ require (
 	github.com/pterm/pterm v0.12.80
 	github.com/samber/lo v1.50.0
 	github.com/urfave/cli/v3 v3.3.3
-	github.com/vegidio/avif-go v0.0.0-20250521154521-e77101b251d7
-	github.com/vegidio/mediasim v0.0.0-20250413140108-223526ad37ee
+	github.com/vegidio/avif-go v0.0.0-20250522171502-2e46ed3f200a
+	github.com/vegidio/heif-go v0.0.0-20250522041815-331da7a5a798
+	github.com/vegidio/mediasim v0.0.0-20250522055250-eb94c45d4146
 )
 
 require (

@@ -7,14 +7,15 @@ import (
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	_ "github.com/vegidio/avif-go"
+	_ "github.com/vegidio/heif-go"
 	"github.com/vegidio/mediasim"
 	"os"
 	"time"
 )
 
 func main() {
-	// Add support for AVIF images
-	mediasim.AddImageType(".avif")
+	// Add support for AVIF and HEIC images
+	mediasim.AddImageType(".avif", ".heic")
 
 	cmd := buildCliCommands()
 

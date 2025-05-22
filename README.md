@@ -47,7 +47,7 @@ Where:
 
 Other parameters you can use:
 
-- `-t` (optional): the threshold for the similarity score; a value between 0-1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only similarities of 80% or higher will be reported.
+- `-t` (optional): the threshold for the similarity score; a value between 0–1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only similarities of 80% or higher will be reported.
 - `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
 - `--ff` (optional): flips the frames vertically and horizontally during the comparison.
 - `--fr` (optional): rotates the frames in multiple angles during the comparison.
@@ -55,11 +55,27 @@ Other parameters you can use:
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
+## 🎞️ Supported media types
+
+In its default configuration, **mediasim** supports media files with the following extensions:
+
+- Images: `.bmp`, `.gif`, `.jpg` (`.jpeg`), `.png`, `.tiff`, `.webp`
+- Videos: `.avi`, `.mp4` (`.m4v`), `.mkv`, `.mov`, `.webm`
+
+If you want to work with additional file extensions, you can use the functions `AddImageType` or `AddVideoType` before performing any similarity comparisons. This allows **mediasim** to include these file types during calculations.
+
+When adding support for new media formats, it's essential to load a 3rd party library capable of decoding them. For example, to enable AVIF image comparison in **mediasim**, you could use a library like [avif-go](https://github.com/vegidio/avif-go) to do this:
+
+```go
+import _ "github.com/vegidio/avif-go"
+mediasim.AddImageType(".avif")
+```
+
 ## 💣 Troubleshooting
 
 ### Video Comparison Doesn't Work
 
-If the comparison of videos is not working, it may be due to the fact that you don't have [FFmpeg](https://www.ffmpeg.org/download.html) working in your computer, which is required to extract frames from the video files.
+If the comparison of videos is not working, it may be because you don't have [FFmpeg](https://www.ffmpeg.org/download.html) working in your computer, which is required to extract frames from the video files.
 
 When FFmpeg is not found, **mediasim** will try to automatically download and install it for you. Even though this will work in most cases, it may fail for unpredictable reasons.
 
@@ -87,7 +103,7 @@ $ xattr -d com.apple.quarantine <path-to-app>
 
 ### Dependencies
 
-In order to build this project you will need the following dependencies installed in your computer:
+To build this project, you will need the following dependencies installed in your computer:
 
 - [Golang](https://go.dev/doc/install)
 - [Task](https://taskfile.dev/installation/)
