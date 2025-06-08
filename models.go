@@ -15,6 +15,11 @@ type Result[T any] struct {
 	Err  error
 }
 
+// IsSuccess returns true if the operation was successful (no error occurred), false otherwise.
+func (r *Result[T]) IsSuccess() bool {
+	return r.Err == nil
+}
+
 // Media represents a media object.
 type Media struct {
 	// Name of the media.

@@ -2,7 +2,7 @@ package mediasim
 
 // FrameOptions represents the configuration options for loading media frames.
 //
-// Fields:
+// # Fields:
 //   - FrameFlip: A flag indicating whether the frame should be flipped.
 //   - FrameRotate: A flag indicating whether the frame should be rotated.
 type FrameOptions struct {
@@ -12,7 +12,7 @@ type FrameOptions struct {
 
 // FilesOptions represents the configuration options for processing multiple files.
 //
-// Fields:
+// # Fields:
 //   - Parallel: The number of files to process in parallel.
 //   - FrameFlip: A flag indicating whether the frames should be flipped.
 //   - FrameRotate: A flag indicating whether the frames should be rotated.
@@ -30,7 +30,7 @@ func (o *FilesOptions) SetDefaults() {
 
 // DirectoryOptions represents the configuration options for loading media from a directory.
 //
-// Fields:
+// # Fields:
 //   - IncludeImages: A flag indicating whether to include image files.
 //   - IncludeVideos: A flag indicating whether to include video files.
 //   - IsRecursive: A flag indicating whether to search subdirectories recursively.

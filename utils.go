@@ -14,6 +14,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -26,12 +27,12 @@ var ffmpegPath = getFFmpegPath("mediasim")
 
 // LoadMediaFromImages creates a Media object from the given image or video.
 //
-// Parameters:
+// # Parameters:
 //   - name: The name of the media.
 //   - images: The images to be converted into a Media object.
 //   - options: The configuration options for loading frames.
 //
-// Returns:
+// # Returns:
 //   - A Media object containing the name, type and frames of the media.
 func LoadMediaFromImages(name string, images []image.Image, options FrameOptions) Media {
 	mediaType := "image"
@@ -69,11 +70,11 @@ func LoadMediaFromImages(name string, images []image.Image, options FrameOptions
 
 // LoadMediaFromFile loads a Media object from the given file path.
 //
-// Parameters:
+// # Parameters:
 //   - filePath: The path to the image or video file.
 //   - options: The configuration options for loading frames.
 //
-// Returns:
+// # Returns:
 //   - A pointer to a Media object containing the name and the converted image.
 //   - An error if there is an issue opening or decoding the file.
 func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
@@ -114,11 +115,11 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 
 // LoadMediaFromFiles loads Media objects from an array of file paths.
 //
-// Parameters:
+// # Parameters:
 //   - filePaths: An array of strings containing the paths to the image or video files.
 //   - options: The configuration options for loading multiple files.
 //
-// Returns:
+// # Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue opening or decoding any of the files.
 func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[Media] {
@@ -161,54 +162,39 @@ func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[
 
 // LoadMediaFromDirectory loads Media objects from a specified directory based on the provided options.
 //
-// Parameters:
+// # Parameters:
 //   - directory: The path to the directory containing media files.
 //   - options: A DirectoryOptions struct specifying the configuration for loading media.
 //
-// Returns:
-//   - A channel that will receive Media objects for each valid file processed.
-//   - An error if there is an issue accessing the directory or processing the files.
-func LoadMediaFromDirectory(directory string, options DirectoryOptions) <-chan Result[Media] {
+// # Returns:
+//   - A channel that will receive Result[Media] objects for each valid file processed.
+//   - An integer representing the total number of files that will be processed.
+func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan Result[Media], int) {
 	options.SetDefaults()
-	filePaths := make([]string, 0)
 
-	err := filepath.Walk(directory, func(path string, file os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("error walking directory '%s': %w", directory, err)
-		}
+	mediaTypes := make([]string, 0)
+	if options.IncludeImages {
+		mediaTypes = append(mediaTypes, validImageTypes...)
+	}
+	if options.IncludeVideos {
+		mediaTypes = append(mediaTypes, validVideoTypes...)
+	}
 
-		if file.IsDir() {
-			return nil
-		} else if !options.IsRecursive {
-			if fileDir := filepath.Dir(path); fileDir != directory {
-				return nil
-			}
-		}
-
-		ext := strings.ToLower(filepath.Ext(path))
-		includeImages := options.IncludeImages && slices.Contains(validImageTypes, ext)
-		includeVideos := options.IncludeVideos && slices.Contains(validVideoTypes, ext)
-
-		if includeImages || includeVideos {
-			filePaths = append(filePaths, path)
-		}
-
-		return nil
-	})
+	filePaths, err := listFiles(directory, mediaTypes, options.IsRecursive)
 
 	if err != nil {
 		result := make(chan Result[Media], 1)
 		defer close(result)
 
 		result <- Result[Media]{Err: err}
-		return result
+		return result, 0
 	}
 
 	return LoadMediaFromFiles(filePaths, FilesOptions{
 		FrameFlip:   options.FrameFlip,
 		FrameRotate: options.FrameRotate,
 		Parallel:    options.Parallel,
-	})
+	}), len(filePaths)
 }
 
 // region - Private functions
@@ -230,6 +216,36 @@ func getFFmpegPath(configName string) string {
 	}
 
 	return path
+}
+
+func listFiles(directory string, mediaTypes []string, recursive bool) ([]string, error) {
+	files := make([]string, 0)
+
+	err := filepath.WalkDir(directory, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip on error
+		}
+
+		// If this is a directory below the root, and we're not in recursive mode, skip it
+		if d.IsDir() && !recursive && path != directory {
+			return filepath.SkipDir
+		}
+
+		if !d.IsDir() {
+			ext := strings.ToLower(filepath.Ext(path))
+			if slices.Contains(mediaTypes, ext) {
+				files = append(files, path)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return files, err
+	}
+
+	return files, nil
 }
 
 func loadFrames(directory string) ([]image.Image, error) {
