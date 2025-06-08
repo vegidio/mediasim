@@ -1,13 +1,9 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
+	"cli/internal/charm"
 	"fmt"
-	"github.com/pterm/pterm"
 	"github.com/vegidio/mediasim"
-	"strconv"
-	"time"
 )
 
 func compareFiles(
@@ -17,41 +13,17 @@ func compareFiles(
 	output string,
 	ignoreErrors bool,
 ) ([]mediasim.Media, error) {
-	var stopSpinner context.CancelFunc
-	count := 0
-	msg := pterm.Sprintf("🧮 Calculating similarity in %s files", pterm.FgLightGreen.Sprintf(strconv.Itoa(len(files))))
-
 	if output == "report" {
-		pterm.Println()
-		stopSpinner = createSpinner(msg, count)
-		defer stopSpinner()
+		charm.PrintCalculateFiles(len(files))
 	}
 
-	media := make([]mediasim.Media, 0)
 	results := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
 		Parallel:    5,
 		FrameFlip:   frameFlip,
 		FrameRotate: frameRotate,
 	})
 
-	for r := range results {
-		if r.Err != nil {
-			if ignoreErrors {
-				continue
-			}
-			
-			return media, fmt.Errorf("error loading media files: %w", r.Err)
-		}
-
-		if output == "report" {
-			count++
-			updateSpinner(msg, count)
-		}
-
-		media = append(media, r.Data)
-	}
-
-	return media, nil
+	return getMedia(results, len(files), output, ignoreErrors)
 }
 
 func compareDirectory(
@@ -63,10 +35,9 @@ func compareDirectory(
 	output string,
 	ignoreErrors bool,
 ) ([]mediasim.Media, error) {
-	var stopSpinner context.CancelFunc
-	count := 0
-	media := make([]mediasim.Media, 0)
-	msg := pterm.Sprintf("🧮 Calculating similarity in the directory %s", pterm.FgLightGreen.Sprintf(directory))
+	if output == "report" {
+		charm.PrintCalculateDirectory(directory)
+	}
 
 	// Determine what media types to include
 	var includeImages, includeVideos bool
@@ -79,13 +50,7 @@ func compareDirectory(
 		includeVideos = true
 	}
 
-	if output == "report" {
-		pterm.Println()
-		stopSpinner = createSpinner(msg, count)
-		defer stopSpinner()
-	}
-
-	results := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
+	results, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
 		IsRecursive:   recursive,
@@ -94,60 +59,51 @@ func compareDirectory(
 		FrameRotate:   frameRotate,
 	})
 
-	for r := range results {
-		if r.Err != nil {
-			if ignoreErrors {
-				continue
+	return getMedia(results, total, output, ignoreErrors)
+}
+
+func getMedia(
+	result <-chan mediasim.Result[mediasim.Media],
+	total int,
+	output string,
+	ignoreErrors bool,
+) ([]mediasim.Media, error) {
+	media := make([]mediasim.Media, 0)
+	var err error
+
+	if output == "report" {
+		media, err = charm.StartProgress(result, total)
+		if err != nil {
+			return nil, fmt.Errorf("error loading media: %w", err)
+		}
+	} else {
+		for r := range result {
+			if r.Err != nil {
+				if ignoreErrors {
+					continue
+				}
+
+				return nil, fmt.Errorf("error loading media: %w", r.Err)
 			}
 
-			return nil, fmt.Errorf("error loading from directory: %w", r.Err)
+			media = append(media, r.Data)
 		}
-
-		if output == "report" {
-			count++
-			updateSpinner(msg, count)
-		}
-
-		media = append(media, r.Data)
 	}
 
 	return media, nil
 }
 
 func calculateSimilarity(media []mediasim.Media, threshold float64, output string) []mediasim.Comparison {
+	comparisons := make([]mediasim.Comparison, 0)
+	result := mediasim.CompareMedia(media, threshold)
+
 	if output == "report" {
-		// We need to wait some time before displaying the next message because the spinner takes time to stop
-		time.Sleep(250 * time.Millisecond)
-		pterm.Printf("🔎 Selecting media with at least %s similarity threshold...",
-			pterm.FgLightYellow.Sprintf(floatToStr(threshold)))
-		pterm.Println()
-	}
-
-	return mediasim.CompareMedia(media, threshold)
-}
-
-func printComparisonReport(comparisons []mediasim.Comparison) {
-	for i, comparison := range comparisons {
-		pterm.Printf("\nGroup %d: media %s:\n", i+1, pterm.Bold.Sprintf(comparison.Name))
-
-		for _, similarity := range comparison.Similarities {
-			pterm.Printf("  -> %s similarity with media %s\n",
-				pterm.FgLightMagenta.Sprintf("%.5f", similarity.Score),
-				pterm.Bold.Sprintf(similarity.Name),
-			)
+		comparisons = charm.StartSpinner(result, threshold)
+	} else {
+		for c := range result {
+			comparisons = append(comparisons, c)
 		}
 	}
-}
 
-func printComparisonJson(comparisons []mediasim.Comparison) {
-	jsonBytes, _ := json.Marshal(comparisons)
-	pterm.Println(string(jsonBytes))
-}
-
-func printComparisonCsv(comparisons []mediasim.Comparison) {
-	for _, comparison := range comparisons {
-		for _, similarity := range comparison.Similarities {
-			pterm.Printf("%.8f,%s,%s\n", similarity.Score, comparison.Name, similarity.Name)
-		}
-	}
+	return comparisons
 }

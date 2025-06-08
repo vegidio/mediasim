@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os/user"
 	"path/filepath"
 	"strings"
@@ -20,9 +19,4 @@ func expandPath(path string) (string, error) {
 	}
 
 	return path, nil
-}
-
-func floatToStr(f float64) string {
-	s := fmt.Sprintf("%.5f", f)
-	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
 }
