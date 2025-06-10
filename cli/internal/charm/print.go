@@ -40,6 +40,7 @@ func PrintComparisonJson(comparisons []mediasim.Comparison) {
 
 func PrintComparisonCsv(comparisons []mediasim.Comparison) {
 	fmt.Printf("similarity,media1,media2\n")
+
 	for _, comparison := range comparisons {
 		for _, similarity := range comparison.Similarities {
 			fmt.Printf("%.8f,%s,%s\n", similarity.Score, comparison.Name, similarity.Name)

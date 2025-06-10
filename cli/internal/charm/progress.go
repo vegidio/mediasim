@@ -45,6 +45,10 @@ type progressModel struct {
 }
 
 func (m *progressModel) Init() tea.Cmd {
+	if m.total == 0 {
+		return tea.Quit
+	}
+
 	return tea.Batch(
 		tickCmd(),
 		loadCmd(m.result),
