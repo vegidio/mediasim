@@ -95,14 +95,11 @@ func getMedia(
 
 func calculateSimilarity(media []mediasim.Media, threshold float64, output string) []mediasim.Comparison {
 	comparisons := make([]mediasim.Comparison, 0)
-	result := mediasim.CompareMedia(media, threshold)
 
 	if output == "report" {
-		comparisons = charm.StartSpinner(result, threshold)
+		comparisons = charm.StartSpinner(media, threshold)
 	} else {
-		for c := range result {
-			comparisons = append(comparisons, c)
-		}
+		comparisons = mediasim.CompareMedia(media, threshold)
 	}
 
 	return comparisons

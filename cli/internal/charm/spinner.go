@@ -8,30 +8,26 @@ import (
 	"strings"
 )
 
-type spinnerDoneMsg struct{}
-
-type compareMsg struct {
-	result mediasim.Comparison
+type spinnerDoneMsg struct {
+	comparisons []mediasim.Comparison
 }
 
-func compareCmd(ch <-chan mediasim.Comparison) tea.Cmd {
+func compareCmd(media []mediasim.Media, threshold float64) tea.Cmd {
 	return func() tea.Msg {
-		if result, ok := <-ch; ok {
-			return compareMsg{result}
-		}
-
-		return spinnerDoneMsg{}
+		comparisons := mediasim.CompareMedia(media, threshold)
+		return spinnerDoneMsg{comparisons}
 	}
 }
 
 type spinnerModel struct {
 	spinner     spinner.Model
-	result      <-chan mediasim.Comparison
+	media       []mediasim.Media
+	threshold   float64
 	comparisons []mediasim.Comparison
 	text        string
 }
 
-func initSpinnerModel(result <-chan mediasim.Comparison, threshold float64) *spinnerModel {
+func initSpinnerModel(media []mediasim.Media, threshold float64) *spinnerModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = pink
@@ -41,17 +37,17 @@ func initSpinnerModel(result <-chan mediasim.Comparison, threshold float64) *spi
 	msg := fmt.Sprintf("🔎 Grouping media with at least %s similarity threshold...", yellow.Render(str))
 
 	return &spinnerModel{
-		spinner:     s,
-		result:      result,
-		comparisons: make([]mediasim.Comparison, 0),
-		text:        msg,
+		spinner:   s,
+		media:     media,
+		threshold: threshold,
+		text:      msg,
 	}
 }
 
 func (m *spinnerModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		compareCmd(m.result),
+		compareCmd(m.media, m.threshold),
 	)
 }
 
@@ -63,12 +59,8 @@ func (m *spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 
-	case compareMsg:
-		result := msgValue.result
-		m.comparisons = append(m.comparisons, result)
-		return m, compareCmd(m.result)
-
 	case spinnerDoneMsg:
+		m.comparisons = msgValue.comparisons
 		return m, tea.Quit
 
 	case tea.KeyMsg:
@@ -85,8 +77,8 @@ func (m *spinnerModel) View() string {
 	return fmt.Sprintf("\n%s %s\n", m.text, m.spinner.View())
 }
 
-func StartSpinner(result <-chan mediasim.Comparison, threshold float64) []mediasim.Comparison {
-	model, _ := tea.NewProgram(initSpinnerModel(result, threshold)).Run()
+func StartSpinner(media []mediasim.Media, threshold float64) []mediasim.Comparison {
+	model, _ := tea.NewProgram(initSpinnerModel(media, threshold)).Run()
 	m := model.(*spinnerModel)
 	return m.comparisons
 }

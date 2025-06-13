@@ -1,9 +1,9 @@
 package mediasim
 
 import (
+	"github.com/samber/lo"
 	"github.com/vitali-fedulov/images4"
 	"math"
-	"slices"
 )
 
 const Version = "<version>"
@@ -17,66 +17,51 @@ const Version = "<version>"
 //
 // # Returns:
 //   - <-chan Comparison: a channel that provides Comparison objects containing information about similar media files.
-func CompareMedia(media []Media, threshold float64) <-chan Comparison {
-	out := make(chan Comparison)
+func CompareMedia(media []Media, threshold float64) []Comparison {
+	comparisons := make([]Comparison, 0)
+	dsu := NewDSU(len(media))
 
-	go func() {
-		defer close(out)
-		compared := make([]bool, len(media))
+	for i := 0; i < len(media); i++ {
+		for j := i + 1; j < len(media); j++ {
+			var similarity float64
 
-		for i := 0; i < len(media); i++ {
-			if compared[i] {
+			if media[i].Type == "image" && media[j].Type == "image" {
+				similarity = calculateImageSimilarity(media[i].Frames[0], media[j].Frames)
+			} else if media[i].Type == "video" && media[j].Type == "video" {
+				similarity = calculateVideoSimilarity(media[i].Frames, media[j].Frames)
+			} else {
 				continue
 			}
 
-			similarities := make([]Similarity, 0)
-
-			for j := i + 1; j < len(media); j++ {
-				if compared[j] {
-					continue
-				}
-
-				var similarity float64
-
-				if media[i].Type == "image" && media[j].Type == "image" {
-					similarity = calculateImageSimilarity(media[i].Frames[0], media[j].Frames)
-				} else if media[i].Type == "video" && media[j].Type == "video" {
-					similarity = calculateVideoSimilarity(media[i].Frames, media[j].Frames)
-				} else {
-					continue
-				}
-
-				if similarity >= threshold {
-					similarities = append(similarities, Similarity{
-						Name:  media[j].Name,
-						Score: similarity,
-					})
-
-					compared[i] = true
-					compared[j] = true
-				}
-			}
-
-			if len(similarities) > 0 {
-				// Sort the similarities in descending order
-				slices.SortFunc(similarities, func(a, b Similarity) int {
-					if a.Score > b.Score {
-						return -1
-					} else if a.Score < b.Score {
-						return 1
-					}
-					return 0
-				})
-
-				out <- Comparison{
-					Name:         media[i].Name,
-					Similarities: similarities,
-				}
+			if similarity >= threshold {
+				dsu.Union(i, j)
 			}
 		}
-	}()
+	}
 
-	return out
+	groupsMap := make(map[int][]string)
+	for idx, m := range media {
+		root := dsu.Find(idx)
+		groupsMap[root] = append(groupsMap[root], m.Name)
+	}
+
+	for _, v := range groupsMap {
+		if len(v) >= 2 {
+			similarities := lo.Map(v, func(name string, _ int) Similarity {
+				return Similarity{
+					Name:  name,
+					Score: 0,
+				}
+			})
+
+			comparisons = append(comparisons, Comparison{
+				Name:         "blah",
+				Similarities: similarities,
+			})
+		}
+	}
+
+	return comparisons
 }
 
 // region - Private functions
