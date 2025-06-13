@@ -8,32 +8,24 @@ import (
 
 const Version = "<version>"
 
-// CompareMedia compares media files based on a similarity threshold. It returns a list of comparisons where each
-// comparison contains media files that are similar to each other.
-//
-// # Parameters:
-//   - media: an array of Media files to be compared.
-//   - threshold: a float64 value representing the similarity threshold.
-//
-// # Returns:
-//   - <-chan Comparison: a channel that provides Comparison objects containing information about similar media files.
-func CompareMedia(media []Media, threshold float64) [][]Group {
+func CalculateSimilarity(media1, media2 Media) float64 {
+	if media1.Type == "image" && media2.Type == "image" {
+		return calculateImageSimilarity(media1.Frames[0], media2.Frames)
+	} else if media1.Type == "video" && media2.Type == "video" {
+		return calculateVideoSimilarity(media1.Frames, media2.Frames)
+	} else {
+		return 0.0
+	}
+}
+
+func GroupMedia(media []Media, threshold float64) [][]Group {
 	groups := make([][]Group, 0)
 	size := len(media)
 	dsu := NewDSU(size)
 
 	for i := 0; i < size; i++ {
 		for j := i + 1; j < size; j++ {
-			var similarity float64
-
-			if media[i].Type == "image" && media[j].Type == "image" {
-				similarity = calculateImageSimilarity(media[i].Frames[0], media[j].Frames)
-			} else if media[i].Type == "video" && media[j].Type == "video" {
-				similarity = calculateVideoSimilarity(media[i].Frames, media[j].Frames)
-			} else {
-				continue
-			}
-
+			similarity := CalculateSimilarity(media[i], media[j])
 			if similarity >= threshold {
 				dsu.Union(i, j)
 			}

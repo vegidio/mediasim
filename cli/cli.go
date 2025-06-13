@@ -30,8 +30,35 @@ func buildCliCommands() *cli.Command {
 		HideHelpCommand: true,
 		Commands: []*cli.Command{
 			{
+				Name:      "score",
+				Usage:     "calculate the similarity score of two media files",
+				UsageText: "mediasim score <file1> <file2>",
+				Action: func(ctx context.Context, command *cli.Command) error {
+					files = command.Args().Slice()
+
+					if len(files) != 2 {
+						return fmt.Errorf("you must specify exactly two files")
+					}
+
+					files = lo.Map(files, func(file string, _ int) string {
+						fullFile, _ := expandPath(file)
+						return fullFile
+					})
+
+					media, err = loadFiles(files, frameFlip, frameRotate, output, ignoreErrors)
+					if err != nil {
+						return err
+					}
+
+					score := calculateScore(media)
+					charm.PrintScore(score)
+
+					return nil
+				},
+			},
+			{
 				Name:      "files",
-				Usage:     "compare two or more files",
+				Usage:     "group two or more media files based on similarity",
 				UsageText: "mediasim files <file1> <file2> [<file3> ...] ",
 				Flags:     []cli.Flag{},
 				Action: func(ctx context.Context, command *cli.Command) error {
@@ -46,9 +73,24 @@ func buildCliCommands() *cli.Command {
 						return fullFile
 					})
 
-					media, err = compareFiles(files, frameFlip, frameRotate, output, ignoreErrors)
+					media, err = loadFiles(files, frameFlip, frameRotate, output, ignoreErrors)
+
 					if err != nil {
 						return err
+					}
+					if len(media) == 0 {
+						return nil
+					}
+
+					comparisons := groupAndReport(media, threshold, output)
+
+					switch output {
+					case "report":
+						charm.PrintGroupReport(comparisons)
+					case "json":
+						charm.PrintGroupJson(comparisons)
+					case "csv":
+						charm.PrintGroupCsv(comparisons)
 					}
 
 					return nil
@@ -56,7 +98,7 @@ func buildCliCommands() *cli.Command {
 			},
 			{
 				Name:      "dir",
-				Usage:     "compare media in a directory",
+				Usage:     "group media files in a directory based on similarity",
 				UsageText: "mediasim dir <directory> [-r] [--mt <media-type>]",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
@@ -90,7 +132,7 @@ func buildCliCommands() *cli.Command {
 						return nil
 					}
 
-					media, err = compareDirectory(
+					media, err = loadDirectory(
 						directory,
 						recursive,
 						frameFlip,
@@ -99,6 +141,75 @@ func buildCliCommands() *cli.Command {
 						output,
 						ignoreErrors,
 					)
+
+					if err != nil {
+						return err
+					}
+					if len(media) == 0 {
+						return nil
+					}
+
+					comparisons := groupAndReport(media, threshold, output)
+
+					switch output {
+					case "report":
+						charm.PrintGroupReport(comparisons)
+					case "json":
+						charm.PrintGroupJson(comparisons)
+					case "csv":
+						charm.PrintGroupCsv(comparisons)
+					}
+
+					return nil
+				},
+			},
+			{
+				Name:      "rename",
+				Usage:     "rename files to group them based on similarity",
+				UsageText: "mediasim group <directory> [--mt <media-type>]",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:        "media-type",
+						Aliases:     []string{"mt"},
+						Usage:       "type of media to compare; image | video | all",
+						Value:       "all",
+						DefaultText: "all",
+						Destination: &mediaType,
+						Validator: func(s string) error {
+							if s != "image" && s != "video" && s != "all" {
+								return fmt.Errorf("invalid media type")
+							}
+
+							return nil
+						},
+					},
+				},
+				Action: func(ctx context.Context, command *cli.Command) error {
+					directory = command.Args().First()
+					directory, err = expandPath(directory)
+					if err != nil {
+						return nil
+					}
+
+					media, err = loadDirectory(
+						directory,
+						false,
+						frameFlip,
+						frameRotate,
+						mediaType,
+						output,
+						ignoreErrors,
+					)
+
+					if err != nil {
+						return err
+					}
+					if len(media) == 0 {
+						return nil
+					}
+
+					groups := groupAndRename(media, threshold, output)
+					err = renameMedia(groups)
 
 					if err != nil {
 						return err
@@ -163,26 +274,8 @@ func buildCliCommands() *cli.Command {
 				Destination: &ignoreErrors,
 			},
 		},
-		After: func(ctx context.Context, command *cli.Command) error {
-			if len(media) == 0 {
-				return nil
-			}
-
-			comparisons := calculateSimilarity(media, threshold, output)
-
-			switch output {
-			case "report":
-				charm.PrintGroupReport(comparisons)
-			case "json":
-				charm.PrintGroupJson(comparisons)
-			case "csv":
-				charm.PrintGroupCsv(comparisons)
-			}
-
-			return nil
-		},
 		Action: func(ctx context.Context, command *cli.Command) error {
-			return fmt.Errorf("either the command <files> or <dir> must be used")
+			return fmt.Errorf("command missing; try 'mediasim --help' for more information")
 		},
 	}
 }

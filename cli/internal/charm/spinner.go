@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vegidio/mediasim"
 	"strings"
+	"time"
 )
 
 type spinnerDoneMsg struct {
@@ -14,8 +15,8 @@ type spinnerDoneMsg struct {
 
 func compareCmd(media []mediasim.Media, threshold float64) tea.Cmd {
 	return func() tea.Msg {
-		comparisons := mediasim.CompareMedia(media, threshold)
-		return spinnerDoneMsg{comparisons}
+		groups := mediasim.GroupMedia(media, threshold)
+		return spinnerDoneMsg{groups}
 	}
 }
 
@@ -27,14 +28,14 @@ type spinnerModel struct {
 	text      string
 }
 
-func initSpinnerModel(media []mediasim.Media, threshold float64) *spinnerModel {
+func initSpinnerModel(media []mediasim.Media, threshold float64, message string) *spinnerModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = pink
 
 	str := fmt.Sprintf("%.5f", threshold)
 	str = strings.TrimRight(strings.TrimRight(str, "0"), ".")
-	msg := fmt.Sprintf("🔎 Grouping media with at least %s similarity threshold...", yellow.Render(str))
+	msg := fmt.Sprintf(message, yellow.Render(str))
 
 	return &spinnerModel{
 		spinner:   s,
@@ -60,6 +61,11 @@ func (m *spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case spinnerDoneMsg:
+		m.spinner.Spinner = spinner.Spinner{
+			Frames: []string{"✔"},
+			FPS:    time.Millisecond,
+		}
+
 		m.groups = msgValue.groups
 		return m, tea.Quit
 
@@ -77,8 +83,8 @@ func (m *spinnerModel) View() string {
 	return fmt.Sprintf("\n%s %s\n", m.text, m.spinner.View())
 }
 
-func StartSpinner(media []mediasim.Media, threshold float64) [][]mediasim.Group {
-	model, _ := tea.NewProgram(initSpinnerModel(media, threshold)).Run()
+func StartSpinner(media []mediasim.Media, threshold float64, message string) [][]mediasim.Group {
+	model, _ := tea.NewProgram(initSpinnerModel(media, threshold, message)).Run()
 	m := model.(*spinnerModel)
 	return m.groups
 }

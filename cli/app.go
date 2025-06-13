@@ -6,7 +6,7 @@ import (
 	"github.com/vegidio/mediasim"
 )
 
-func compareFiles(
+func loadFiles(
 	files []string,
 	frameFlip,
 	frameRotate bool,
@@ -26,7 +26,7 @@ func compareFiles(
 	return getMedia(results, len(files), output, ignoreErrors)
 }
 
-func compareDirectory(
+func loadDirectory(
 	directory string,
 	recursive bool,
 	frameFlip bool,
@@ -93,13 +93,29 @@ func getMedia(
 	return media, nil
 }
 
-func calculateSimilarity(media []mediasim.Media, threshold float64, output string) [][]mediasim.Group {
+func calculateScore(media []mediasim.Media) float64 {
+	return mediasim.CalculateSimilarity(media[0], media[1])
+}
+
+func groupAndReport(media []mediasim.Media, threshold float64, output string) [][]mediasim.Group {
 	groups := make([][]mediasim.Group, 0)
 
 	if output == "report" {
-		groups = charm.StartSpinner(media, threshold)
+		groups = charm.StartSpinner(media, threshold, "🔎 Grouping media with at least %s similarity threshold...")
 	} else {
-		groups = mediasim.CompareMedia(media, threshold)
+		groups = mediasim.GroupMedia(media, threshold)
+	}
+
+	return groups
+}
+
+func groupAndRename(media []mediasim.Media, threshold float64, output string) [][]mediasim.Group {
+	groups := make([][]mediasim.Group, 0)
+
+	if output == "report" {
+		groups = charm.StartSpinner(media, threshold, "📝 Renaming media with at least %s similarity threshold...")
+	} else {
+		groups = mediasim.GroupMedia(media, threshold)
 	}
 
 	return groups

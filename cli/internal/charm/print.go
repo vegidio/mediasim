@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"github.com/vegidio/mediasim"
 	"strconv"
+	"strings"
 )
 
 func PrintError(message string, a ...interface{}) {
 	format := fmt.Sprintf(message, a...)
 	fmt.Printf("\n🧨 %s\n", red.Render(format))
+}
+
+func PrintScore(score float64) {
+	percent := fmt.Sprintf("%.5f", score)
+	percent = strings.TrimRight(strings.TrimRight(percent, "0"), ".")
+	fmt.Printf("\n🧮 Similarity score between the files is %s\n", magenta.Render(percent))
 }
 
 func PrintCalculateFiles(amount int) {
