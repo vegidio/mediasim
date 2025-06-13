@@ -172,11 +172,11 @@ func buildCliCommands() *cli.Command {
 
 			switch output {
 			case "report":
-				charm.PrintComparisonReport(comparisons)
+				charm.PrintGroupReport(comparisons)
 			case "json":
-				charm.PrintComparisonJson(comparisons)
+				charm.PrintGroupJson(comparisons)
 			case "csv":
-				charm.PrintComparisonCsv(comparisons)
+				charm.PrintGroupCsv(comparisons)
 			}
 
 			return nil

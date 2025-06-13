@@ -17,12 +17,13 @@ const Version = "<version>"
 //
 // # Returns:
 //   - <-chan Comparison: a channel that provides Comparison objects containing information about similar media files.
-func CompareMedia(media []Media, threshold float64) []Comparison {
-	comparisons := make([]Comparison, 0)
-	dsu := NewDSU(len(media))
+func CompareMedia(media []Media, threshold float64) [][]Group {
+	groups := make([][]Group, 0)
+	size := len(media)
+	dsu := NewDSU(size)
 
-	for i := 0; i < len(media); i++ {
-		for j := i + 1; j < len(media); j++ {
+	for i := 0; i < size; i++ {
+		for j := i + 1; j < size; j++ {
 			var similarity float64
 
 			if media[i].Type == "image" && media[j].Type == "image" {
@@ -47,21 +48,17 @@ func CompareMedia(media []Media, threshold float64) []Comparison {
 
 	for _, v := range groupsMap {
 		if len(v) >= 2 {
-			similarities := lo.Map(v, func(name string, _ int) Similarity {
-				return Similarity{
-					Name:  name,
-					Score: 0,
+			group := lo.Map(v, func(name string, _ int) Group {
+				return Group{
+					Name: name,
 				}
 			})
 
-			comparisons = append(comparisons, Comparison{
-				Name:         "blah",
-				Similarities: similarities,
-			})
+			groups = append(groups, group)
 		}
 	}
 
-	return comparisons
+	return groups
 }
 
 // region - Private functions

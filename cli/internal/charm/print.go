@@ -20,30 +20,27 @@ func PrintCalculateDirectory(dir string) {
 	fmt.Printf("\n⏳ Calculating similarity in the directory %s\n", green.Render(dir))
 }
 
-func PrintComparisonReport(comparisons []mediasim.Comparison) {
-	for i, comparison := range comparisons {
-		fmt.Printf("\nGroup %d: media %s:\n", i+1, bold.Render(comparison.Name))
+func PrintGroupReport(groups [][]mediasim.Group) {
+	for i, group := range groups {
+		fmt.Printf("\nGroup %s:\n", magenta.Render(strconv.Itoa(i+1)))
 
-		for _, similarity := range comparison.Similarities {
-			fmt.Printf("  -> %s similarity with media %s\n",
-				magenta.Render(fmt.Sprintf("%.5f", similarity.Score)),
-				bold.Render(similarity.Name),
-			)
+		for _, g := range group {
+			fmt.Printf("  -> %s\n", bold.Render(g.Name))
 		}
 	}
 }
 
-func PrintComparisonJson(comparisons []mediasim.Comparison) {
-	jsonBytes, _ := json.MarshalIndent(comparisons, "", "  ")
+func PrintGroupJson(groups [][]mediasim.Group) {
+	jsonBytes, _ := json.MarshalIndent(groups, "", "  ")
 	fmt.Println(string(jsonBytes))
 }
 
-func PrintComparisonCsv(comparisons []mediasim.Comparison) {
-	fmt.Printf("similarity,media1,media2\n")
+func PrintGroupCsv(groups [][]mediasim.Group) {
+	fmt.Printf("group,media\n")
 
-	for _, comparison := range comparisons {
-		for _, similarity := range comparison.Similarities {
-			fmt.Printf("%.8f,%s,%s\n", similarity.Score, comparison.Name, similarity.Name)
+	for i, group := range groups {
+		for _, g := range group {
+			fmt.Printf("Group %d,%s\n", i+1, g.Name)
 		}
 	}
 }

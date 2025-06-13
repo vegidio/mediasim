@@ -9,7 +9,7 @@ import (
 )
 
 type spinnerDoneMsg struct {
-	comparisons []mediasim.Comparison
+	groups [][]mediasim.Group
 }
 
 func compareCmd(media []mediasim.Media, threshold float64) tea.Cmd {
@@ -20,11 +20,11 @@ func compareCmd(media []mediasim.Media, threshold float64) tea.Cmd {
 }
 
 type spinnerModel struct {
-	spinner     spinner.Model
-	media       []mediasim.Media
-	threshold   float64
-	comparisons []mediasim.Comparison
-	text        string
+	spinner   spinner.Model
+	media     []mediasim.Media
+	threshold float64
+	groups    [][]mediasim.Group
+	text      string
 }
 
 func initSpinnerModel(media []mediasim.Media, threshold float64) *spinnerModel {
@@ -60,7 +60,7 @@ func (m *spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case spinnerDoneMsg:
-		m.comparisons = msgValue.comparisons
+		m.groups = msgValue.groups
 		return m, tea.Quit
 
 	case tea.KeyMsg:
@@ -77,8 +77,8 @@ func (m *spinnerModel) View() string {
 	return fmt.Sprintf("\n%s %s\n", m.text, m.spinner.View())
 }
 
-func StartSpinner(media []mediasim.Media, threshold float64) []mediasim.Comparison {
+func StartSpinner(media []mediasim.Media, threshold float64) [][]mediasim.Group {
 	model, _ := tea.NewProgram(initSpinnerModel(media, threshold)).Run()
 	m := model.(*spinnerModel)
-	return m.comparisons
+	return m.groups
 }
