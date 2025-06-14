@@ -6,7 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vegidio/mediasim"
 	"strings"
-	"time"
 )
 
 type spinnerDoneMsg struct {
@@ -61,11 +60,6 @@ func (m *spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case spinnerDoneMsg:
-		m.spinner.Spinner = spinner.Spinner{
-			Frames: []string{"✔"},
-			FPS:    time.Millisecond,
-		}
-
 		m.groups = msgValue.groups
 		return m, tea.Quit
 

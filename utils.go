@@ -36,8 +36,12 @@ var ffmpegPath = getFFmpegPath("mediasim")
 //   - A Media object containing the name, type and frames of the media.
 func LoadMediaFromImages(name string, images []image.Image, options FrameOptions) Media {
 	mediaType := "image"
-	if len(images) > 1 {
+	seconds := 0
+	size := len(images)
+
+	if size > 1 {
 		mediaType = "video"
+		seconds = size
 	}
 
 	frames := lo.Map(images, func(img image.Image, _ int) images4.IconT {
@@ -65,6 +69,9 @@ func LoadMediaFromImages(name string, images []image.Image, options FrameOptions
 		Name:   name,
 		Type:   mediaType,
 		Frames: frames,
+		Width:  images[0].Bounds().Dx(),
+		Height: images[0].Bounds().Dy(),
+		Length: seconds,
 	}
 }
 
@@ -110,6 +117,11 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	}
 
 	media := LoadMediaFromImages(filePath, images, options)
+
+	// Add the file size to the media
+	info, _ := file.Stat()
+	media.Size = info.Size()
+
 	return &media, nil
 }
 
