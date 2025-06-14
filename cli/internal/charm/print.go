@@ -27,27 +27,44 @@ func PrintCalculateDirectory(dir string) {
 	fmt.Printf("\n⏳ Calculating similarity in the directory %s\n", green.Render(dir))
 }
 
-func PrintGroupReport(groups [][]mediasim.Group) {
+func PrintGroupReport(groups []mediasim.Group) {
 	for i, group := range groups {
 		fmt.Printf("\nGroup %s:\n", magenta.Render(strconv.Itoa(i+1)))
 
-		for _, g := range group {
-			fmt.Printf("  -> %s\n", bold.Render(g.Name))
+		// Best media
+		fmt.Printf("  -> %s %s\n", bold.Render(group.Best.Name), bold.Render(mediaInfo(group.Best)))
+
+		for _, m := range group.Media {
+			fmt.Printf("  -> %s %s\n", m.Name, mediaInfo(m))
 		}
 	}
 }
 
-func PrintGroupJson(groups [][]mediasim.Group) {
+func PrintGroupJson(groups []mediasim.Group) {
 	jsonBytes, _ := json.MarshalIndent(groups, "", "  ")
 	fmt.Println(string(jsonBytes))
 }
 
-func PrintGroupCsv(groups [][]mediasim.Group) {
+func PrintGroupCsv(groups []mediasim.Group) {
 	fmt.Printf("group,media\n")
 
 	for i, group := range groups {
-		for _, g := range group {
-			fmt.Printf("Group %d,%s\n", i+1, g.Name)
+		allMedia := append(group.Media, group.Best)
+
+		for _, m := range allMedia {
+			fmt.Printf("Group %d,%s\n", i+1, m.Name)
 		}
 	}
 }
+
+// region - Private function
+
+func mediaInfo(media mediasim.Media) string {
+	if media.Type == "image" {
+		return fmt.Sprintf("(%.1f MP)", float64(media.Width)*float64(media.Height)/1000000)
+	} else {
+		return fmt.Sprintf("(%d sec, %.1f MP)", media.Length, float64(media.Width)*float64(media.Height)/1000000)
+	}
+}
+
+// endregion

@@ -18,8 +18,8 @@ func CalculateSimilarity(media1, media2 Media) float64 {
 	}
 }
 
-func GroupMedia(media []Media, threshold float64) [][]Group {
-	groups := make([][]Group, 0)
+func GroupMedia(media []Media, threshold float64) []Group {
+	groups := make([]Group, 0)
 	size := len(media)
 	dsu := NewDSU(size)
 
@@ -32,19 +32,22 @@ func GroupMedia(media []Media, threshold float64) [][]Group {
 		}
 	}
 
-	groupsMap := make(map[int][]string)
+	groupsMap := make(map[int][]Media)
 	for idx, m := range media {
 		root := dsu.Find(idx)
-		groupsMap[root] = append(groupsMap[root], m.Name)
+		groupsMap[root] = append(groupsMap[root], m)
 	}
 
-	for _, v := range groupsMap {
-		if len(v) >= 2 {
-			group := lo.Map(v, func(name string, _ int) Group {
-				return Group{
-					Name: name,
-				}
-			})
+	for _, m := range groupsMap {
+		if len(m) >= 2 {
+			best := selectBestMedia(m)
+
+			group := Group{
+				Best: best,
+				Media: lo.Filter(m, func(item Media, _ int) bool {
+					return !item.Equal(best)
+				}),
+			}
 
 			groups = append(groups, group)
 		}
@@ -54,6 +57,24 @@ func GroupMedia(media []Media, threshold float64) [][]Group {
 }
 
 // region - Private functions
+
+func selectBestMedia(media []Media) Media {
+	best := media[0]
+	bestMP := best.Width * best.Height
+
+	for _, m := range media[1:] {
+		mp := m.Width * m.Height
+
+		if m.Length > best.Length ||
+			(m.Length == best.Length && mp > bestMP) ||
+			(m.Length == best.Length && mp == bestMP && m.Size > best.Size) {
+			best = m
+			bestMP = mp
+		}
+	}
+
+	return best
+}
 
 func calculateImageSimilarity(frame1 images4.IconT, frames2 []images4.IconT) float64 {
 	// This constant is the maximum numeric difference when comparing two images:

@@ -24,15 +24,17 @@ func expandPath(path string) (string, error) {
 	return path, nil
 }
 
-func renameMedia(groups [][]mediasim.Group) error {
+func renameMedia(groups []mediasim.Group) error {
 	for i, group := range groups {
-		for _, g := range group {
-			dir, file := filepath.Split(g.Name)
+		allMedia := append(group.Media, group.Best)
+
+		for _, media := range allMedia {
+			dir, file := filepath.Split(media.Name)
 			newName := fmt.Sprintf("group%d_%s", i+1, file)
 			newPath := filepath.Join(dir, newName)
 
-			if err := os.Rename(g.Name, newPath); err != nil {
-				return fmt.Errorf("failed to rename file %s to %s: %w", g.Name, newPath, err)
+			if err := os.Rename(media.Name, newPath); err != nil {
+				return fmt.Errorf("failed to rename file %s to %s: %w", media.Name, newPath, err)
 			}
 		}
 	}

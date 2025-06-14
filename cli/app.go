@@ -101,8 +101,8 @@ func calculateScore(media []mediasim.Media) float64 {
 	return mediasim.CalculateSimilarity(media[0], media[1])
 }
 
-func groupAndReport(media []mediasim.Media, threshold float64, output string) [][]mediasim.Group {
-	groups := make([][]mediasim.Group, 0)
+func groupAndReport(media []mediasim.Media, threshold float64, output string) []mediasim.Group {
+	groups := make([]mediasim.Group, 0)
 
 	if output == "report" {
 		groups = charm.StartSpinner(media, threshold, "🔎 Grouping media with at least %s similarity threshold...")
@@ -113,8 +113,8 @@ func groupAndReport(media []mediasim.Media, threshold float64, output string) []
 	return groups
 }
 
-func groupAndRename(media []mediasim.Media, threshold float64, output string) [][]mediasim.Group {
-	groups := make([][]mediasim.Group, 0)
+func groupAndRename(media []mediasim.Media, threshold float64, output string) []mediasim.Group {
+	groups := make([]mediasim.Group, 0)
 
 	if output == "report" {
 		groups = charm.StartSpinner(media, threshold, "📝 Renaming media with at least %s similarity threshold...")
