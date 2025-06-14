@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -24,15 +25,18 @@ func expandPath(path string) (string, error) {
 	return path, nil
 }
 
-func renameMedia(groups [][]mediasim.Group) error {
+func renameMedia(groups [][]mediasim.Media) error {
+	size := len(groups)
+	width := len(strconv.Itoa(size))
+
 	for i, group := range groups {
-		for _, g := range group {
-			dir, file := filepath.Split(g.Name)
-			newName := fmt.Sprintf("group%d_%s", i+1, file)
+		for _, media := range group {
+			dir, file := filepath.Split(media.Name)
+			newName := fmt.Sprintf("group%0*d_%s", width, i+1, file)
 			newPath := filepath.Join(dir, newName)
 
-			if err := os.Rename(g.Name, newPath); err != nil {
-				return fmt.Errorf("failed to rename file %s to %s: %w", g.Name, newPath, err)
+			if err := os.Rename(media.Name, newPath); err != nil {
+				return fmt.Errorf("failed to rename file %s to %s: %w", media.Name, newPath, err)
 			}
 		}
 	}

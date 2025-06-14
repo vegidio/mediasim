@@ -13,10 +13,18 @@ func PrintError(message string, a ...interface{}) {
 	fmt.Printf("\n🧨 %s\n", red.Render(format))
 }
 
-func PrintScore(score float64) {
+func PrintScoreReport(score float64) {
 	percent := fmt.Sprintf("%.5f", score)
 	percent = strings.TrimRight(strings.TrimRight(percent, "0"), ".")
 	fmt.Printf("\n🧮 Similarity score between the files is %s\n", magenta.Render(percent))
+}
+
+func PrintScoreJson(score float64) {
+	fmt.Printf("{\n  \"score\": %.5f\n}", score)
+}
+
+func PrintScoreCsv(score float64) {
+	fmt.Printf("%.5f", score)
 }
 
 func PrintCalculateFiles(amount int) {
@@ -27,27 +35,43 @@ func PrintCalculateDirectory(dir string) {
 	fmt.Printf("\n⏳ Calculating similarity in the directory %s\n", green.Render(dir))
 }
 
-func PrintGroupReport(groups [][]mediasim.Group) {
-	for i, group := range groups {
+func PrintGroupReport(groups [][]mediasim.Media) {
+	for i, media := range groups {
 		fmt.Printf("\nGroup %s:\n", magenta.Render(strconv.Itoa(i+1)))
 
-		for _, g := range group {
-			fmt.Printf("  -> %s\n", bold.Render(g.Name))
+		// Best media
+		best := media[0]
+		fmt.Printf("  -> %s %s\n", bold.Render(best.Name), bold.Render(mediaInfo(best)))
+
+		for _, m := range media[1:] {
+			fmt.Printf("  -> %s %s\n", m.Name, mediaInfo(m))
 		}
 	}
 }
 
-func PrintGroupJson(groups [][]mediasim.Group) {
+func PrintGroupJson(groups [][]mediasim.Media) {
 	jsonBytes, _ := json.MarshalIndent(groups, "", "  ")
 	fmt.Println(string(jsonBytes))
 }
 
-func PrintGroupCsv(groups [][]mediasim.Group) {
-	fmt.Printf("group,media\n")
-
-	for i, group := range groups {
-		for _, g := range group {
-			fmt.Printf("Group %d,%s\n", i+1, g.Name)
+func PrintGroupCsv(groups [][]mediasim.Media) {
+	for i, media := range groups {
+		for _, m := range media {
+			fmt.Printf("Group %d,%s\n", i+1, m.Name)
 		}
 	}
 }
+
+// region - Private function
+
+func mediaInfo(media mediasim.Media) string {
+	const megapixel = 1_000_000
+
+	if media.Type == "image" {
+		return fmt.Sprintf("(%.1f MP)", float64(media.Width)*float64(media.Height)/megapixel)
+	} else {
+		return fmt.Sprintf("(%d sec, %.1f MP)", media.Length, float64(media.Width)*float64(media.Height)/megapixel)
+	}
+}
+
+// endregion

@@ -9,7 +9,7 @@ import (
 )
 
 type spinnerDoneMsg struct {
-	groups [][]mediasim.Group
+	groups [][]mediasim.Media
 }
 
 func compareCmd(media []mediasim.Media, threshold float64) tea.Cmd {
@@ -23,7 +23,7 @@ type spinnerModel struct {
 	spinner   spinner.Model
 	media     []mediasim.Media
 	threshold float64
-	groups    [][]mediasim.Group
+	groups    [][]mediasim.Media
 	text      string
 }
 
@@ -77,7 +77,7 @@ func (m *spinnerModel) View() string {
 	return fmt.Sprintf("\n%s %s\n", m.text, m.spinner.View())
 }
 
-func StartSpinner(media []mediasim.Media, threshold float64, message string) [][]mediasim.Group {
+func StartSpinner(media []mediasim.Media, threshold float64, message string) [][]mediasim.Media {
 	model, _ := tea.NewProgram(initSpinnerModel(media, threshold, message)).Run()
 	m := model.(*spinnerModel)
 	return m.groups

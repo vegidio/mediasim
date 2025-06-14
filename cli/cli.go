@@ -51,7 +51,15 @@ func buildCliCommands() *cli.Command {
 					}
 
 					score := calculateScore(media)
-					charm.PrintScore(score)
+
+					switch output {
+					case "report":
+						charm.PrintScoreReport(score)
+					case "json":
+						charm.PrintScoreJson(score)
+					case "csv":
+						charm.PrintScoreCsv(score)
+					}
 
 					return nil
 				},
@@ -82,15 +90,15 @@ func buildCliCommands() *cli.Command {
 						return nil
 					}
 
-					comparisons := groupAndReport(media, threshold, output)
+					groups := groupAndReport(media, threshold, output)
 
 					switch output {
 					case "report":
-						charm.PrintGroupReport(comparisons)
+						charm.PrintGroupReport(groups)
 					case "json":
-						charm.PrintGroupJson(comparisons)
+						charm.PrintGroupJson(groups)
 					case "csv":
-						charm.PrintGroupCsv(comparisons)
+						charm.PrintGroupCsv(groups)
 					}
 
 					return nil
@@ -149,15 +157,15 @@ func buildCliCommands() *cli.Command {
 						return nil
 					}
 
-					comparisons := groupAndReport(media, threshold, output)
+					groups := groupAndReport(media, threshold, output)
 
 					switch output {
 					case "report":
-						charm.PrintGroupReport(comparisons)
+						charm.PrintGroupReport(groups)
 					case "json":
-						charm.PrintGroupJson(comparisons)
+						charm.PrintGroupJson(groups)
 					case "csv":
-						charm.PrintGroupCsv(comparisons)
+						charm.PrintGroupCsv(groups)
 					}
 
 					return nil
