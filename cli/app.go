@@ -4,7 +4,11 @@ import (
 	"cli/internal/charm"
 	"fmt"
 	"github.com/vegidio/mediasim"
+	"runtime"
 )
+
+// The max number of files to process in parallel, depending on the number of cores in the computer
+var numWorkers = runtime.NumCPU()
 
 func loadFiles(
 	files []string,
@@ -18,7 +22,7 @@ func loadFiles(
 	}
 
 	results := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
-		Parallel:    5,
+		Parallel:    numWorkers,
 		FrameFlip:   frameFlip,
 		FrameRotate: frameRotate,
 	})
@@ -54,7 +58,7 @@ func loadDirectory(
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
 		IsRecursive:   recursive,
-		Parallel:      5,
+		Parallel:      numWorkers,
 		FrameFlip:     frameFlip,
 		FrameRotate:   frameRotate,
 	})
