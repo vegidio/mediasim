@@ -127,12 +127,6 @@ For example, if I wanted to build the CLI for Windows, on architecture AMD64, I 
 $ task build os=windows arch=amd64
 ```
 
-## 📈 Telemetry
-
-This app collects information about the data that you're comparing to help me track bugs and improve the general stability of the software.
-
-**No identifiable information about you or your computer is tracked.** But if you still want to stop the telemetry, you can do that by adding the flag `--no-telemetry` in the CLI tool.
-
 ## 📝 License
 
 **mediasim** is released under the MIT License. See [LICENSE](LICENSE) for details.
