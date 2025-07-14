@@ -19,7 +19,20 @@ The binaries are available for Windows, macOS, and Linux. Download the [latest r
 <img src="docs/images/screenshot.avif" width="80%" alt="mediasim"/>
 </p>
 
-If you want to compare two or more files, run the command below in the terminal:
+<details>
+<summary>Calculating the similarity score of two files</summary>
+
+#### Run the command below in the terminal:
+
+```bash
+$ mediasim score <media1> <media2>
+```
+</details>
+
+<details>
+<summary>Comparing two or more files</summary>
+
+#### Run the command below in the terminal:
 
 ```bash
 $ mediasim files <media1> <media2> [<media3> ...]
@@ -28,10 +41,12 @@ $ mediasim files <media1> <media2> [<media3> ...]
 Where:
 
 - `files` (mandatory): the path to the media files you want to compare. You must pass at least two files, separated by space.
+</details>
 
----
+<details>
+<summary>Comparing multiple files in a directory</summary>
 
-If you want to compare a folder with multiple files, run the command below:
+#### Run the command below in the terminal:
 
 ```bash
 $ mediasim dir <directory> [-r] [--mt <media-type>]
@@ -39,9 +54,26 @@ $ mediasim dir <directory> [-r] [--mt <media-type>]
 
 Where:
 
-- `dir` (mandatory): the path to the directory where the media files are located.
+- `directory` (mandatory): the path to the directory where the media files are located.
 - `-r` (optional): recursively search for files in subdirectories to include in the comparison.
 - `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
+</details>
+
+<details>
+<summary>Renaming files based on similarity</summary>
+
+#### Run the command below in the terminal:
+
+```bash
+$ mediasim rename <directory> [-r] [--mt <media-type>]
+```
+
+Where:
+
+- `directory` (mandatory): the path to the directory where the media files are located.
+- `-r` (optional): recursively search for files in subdirectories to include in the comparison.
+- `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
+</details>
 
 ---
 
@@ -49,9 +81,9 @@ Other parameters you can use:
 
 - `-t` (optional): the threshold for the similarity score; a value between 0–1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only similarities of 80% or higher will be reported.
 - `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
-- `--ff` (optional): flips the frames vertically and horizontally during the comparison.
-- `--fr` (optional): rotates the frames in multiple angles during the comparison.
 - `--ie` (optional): ignores errors and continues the comparison even if some files are not valid.
+- `--ff` (optional; images only): flips the frames vertically and horizontally during the comparison.
+- `--fr` (optional; images only): rotates the frames in multiple angles during the comparison.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
@@ -83,21 +115,20 @@ The best option to have the video comparison working is to install FFmpeg yourse
 
 ### Video Comparison Is Taking Too Long
 
-Comparing videos is inherently resource-intensive because it requires analyzing multiple frames from each video to get an accurate similarity score. For instance, comparing two 15-second videos requires roughly 25.000 times more CPU resources than comparing two images.
+Comparing videos is inherently resource-intensive because it requires analyzing multiple frames from each video to get an accurate similarity score. For instance, comparing two 15-second videos requires roughly 250 times more CPU resources than comparing two images.
 
 Therefore, if you have many videos to compare, especially long ones, the process may take a significant amount of time, and unfortunately, there is not much that can be done to speed it up.
 
-### "App Is Damaged..." (Unidentified Developer - macOS only)
+### "App Is Damaged/Blocked..." (Windows & macOS only)
 
-For a couple of years now, Apple has required developers to join their "Developer Program" to gain the pretentious status of an _identified developer_ 😛.
+For a couple of years now, Microsoft and Apple have required developers to join their "Developer Program" to gain the pretentious status of an _identified developer_ 😛.
 
-Translating to non-BS language, this means that if you’re not registered with Apple (i.e., paying the fee), you can’t freely distribute macOS software. Apps from unidentified developers will display a message saying the app is damaged and can’t be opened.
+Translating to non-BS language, this means that if you’re not registered with them (i.e., paying the fee), you can’t freely distribute Windows or macOS software. Apps from unidentified developers will display a message saying the app is damaged or blocked and can’t be opened.
 
-To bypass this, open the Terminal and run the command below, replacing `<path-to-app>` with the correct path to where you’ve installed the app:
+To bypass this, open the Terminal and run one of the commands below (depending on your operating system), replacing `<path-to-app>` with the correct path to where you’ve installed the app:
 
-```bash
-$ xattr -d com.apple.quarantine <path-to-app>
-```
+- Windows: `Unblock-File -Path <path-to-app>`
+- macOS: `xattr -d com.apple.quarantine <path-to-app>`
 
 ## 🛠️ Build
 
@@ -113,7 +144,7 @@ To build this project, you will need the following dependencies installed in you
 With all the dependencies installed, in the project's root folder run the command:
 
 ```bash
-$ task build os=<operating-system> arch=<architecture>
+$ task cli os=<operating-system> arch=<architecture>
 ```
 
 Where:
@@ -124,7 +155,7 @@ Where:
 For example, if I wanted to build the CLI for Windows, on architecture AMD64, I would run the command:
 
 ```bash
-$ task build os=windows arch=amd64
+$ task cli os=windows arch=amd64
 ```
 
 ## 📝 License
