@@ -3,9 +3,10 @@ package charm
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vegidio/mediasim"
 	"strconv"
 	"strings"
+
+	"github.com/vegidio/mediasim"
 )
 
 func PrintError(message string, a ...interface{}) {

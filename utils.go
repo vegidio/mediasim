@@ -2,24 +2,25 @@ package mediasim
 
 import (
 	"fmt"
-	"github.com/disintegration/imaging"
-	"github.com/samber/lo"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
-	downloader "github.com/vegidio/ffmpeg-downloader"
-	"github.com/vitali-fedulov/images4"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/disintegration/imaging"
+	"github.com/samber/lo"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
+	downloader "github.com/vegidio/ffmpeg-downloader"
+	"github.com/vegidio/go-sak/fs"
+	"github.com/vitali-fedulov/images4"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 )
 
 // Holds the file path to the FFmpeg binary. Defaults to the system-installed path if not explicitly set.
@@ -192,7 +193,12 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 		mediaTypes = append(mediaTypes, validVideoTypes...)
 	}
 
-	filePaths, err := listFiles(directory, mediaTypes, options.IsRecursive)
+	flags := fs.LpFile
+	if options.IsRecursive {
+		flags |= fs.LpRecursive
+	}
+
+	filePaths, err := fs.ListPath(directory, flags, mediaTypes)
 
 	if err != nil {
 		result := make(chan Result[Media], 1)
@@ -228,36 +234,6 @@ func getFFmpegPath(configName string) string {
 	}
 
 	return path
-}
-
-func listFiles(directory string, mediaTypes []string, recursive bool) ([]string, error) {
-	files := make([]string, 0)
-
-	err := filepath.WalkDir(directory, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil // skip on error
-		}
-
-		// If this is a directory below the root, and we're not in recursive mode, skip it
-		if d.IsDir() && !recursive && path != directory {
-			return filepath.SkipDir
-		}
-
-		if !d.IsDir() {
-			ext := strings.ToLower(filepath.Ext(path))
-			if slices.Contains(mediaTypes, ext) {
-				files = append(files, path)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return files, err
-	}
-
-	return files, nil
 }
 
 func loadFrames(directory string) ([]image.Image, error) {

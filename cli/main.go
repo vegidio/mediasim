@@ -3,10 +3,11 @@ package main
 import (
 	"cli/internal/charm"
 	"context"
+	"os"
+
 	_ "github.com/vegidio/avif-go"
 	_ "github.com/vegidio/heif-go"
 	"github.com/vegidio/mediasim"
-	"os"
 )
 
 func main() {

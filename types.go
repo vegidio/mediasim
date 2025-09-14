@@ -2,6 +2,7 @@ package mediasim
 
 import (
 	"fmt"
+
 	"github.com/vitali-fedulov/images4"
 )
 

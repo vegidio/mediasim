@@ -4,6 +4,7 @@ import (
 	"cli/internal/charm"
 	"context"
 	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"github.com/vegidio/mediasim"

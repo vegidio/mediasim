@@ -2,11 +2,12 @@ package charm
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vegidio/mediasim"
-	"strconv"
-	"time"
 )
 
 type tickMsg time.Time

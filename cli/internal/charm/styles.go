@@ -1,8 +1,6 @@
 package charm
 
-import (
-	"github.com/charmbracelet/lipgloss"
-)
+import "github.com/charmbracelet/lipgloss"
 
 var bold = lipgloss.NewStyle().Bold(true)
 

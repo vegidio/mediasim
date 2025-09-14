@@ -3,8 +3,9 @@ package main
 import (
 	"cli/internal/charm"
 	"fmt"
-	"github.com/vegidio/mediasim"
 	"runtime"
+
+	"github.com/vegidio/mediasim"
 )
 
 // The max number of files to process in parallel, depending on the number of cores in the computer

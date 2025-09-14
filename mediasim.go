@@ -1,9 +1,10 @@
 package mediasim
 
 import (
-	"github.com/vitali-fedulov/images4"
 	"math"
 	"slices"
+
+	"github.com/vitali-fedulov/images4"
 )
 
 const Version = "<version>"

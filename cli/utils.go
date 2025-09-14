@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/vegidio/mediasim"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/vegidio/mediasim"
 )
 
 func expandPath(path string) (string, error) {
