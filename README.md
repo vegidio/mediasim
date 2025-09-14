@@ -89,12 +89,14 @@ For the full list of parameters, type `mediasim --help` in the terminal.
 
 ## 🎞️ Supported media types
 
-In its default configuration, **mediasim** supports media files with the following extensions:
+In its default configuration, the **mediasim** library supports media files with the following extensions:
 
 - Images: `.bmp`, `.gif`, `.jpg` (`.jpeg`), `.png`, `.tiff`, `.webp`
 - Videos: `.avi`, `.mp4` (`.m4v`), `.mkv`, `.mov`, `.webm`
 
-If you want to work with additional file extensions, you can use the functions `AddImageType` or `AddVideoType` before performing any similarity comparisons. This allows **mediasim** to include these file types during calculations.
+The CLI supports two additional image formats: `.avif` and `.heic`.
+
+If you want to work with additional file extensions in the library, like those two above, you can use the functions `AddImageType` or `AddVideoType` before performing any similarity comparisons. This allows **mediasim** to include these file types during calculations.
 
 When adding support for new media formats, it's essential to load a 3rd party library capable of decoding them. For example, to enable AVIF image comparison in **mediasim**, you could use a library like [avif-go](https://github.com/vegidio/avif-go) to do this:
 
