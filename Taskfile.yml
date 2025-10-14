@@ -13,15 +13,16 @@ tasks:
     requires:
       vars: [ os, arch ]
     vars:
-      file: "{{if eq .os `windows`}}mediasim.exe{{else}}mediasim{{end}}"
+      FILE: "{{if eq .os `windows`}}mediasim.exe{{else}}mediasim{{end}}"
+      LDFLAGS: "{{if eq .os `windows`}}{{if eq .arch `amd64`}}-ldflags=\"-linkmode=external -s -w -extldflags '-static -static-libgcc -static-libstdc++'\"{{end}}{{end}}"
     env:
       CGO_ENABLED: 1
       GOOS: "{{.os}}"
       GOARCH: "{{.arch}}"
     cmds:
       - |
-        go build -o "{{.ROOT_DIR}}/build/{{.file}}" "{{.ROOT_DIR}}/cli"
-        {{if .isPackage}}7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim_{{.os}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.file}}"{{end}}
+        go build {{.LDFLAGS}} -o "{{.ROOT_DIR}}/build/{{.FILE}}" "{{.ROOT_DIR}}/cli"
+        {{if .isPackage}}7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim_{{.os}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.FILE}}"{{end}}
 
   package:
     desc: Build and pack in .zip files
