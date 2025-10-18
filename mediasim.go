@@ -110,13 +110,17 @@ func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
 	// shortest path to traverse the matrix.
 	for i := 0; i < len(frames1); i++ {
 		for j := 0; j < len(frames2); j++ {
-			similarity := calculateImageSimilarity(frames1[i], []images4.IconT{frames2[j]})
-			matrix[i] = append(matrix[i], similarity)
+			// We are using the inverted similarity here (in other words, the difference) because DTW uses the shortest
+			// path to traverse the matrix.
+			difference := 1 - calculateImageSimilarity(frames1[i], []images4.IconT{frames2[j]})
+			matrix[i] = append(matrix[i], difference)
 		}
 	}
 
 	distance, path := dtw(matrix)
-	return distance / float64(len(path))
+
+	// After calculating the distance, we need to invert it again to get the similarity.
+	return 1 - (distance / float64(len(path)))
 }
 
 // endregion
