@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/vegidio/go-sak/types"
 	"github.com/vegidio/mediasim"
 )
 
@@ -21,10 +22,10 @@ func tickCmd() tea.Cmd {
 type doneMsg struct{}
 
 type loadMsg struct {
-	result mediasim.Result[mediasim.Media]
+	result types.Result[mediasim.Media]
 }
 
-func loadCmd(ch <-chan mediasim.Result[mediasim.Media]) tea.Cmd {
+func loadCmd(ch <-chan types.Result[mediasim.Media]) tea.Cmd {
 	return func() tea.Msg {
 		if result, ok := <-ch; ok {
 			return loadMsg{result}
@@ -36,7 +37,7 @@ func loadCmd(ch <-chan mediasim.Result[mediasim.Media]) tea.Cmd {
 
 type progressModel struct {
 	progress      progress.Model
-	result        <-chan mediasim.Result[mediasim.Media]
+	result        <-chan types.Result[mediasim.Media]
 	media         []mediasim.Media
 	total         int
 	completed     int
@@ -131,7 +132,7 @@ func (m *progressModel) View() string {
 	)
 }
 
-func initProgressModel(result <-chan mediasim.Result[mediasim.Media], total int) *progressModel {
+func initProgressModel(result <-chan types.Result[mediasim.Media], total int) *progressModel {
 	p := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithoutPercentage(),
@@ -149,7 +150,7 @@ func initProgressModel(result <-chan mediasim.Result[mediasim.Media], total int)
 	}
 }
 
-func StartProgress(result <-chan mediasim.Result[mediasim.Media], total int) ([]mediasim.Media, error) {
+func StartProgress(result <-chan types.Result[mediasim.Media], total int) ([]mediasim.Media, error) {
 	model, err := tea.NewProgram(initProgressModel(result, total)).Run()
 	if err != nil {
 		return nil, err

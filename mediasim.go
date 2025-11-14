@@ -22,9 +22,10 @@ func CalculateSimilarity(media1, media2 Media) float64 {
 }
 
 // GroupMedia organizes a list of media objects into groups based on a similarity threshold.
-// It uses a Disjoint Set Union (DSU) to cluster media items whose pairwise similarity
-// score meets or exceeds the given threshold. Within each group (of at least two items),
-// media are sorted by quality, prioritizing length, then resolution, then file size.
+//
+// It uses a Disjoint Set Union (DSU) to cluster media items whose pairwise similarity score meets or exceeds the given
+// threshold. Within each group (of at least two items), media are sorted by quality, prioritizing length, then
+// resolution, then file size.
 //
 // # Parameters:
 //   - media: []Media Slice of Media objects to be grouped.

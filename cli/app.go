@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/vegidio/go-sak/types"
 	"github.com/vegidio/mediasim"
 )
 
@@ -22,13 +23,13 @@ func loadFiles(
 		charm.PrintCalculateFiles(len(files))
 	}
 
-	results := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
+	mediaCh := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
 		Parallel:    numWorkers,
 		FrameFlip:   frameFlip,
 		FrameRotate: frameRotate,
 	})
 
-	return getMedia(results, len(files), output, ignoreErrors)
+	return getMedia(mediaCh, len(files), output, ignoreErrors)
 }
 
 func loadDirectory(
@@ -55,7 +56,7 @@ func loadDirectory(
 		includeVideos = true
 	}
 
-	results, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
+	mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
 		IsRecursive:   recursive,
@@ -64,11 +65,11 @@ func loadDirectory(
 		FrameRotate:   frameRotate,
 	})
 
-	return getMedia(results, total, output, ignoreErrors)
+	return getMedia(mediaCh, total, output, ignoreErrors)
 }
 
 func getMedia(
-	result <-chan mediasim.Result[mediasim.Media],
+	channel <-chan types.Result[mediasim.Media],
 	total int,
 	output string,
 	ignoreErrors bool,
@@ -77,12 +78,12 @@ func getMedia(
 	var err error
 
 	if output == "report" {
-		media, err = charm.StartProgress(result, total)
+		media, err = charm.StartProgress(channel, total)
 		if err != nil {
 			return nil, fmt.Errorf("error loading media: %w", err)
 		}
 	} else {
-		for r := range result {
+		for r := range channel {
 			if r.Err != nil {
 				if ignoreErrors {
 					continue

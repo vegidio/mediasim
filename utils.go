@@ -10,13 +10,14 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/disintegration/imaging"
 	"github.com/samber/lo"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	downloader "github.com/vegidio/ffmpeg-downloader"
+	"github.com/vegidio/go-sak/async"
 	"github.com/vegidio/go-sak/fs"
+	"github.com/vegidio/go-sak/types"
 	"github.com/vitali-fedulov/images4"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
@@ -135,42 +136,21 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 // # Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue opening or decoding any of the files.
-func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[Media] {
+func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan types.Result[Media] {
 	options.SetDefaults()
-	result := make(chan Result[Media])
 
-	go func() {
-		defer close(result)
+	return async.SliceToChannel(filePaths, options.Parallel, func(filePath string) types.Result[Media] {
+		media, err := LoadMediaFromFile(filePath, FrameOptions{
+			FrameFlip:   options.FrameFlip,
+			FrameRotate: options.FrameRotate,
+		})
 
-		var wg sync.WaitGroup
-		sem := make(chan struct{}, options.Parallel)
-
-		for _, file := range filePaths {
-			wg.Add(1)
-			sem <- struct{}{}
-
-			go func(filePath string) {
-				defer wg.Done()
-				defer func() { <-sem }()
-
-				media, mediaErr := LoadMediaFromFile(filePath, FrameOptions{
-					FrameFlip:   options.FrameFlip,
-					FrameRotate: options.FrameRotate,
-				})
-
-				if mediaErr == nil {
-					result <- Result[Media]{Data: *media}
-				} else {
-					result <- Result[Media]{Err: mediaErr}
-				}
-			}(file)
+		if err == nil {
+			return types.Result[Media]{Data: *media}
+		} else {
+			return types.Result[Media]{Err: err}
 		}
-
-		wg.Wait()
-		close(sem)
-	}()
-
-	return result
+	})
 }
 
 // LoadMediaFromDirectory loads Media objects from a specified directory based on the provided options.
@@ -182,7 +162,7 @@ func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[
 // # Returns:
 //   - A channel that will receive Result[Media] objects for each valid file processed.
 //   - An integer representing the total number of files that will be processed.
-func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan Result[Media], int) {
+func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan types.Result[Media], int) {
 	options.SetDefaults()
 
 	mediaTypes := make([]string, 0)
@@ -201,10 +181,10 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 	filePaths, err := fs.ListPath(directory, flags, mediaTypes)
 
 	if err != nil {
-		result := make(chan Result[Media], 1)
+		result := make(chan types.Result[Media], 1)
 		defer close(result)
 
-		result <- Result[Media]{Err: err}
+		result <- types.Result[Media]{Err: err}
 		return result, 0
 	}
 
