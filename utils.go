@@ -17,7 +17,7 @@ import (
 	downloader "github.com/vegidio/ffmpeg-downloader"
 	"github.com/vegidio/go-sak/async"
 	"github.com/vegidio/go-sak/fs"
-	"github.com/vegidio/go-sak/types"
+	. "github.com/vegidio/go-sak/types"
 	"github.com/vitali-fedulov/images4"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
@@ -136,19 +136,19 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 // # Returns:
 //   - A channel that will receive Media objects for each valid file processed.
 //   - An error if there is an issue opening or decoding any of the files.
-func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan types.Result[Media] {
+func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[Media] {
 	options.SetDefaults()
 
-	return async.SliceToChannel(filePaths, options.Parallel, func(filePath string) types.Result[Media] {
+	return async.SliceToChannel(filePaths, options.Parallel, func(filePath string) Result[Media] {
 		media, err := LoadMediaFromFile(filePath, FrameOptions{
 			FrameFlip:   options.FrameFlip,
 			FrameRotate: options.FrameRotate,
 		})
 
 		if err == nil {
-			return types.Result[Media]{Data: *media}
+			return Result[Media]{Data: *media}
 		} else {
-			return types.Result[Media]{Err: err}
+			return Result[Media]{Err: err}
 		}
 	})
 }
@@ -162,7 +162,7 @@ func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan types.R
 // # Returns:
 //   - A channel that will receive Result[Media] objects for each valid file processed.
 //   - An integer representing the total number of files that will be processed.
-func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan types.Result[Media], int) {
+func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan Result[Media], int) {
 	options.SetDefaults()
 
 	mediaTypes := make([]string, 0)
@@ -181,10 +181,10 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 	filePaths, err := fs.ListPath(directory, flags, mediaTypes)
 
 	if err != nil {
-		result := make(chan types.Result[Media], 1)
+		result := make(chan Result[Media], 1)
 		defer close(result)
 
-		result <- types.Result[Media]{Err: err}
+		result <- Result[Media]{Err: err}
 		return result, 0
 	}
 

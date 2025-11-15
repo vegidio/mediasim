@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/vegidio/go-sak/types"
-	"github.com/vegidio/mediasim"
+	. "github.com/vegidio/go-sak/types"
+	. "github.com/vegidio/mediasim"
 )
 
 // The max number of files to process in parallel, depending on the number of cores in the computer
@@ -18,12 +18,12 @@ func loadFiles(
 	frameRotate bool,
 	output string,
 	ignoreErrors bool,
-) ([]mediasim.Media, error) {
+) ([]Media, error) {
 	if output == "report" {
 		charm.PrintCalculateFiles(len(files))
 	}
 
-	mediaCh := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
+	mediaCh := LoadMediaFromFiles(files, FilesOptions{
 		Parallel:    numWorkers,
 		FrameFlip:   frameFlip,
 		FrameRotate: frameRotate,
@@ -40,7 +40,7 @@ func loadDirectory(
 	mediaType string,
 	output string,
 	ignoreErrors bool,
-) ([]mediasim.Media, error) {
+) ([]Media, error) {
 	if output == "report" {
 		charm.PrintCalculateDirectory(directory)
 	}
@@ -56,7 +56,7 @@ func loadDirectory(
 		includeVideos = true
 	}
 
-	mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
+	mediaCh, total := LoadMediaFromDirectory(directory, DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
 		IsRecursive:   recursive,
@@ -69,12 +69,12 @@ func loadDirectory(
 }
 
 func getMedia(
-	channel <-chan types.Result[mediasim.Media],
+	channel <-chan Result[Media],
 	total int,
 	output string,
 	ignoreErrors bool,
-) ([]mediasim.Media, error) {
-	media := make([]mediasim.Media, 0)
+) ([]Media, error) {
+	media := make([]Media, 0)
 	var err error
 
 	if output == "report" {
@@ -99,29 +99,29 @@ func getMedia(
 	return media, nil
 }
 
-func calculateScore(media []mediasim.Media) float64 {
-	return mediasim.CalculateSimilarity(media[0], media[1])
+func calculateScore(media []Media) float64 {
+	return CalculateSimilarity(media[0], media[1])
 }
 
-func groupAndReport(media []mediasim.Media, threshold float64, output string) [][]mediasim.Media {
-	groups := make([][]mediasim.Media, 0)
+func groupAndReport(media []Media, threshold float64, output string) [][]Media {
+	groups := make([][]Media, 0)
 
 	if output == "report" {
 		groups = charm.StartSpinner(media, threshold, "🔎 Grouping media with at least %s similarity threshold...")
 	} else {
-		groups = mediasim.GroupMedia(media, threshold)
+		groups = GroupMedia(media, threshold)
 	}
 
 	return groups
 }
 
-func groupAndRename(media []mediasim.Media, threshold float64, output string) [][]mediasim.Media {
-	groups := make([][]mediasim.Media, 0)
+func groupAndRename(media []Media, threshold float64, output string) [][]Media {
+	groups := make([][]Media, 0)
 
 	if output == "report" {
 		groups = charm.StartSpinner(media, threshold, "📝 Renaming media with at least %s similarity threshold...")
 	} else {
-		groups = mediasim.GroupMedia(media, threshold)
+		groups = GroupMedia(media, threshold)
 	}
 
 	return groups
