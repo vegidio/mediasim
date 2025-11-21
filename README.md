@@ -82,8 +82,8 @@ Other parameters you can use:
 - `-t` (optional): the threshold for the similarity score; a value between 0–1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only similarities of 80% or higher will be reported.
 - `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
 - `--ie` (optional): ignores errors and continues the comparison even if some files are not valid.
-- `--ff` (optional; images only): flips the frames vertically and horizontally during the comparison.
-- `--fr` (optional; images only): rotates the frames in multiple angles during the comparison.
+- `--ff` (optional): flips the frames vertically and horizontally during the comparison.
+- `--fr` (optional): rotates the frames in multiple angles during the comparison.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 

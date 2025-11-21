@@ -46,35 +46,42 @@ func LoadMediaFromImages(name string, images []image.Image, options FrameOptions
 		seconds = size
 	}
 
-	frames := lo.Map(images, func(img image.Image, _ int) images4.IconT {
-		return images4.Icon(img)
-	})
-
-	if mediaType == "image" {
-		if options.FrameFlip {
-			frames = append(frames, []images4.IconT{
-				images4.Icon(imaging.FlipH(images[0])),
-				images4.Icon(imaging.FlipV(images[0])),
-			}...)
-		}
-
-		if options.FrameRotate {
-			frames = append(frames, []images4.IconT{
-				images4.Icon(imaging.Rotate90(images[0])),
-				images4.Icon(imaging.Rotate180(images[0])),
-				images4.Icon(imaging.Rotate270(images[0])),
-			}...)
-		}
-	}
-
-	return Media{
+	media := Media{
 		Name:   name,
 		Type:   mediaType,
-		Frames: frames,
 		Width:  images[0].Bounds().Dx(),
 		Height: images[0].Bounds().Dy(),
 		Length: seconds,
 	}
+
+	media.FramesOriginal = lo.Map(images, func(img image.Image, _ int) images4.IconT {
+		return images4.Icon(img)
+	})
+
+	if options.FrameFlip {
+		flipped := lo.Map(images, func(img image.Image, _ int) lo.Tuple2[images4.IconT, images4.IconT] {
+			return lo.T2(
+				images4.Icon(imaging.FlipH(img)),
+				images4.Icon(imaging.FlipV(img)),
+			)
+		})
+
+		media.FramesFlippedH, media.FramesFlippedV = lo.Unzip2(flipped)
+	}
+
+	if options.FrameRotate {
+		rotated := lo.Map(images, func(img image.Image, _ int) lo.Tuple3[images4.IconT, images4.IconT, images4.IconT] {
+			return lo.T3(
+				images4.Icon(imaging.Rotate90(img)),
+				images4.Icon(imaging.Rotate180(img)),
+				images4.Icon(imaging.Rotate270(img)),
+			)
+		})
+
+		media.FramesRotated90, media.FramesRotated180, media.FramesRotated270 = lo.Unzip3(rotated)
+	}
+
+	return media
 }
 
 // LoadMediaFromFile loads a Media object from the given file path.

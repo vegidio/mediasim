@@ -6,14 +6,29 @@ import (
 	"github.com/vitali-fedulov/images4"
 )
 
+type Frames struct {
+	// FramesOriginal contain the original image data.
+	FramesOriginal []images4.IconT `json:"-"`
+	// FramesFlippedV contain the image data flipped vertically.
+	FramesFlippedV []images4.IconT `json:"-"`
+	// FramesFlippedH contain the image data flipped horizontally.
+	FramesFlippedH []images4.IconT `json:"-"`
+	// FramesRotated90 contain the image data rotated 90 degrees.
+	FramesRotated90 []images4.IconT `json:"-"`
+	// FramesRotated180 contain the image data rotated 180 degrees.
+	FramesRotated180 []images4.IconT `json:"-"`
+	// FramesRotated270 contain the image data rotated 270 degrees.
+	FramesRotated270 []images4.IconT `json:"-"`
+}
+
 // Media represents a media object.
 type Media struct {
+	Frames
+
 	// Name of the media.
 	Name string `json:"name"`
 	// Type of the media (e.g., image, video).
 	Type string `json:"type"`
-	// Frames contain the image data of the media.
-	Frames []images4.IconT `json:"-"`
 	// Width represents the width of the media in pixels.
 	Width int `json:"width"`
 	// Height represents the height of the media in pixels.

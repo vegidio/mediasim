@@ -4,21 +4,43 @@ import (
 	"math"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/vitali-fedulov/images4"
 )
 
 const Version = "<version>"
 
+// MaxDifference is the maximum numeric difference when comparing two images:
+// i.e., a completely white image compared to a completely black image.
+const MaxDifference = 2804
+
 // CalculateSimilarity computes a similarity score between two Media objects.
 // Returns a value between 0 and 1, where higher values indicate greater similarity.
 func CalculateSimilarity(media1, media2 Media) float64 {
+	frameGroup := lo.Filter([][]images4.IconT{
+		media2.FramesOriginal,
+		media2.FramesFlippedV,
+		media2.FramesFlippedH,
+		media2.FramesRotated90,
+		media2.FramesRotated180,
+		media2.FramesRotated270,
+	}, func(f []images4.IconT, _ int) bool {
+		return len(f) > 0
+	})
+
+	similarity := 0.0
+
 	if media1.Type == "image" && media2.Type == "image" {
-		return calculateImageSimilarity(media1.Frames[0], media2.Frames)
+		for _, frames := range frameGroup {
+			similarity = max(similarity, calculateImageSimilarity(media1.FramesOriginal[0], frames[0]))
+		}
 	} else if media1.Type == "video" && media2.Type == "video" {
-		return calculateVideoSimilarity(media1.Frames, media2.Frames)
-	} else {
-		return 0.0
+		for _, frames := range frameGroup {
+			similarity = max(similarity, calculateVideoSimilarity(media1.FramesOriginal, frames))
+		}
 	}
+
+	return similarity
 }
 
 // GroupMedia organizes a list of media objects into groups based on a similarity threshold.
@@ -81,26 +103,15 @@ func GroupMedia(media []Media, threshold float64) [][]Media {
 
 // region - Private functions
 
-func calculateImageSimilarity(frame1 images4.IconT, frames2 []images4.IconT) float64 {
-	// This constant is the maximum numeric difference when comparing two images:
-	// i.e., a completely white image compared to a completely black image.
-	const MaxDifference = 2804
+func calculateImageSimilarity(frame1 images4.IconT, frame2 images4.IconT) float64 {
+	m1, m2, m3 := images4.EucMetric(frame1, frame2)
 
-	similarity := 0.0
+	// m1 is the lumen, in other words, what makes easy to identify the form and shape in the image, so this value
+	// is the most important doing the similarity comparison. The other values, m2 and m3, are the colors, which are
+	// not so important to calculate the similarity, that's why their values have half the weight of lumen.
+	difference := math.Sqrt(m1+m2/2+m3/2) / MaxDifference
 
-	// Even though we are comparing two images, frames2 can have more than one frame if we are also comparing the
-	// flipped and rotated versions of the same image.
-	for _, frame2 := range frames2 {
-		m1, m2, m3 := images4.EucMetric(frame1, frame2)
-
-		// m1 is the lumen, in other words, what makes easy to identify the form and shape in the image, so this value
-		// is the most important doing the similarity comparison. The other values, m2 and m3, are the colors, which are
-		// not so important to calculate the similarity, that's why their values have half the weight of lumen.
-		difference := math.Sqrt(m1+m2/2+m3/2) / MaxDifference
-		similarity = max(similarity, 1-difference)
-	}
-
-	return similarity
+	return 1 - difference
 }
 
 func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
@@ -113,7 +124,7 @@ func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
 		for j := 0; j < len(frames2); j++ {
 			// We are using the inverted similarity here (in other words, the difference) because DTW uses the shortest
 			// path to traverse the matrix.
-			difference := 1 - calculateImageSimilarity(frames1[i], []images4.IconT{frames2[j]})
+			difference := 1 - calculateImageSimilarity(frames1[i], frames2[j])
 			matrix[i] = append(matrix[i], difference)
 		}
 	}
