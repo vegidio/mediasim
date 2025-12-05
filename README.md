@@ -162,7 +162,7 @@ $ task cli os=windows arch=amd64
 
 ## 📝 License
 
-**mediasim** is released under the MIT License. See [LICENSE](LICENSE) for details.
+**mediasim** is released under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
 
 ## 👨🏾‍💻 Author
 

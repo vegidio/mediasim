@@ -9,7 +9,7 @@ tasks:
   # CLI build tasks
   cli:
     desc: Build the CLI version of the app
-    dir: cli
+    dir: cmd/cli
     requires:
       vars: [ os, arch ]
     vars:
