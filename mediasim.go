@@ -8,8 +8,6 @@ import (
 	"github.com/vitali-fedulov/images4"
 )
 
-const Version = "<version>"
-
 // MaxDifference is the maximum numeric difference when comparing two images:
 // i.e., a completely white image compared to a completely black image.
 const MaxDifference = 2804

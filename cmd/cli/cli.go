@@ -1,16 +1,18 @@
 package main
 
 import (
+	"cli/internal"
 	"cli/internal/charm"
 	"context"
 	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
+	"github.com/vegidio/go-sak/o11y"
 	"github.com/vegidio/mediasim"
 )
 
-func buildCliCommands() *cli.Command {
+func buildCliCommands(tel *o11y.Telemetry) *cli.Command {
 	var media []mediasim.Media
 	var files []string
 	var directory string
@@ -27,7 +29,7 @@ func buildCliCommands() *cli.Command {
 		Name:            "mediasim",
 		Usage:           "a tool to calculate the similarity of images & videos",
 		UsageText:       "mediasim <command> [-t <threshold>] [--if] [--ir] [-o <output>]",
-		Version:         mediasim.Version,
+		Version:         internal.Version,
 		HideHelpCommand: true,
 		Commands: []*cli.Command{
 			{
@@ -35,6 +37,12 @@ func buildCliCommands() *cli.Command {
 				Usage:     "calculate the similarity score of two media files",
 				UsageText: "mediasim score <file1> <file2>",
 				Action: func(ctx context.Context, command *cli.Command) error {
+					tel.LogInfo("Calculate score", map[string]any{
+						"frame.flip":   frameFlip,
+						"frame.rotate": frameRotate,
+						"output.type":  output,
+					})
+
 					files = command.Args().Slice()
 
 					if len(files) != 2 {
@@ -71,6 +79,12 @@ func buildCliCommands() *cli.Command {
 				UsageText: "mediasim files <file1> <file2> [<file3> ...] ",
 				Flags:     []cli.Flag{},
 				Action: func(ctx context.Context, command *cli.Command) error {
+					tel.LogInfo("Compare files", map[string]any{
+						"frame.flip":   frameFlip,
+						"frame.rotate": frameRotate,
+						"output.type":  output,
+					})
+
 					files = command.Args().Slice()
 
 					if len(files) < 2 {
@@ -135,6 +149,13 @@ func buildCliCommands() *cli.Command {
 					},
 				},
 				Action: func(ctx context.Context, command *cli.Command) error {
+					tel.LogInfo("Compare directory", map[string]any{
+						"frame.flip":   frameFlip,
+						"frame.rotate": frameRotate,
+						"output.type":  output,
+						"media.type":   mediaType,
+					})
+
 					directory = command.Args().First()
 					directory, err = expandPath(directory)
 					if err != nil {
@@ -194,6 +215,12 @@ func buildCliCommands() *cli.Command {
 					},
 				},
 				Action: func(ctx context.Context, command *cli.Command) error {
+					tel.LogInfo("Rename files", map[string]any{
+						"frame.flip":   frameFlip,
+						"frame.rotate": frameRotate,
+						"media.type":   mediaType,
+					})
+
 					directory = command.Args().First()
 					directory, err = expandPath(directory)
 					if err != nil {

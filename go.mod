@@ -7,7 +7,7 @@ require (
 	github.com/samber/lo v1.52.0
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c
-	github.com/vegidio/go-sak v0.0.0-20251114201744-96b65e2dedae
+	github.com/vegidio/go-sak v0.0.0-20251229101900-69359b5ac6b8
 	github.com/vitali-fedulov/images4 v1.3.1
 	golang.org/x/image v0.33.0
 )
@@ -22,6 +22,6 @@ require (
 	github.com/u2takey/go-utils v0.3.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 )
