@@ -12,7 +12,7 @@ import (
 	"github.com/vegidio/mediasim"
 )
 
-func buildCliCommands(tel *o11y.Telemetry) *cli.Command {
+func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 	var media []mediasim.Media
 	var files []string
 	var directory string
@@ -37,7 +37,7 @@ func buildCliCommands(tel *o11y.Telemetry) *cli.Command {
 				Usage:     "calculate the similarity score of two media files",
 				UsageText: "mediasim score <file1> <file2>",
 				Action: func(ctx context.Context, command *cli.Command) error {
-					tel.LogInfo("Calculate score", map[string]any{
+					otel.LogInfo("Calculate score", map[string]any{
 						"frame.flip":   frameFlip,
 						"frame.rotate": frameRotate,
 						"output.type":  output,
@@ -79,7 +79,7 @@ func buildCliCommands(tel *o11y.Telemetry) *cli.Command {
 				UsageText: "mediasim files <file1> <file2> [<file3> ...] ",
 				Flags:     []cli.Flag{},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					tel.LogInfo("Compare files", map[string]any{
+					otel.LogInfo("Compare files", map[string]any{
 						"frame.flip":   frameFlip,
 						"frame.rotate": frameRotate,
 						"output.type":  output,
@@ -149,7 +149,7 @@ func buildCliCommands(tel *o11y.Telemetry) *cli.Command {
 					},
 				},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					tel.LogInfo("Compare directory", map[string]any{
+					otel.LogInfo("Compare directory", map[string]any{
 						"frame.flip":   frameFlip,
 						"frame.rotate": frameRotate,
 						"output.type":  output,
@@ -215,7 +215,7 @@ func buildCliCommands(tel *o11y.Telemetry) *cli.Command {
 					},
 				},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					tel.LogInfo("Rename files", map[string]any{
+					otel.LogInfo("Rename files", map[string]any{
 						"frame.flip":   frameFlip,
 						"frame.rotate": frameRotate,
 						"media.type":   mediaType,

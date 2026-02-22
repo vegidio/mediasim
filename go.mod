@@ -7,7 +7,7 @@ require (
 	github.com/samber/lo v1.52.0
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c
-	github.com/vegidio/go-sak v0.0.0-20251229101900-69359b5ac6b8
+	github.com/vegidio/go-sak v0.0.0-20260222095309-3fc413b07da0
 	github.com/vitali-fedulov/images4 v1.3.1
 	golang.org/x/image v0.33.0
 )

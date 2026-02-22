@@ -13,16 +13,24 @@ import (
 )
 
 func main() {
-	tel := o11y.NewTelemetry(internal.OtelEndpoint, "mediasim", internal.Version, internal.OtelEnvironment, true)
-	defer tel.Close()
+	otel := o11y.NewTelemetry(
+		internal.OtelEndpoint,
+		"mediasim",
+		internal.Version,
+		map[string]string{"Authorization": internal.OtelAuth},
+		internal.OtelEnvironment,
+		true,
+	)
+
+	defer otel.Close()
 
 	// Add support for AVIF and HEIC images
 	mediasim.AddImageType(".avif", ".heic")
 
-	cmd := buildCliCommands(tel)
+	cmd := buildCliCommands(otel)
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		tel.LogError("Error running app", make(map[string]any), err)
+		otel.LogError("Error running app", make(map[string]any), err)
 		charm.PrintError(err.Error())
 	}
 }
