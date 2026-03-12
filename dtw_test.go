@@ -6,29 +6,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMin3(t *testing.T) {
+func TestMin(t *testing.T) {
 	t.Run("first is smallest", func(t *testing.T) {
-		assert.Equal(t, 1.0, min3(1.0, 2.0, 3.0))
+		assert.Equal(t, 1.0, min(1.0, 2.0, 3.0))
 	})
 
 	t.Run("second is smallest", func(t *testing.T) {
-		assert.Equal(t, 1.0, min3(2.0, 1.0, 3.0))
+		assert.Equal(t, 1.0, min(2.0, 1.0, 3.0))
 	})
 
 	t.Run("third is smallest", func(t *testing.T) {
-		assert.Equal(t, 1.0, min3(3.0, 2.0, 1.0))
+		assert.Equal(t, 1.0, min(3.0, 2.0, 1.0))
 	})
 
 	t.Run("all equal", func(t *testing.T) {
-		assert.Equal(t, 5.0, min3(5.0, 5.0, 5.0))
+		assert.Equal(t, 5.0, min(5.0, 5.0, 5.0))
 	})
 
 	t.Run("two equal smallest", func(t *testing.T) {
-		assert.Equal(t, 1.0, min3(1.0, 1.0, 3.0))
+		assert.Equal(t, 1.0, min(1.0, 1.0, 3.0))
 	})
 
 	t.Run("negative values", func(t *testing.T) {
-		assert.Equal(t, -3.0, min3(-1.0, -2.0, -3.0))
+		assert.Equal(t, -3.0, min(-1.0, -2.0, -3.0))
 	})
 }
 

@@ -24,9 +24,8 @@ func loadFiles(
 	}
 
 	mediaCh := LoadMediaFromFiles(files, FilesOptions{
-		Parallel:    numWorkers,
-		FrameFlip:   frameFlip,
-		FrameRotate: frameRotate,
+		Parallel:     numWorkers,
+		FrameOptions: FrameOptions{FrameFlip: frameFlip, FrameRotate: frameRotate},
 	})
 
 	return getMedia(mediaCh, len(files), output, ignoreErrors)
@@ -61,8 +60,7 @@ func loadDirectory(
 		IncludeVideos: includeVideos,
 		IsRecursive:   recursive,
 		Parallel:      numWorkers,
-		FrameFlip:     frameFlip,
-		FrameRotate:   frameRotate,
+		FrameOptions:  FrameOptions{FrameFlip: frameFlip, FrameRotate: frameRotate},
 	})
 
 	return getMedia(mediaCh, total, output, ignoreErrors)
@@ -74,7 +72,7 @@ func getMedia(
 	output string,
 	ignoreErrors bool,
 ) ([]Media, error) {
-	media := make([]Media, 0)
+	media := make([]Media, 0, total)
 	var err error
 
 	if output == "report" {
@@ -103,26 +101,10 @@ func calculateScore(media []Media) float64 {
 	return CalculateSimilarity(media[0], media[1])
 }
 
-func groupAndReport(media []Media, threshold float64, output string) [][]Media {
-	groups := make([][]Media, 0)
-
+func groupMedia(media []Media, threshold float64, output, message string) [][]Media {
 	if output == "report" {
-		groups = charm.StartSpinner(media, threshold, "🔎 Grouping media with at least %s similarity threshold...")
-	} else {
-		groups = GroupMedia(media, threshold)
+		return charm.StartSpinner(media, threshold, message)
 	}
 
-	return groups
-}
-
-func groupAndRename(media []Media, threshold float64, output string) [][]Media {
-	groups := make([][]Media, 0)
-
-	if output == "report" {
-		groups = charm.StartSpinner(media, threshold, "📝 Renaming media with at least %s similarity threshold...")
-	} else {
-		groups = GroupMedia(media, threshold)
-	}
-
-	return groups
+	return GroupMedia(media, threshold)
 }

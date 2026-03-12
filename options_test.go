@@ -20,7 +20,7 @@ func TestFilesOptions_SetDefaults(t *testing.T) {
 	})
 
 	t.Run("does not modify other fields", func(t *testing.T) {
-		opts := FilesOptions{FrameFlip: true, FrameRotate: true}
+		opts := FilesOptions{FrameOptions: FrameOptions{FrameFlip: true, FrameRotate: true}}
 		opts.SetDefaults()
 		assert.True(t, opts.FrameFlip)
 		assert.True(t, opts.FrameRotate)

@@ -105,7 +105,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return nil
 					}
 
-					groups := groupAndReport(media, threshold, output)
+					groups := groupMedia(media, threshold, output, "🔎 Grouping media with at least %s similarity threshold...")
 
 					switch output {
 					case "report":
@@ -159,7 +159,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 					directory = command.Args().First()
 					directory, err = expandPath(directory)
 					if err != nil {
-						return nil
+						return err
 					}
 
 					media, err = loadDirectory(
@@ -179,7 +179,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return nil
 					}
 
-					groups := groupAndReport(media, threshold, output)
+					groups := groupMedia(media, threshold, output, "🔎 Grouping media with at least %s similarity threshold...")
 
 					switch output {
 					case "report":
@@ -224,7 +224,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 					directory = command.Args().First()
 					directory, err = expandPath(directory)
 					if err != nil {
-						return nil
+						return err
 					}
 
 					media, err = loadDirectory(
@@ -244,7 +244,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return nil
 					}
 
-					groups := groupAndRename(media, threshold, output)
+					groups := groupMedia(media, threshold, output, "📝 Renaming media with at least %s similarity threshold...")
 					err = renameMedia(groups)
 
 					if err != nil {

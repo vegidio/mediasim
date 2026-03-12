@@ -6,15 +6,6 @@ type Pair struct {
 	I, J int
 }
 
-func min3(a, b, c float64) float64 {
-	if a <= b && a <= c {
-		return a
-	} else if b <= a && b <= c {
-		return b
-	}
-	return c
-}
-
 func dtw(input [][]float64) (float64, []Pair) {
 	n := len(input)
 	if n == 0 {
@@ -22,11 +13,11 @@ func dtw(input [][]float64) (float64, []Pair) {
 	}
 	m := len(input[0])
 
-	// Create and initialize the cumulative cost matrix with Inf.
+	// Create and initialize the cumulative cost matrix with +Inf.
 	matrix := make([][]float64, n)
-	for i := 0; i < n; i++ {
+	for i := range matrix {
 		matrix[i] = make([]float64, m)
-		for j := 0; j < m; j++ {
+		for j := range matrix[i] {
 			matrix[i][j] = math.Inf(1)
 		}
 	}
@@ -43,7 +34,7 @@ func dtw(input [][]float64) (float64, []Pair) {
 	// Populate rest of the cumulative cost matrix.
 	for i := 1; i < n; i++ {
 		for j := 1; j < m; j++ {
-			matrix[i][j] = input[i][j] + min3(matrix[i-1][j], matrix[i][j-1], matrix[i-1][j-1])
+			matrix[i][j] = input[i][j] + min(matrix[i-1][j], matrix[i][j-1], matrix[i-1][j-1])
 		}
 	}
 

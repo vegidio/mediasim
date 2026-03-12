@@ -128,8 +128,9 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	media := LoadMediaFromImages(filePath, images, options)
 
 	// Add the file size to the media
-	info, _ := file.Stat()
-	media.Size = info.Size()
+	if info, infoErr := file.Stat(); infoErr == nil {
+		media.Size = info.Size()
+	}
 
 	return &media, nil
 }
@@ -147,10 +148,7 @@ func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[
 	options.SetDefaults()
 
 	return async.SliceToChannel(filePaths, options.Parallel, func(filePath string) Result[Media] {
-		media, err := LoadMediaFromFile(filePath, FrameOptions{
-			FrameFlip:   options.FrameFlip,
-			FrameRotate: options.FrameRotate,
-		})
+		media, err := LoadMediaFromFile(filePath, options.FrameOptions)
 
 		if err == nil {
 			return Result[Media]{Data: *media}
@@ -196,9 +194,8 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 	}
 
 	return LoadMediaFromFiles(filePaths, FilesOptions{
-		FrameFlip:   options.FrameFlip,
-		FrameRotate: options.FrameRotate,
-		Parallel:    options.Parallel,
+		Parallel:     options.Parallel,
+		FrameOptions: options.FrameOptions,
 	}), len(filePaths)
 }
 
@@ -240,12 +237,13 @@ func loadFrames(directory string) ([]image.Image, error) {
 				return images, fErr
 			}
 
+			defer f.Close()
+
 			img, _, imgErr := image.Decode(f)
 			if imgErr != nil {
 				return images, imgErr
 			}
 
-			f.Close()
 			images = append(images, img)
 		}
 	}

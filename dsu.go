@@ -8,14 +8,11 @@ type DSU struct {
 // NewDSU initializes a DSU for n elements.
 func NewDSU(n int) *DSU {
 	p := make([]int, n)
-	r := make([]int, n)
-
-	for i := 0; i < n; i++ {
+	for i := range p {
 		p[i] = i
-		r[i] = 0
 	}
 
-	return &DSU{parent: p, rank: r}
+	return &DSU{parent: p, rank: make([]int, n)}
 }
 
 // Find with path compression.

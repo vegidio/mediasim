@@ -14,12 +14,10 @@ type FrameOptions struct {
 //
 // # Fields:
 //   - Parallel: The number of files to process in parallel.
-//   - FrameFlip: A flag indicating whether the frames should be flipped.
-//   - FrameRotate: A flag indicating whether the frames should be rotated.
+//   - FrameOptions: Frame transformation options (flip, rotate).
 type FilesOptions struct {
-	Parallel    int
-	FrameFlip   bool
-	FrameRotate bool
+	Parallel int
+	FrameOptions
 }
 
 func (o *FilesOptions) SetDefaults() {
@@ -35,15 +33,13 @@ func (o *FilesOptions) SetDefaults() {
 //   - IncludeVideos: A flag indicating whether to include video files.
 //   - IsRecursive: A flag indicating whether to search subdirectories recursively.
 //   - Parallel: The number of files to process in parallel.
-//   - FrameFlip: A flag indicating whether the frames should be flipped.
-//   - FrameRotate: A flag indicating whether the frames should be rotated.
+//   - FrameOptions: Frame transformation options (flip, rotate).
 type DirectoryOptions struct {
 	IncludeImages bool
 	IncludeVideos bool
 	IsRecursive   bool
 	Parallel      int
-	FrameFlip     bool
-	FrameRotate   bool
+	FrameOptions
 }
 
 func (o *DirectoryOptions) SetDefaults() {

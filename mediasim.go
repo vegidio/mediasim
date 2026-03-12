@@ -4,7 +4,6 @@ import (
 	"math"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/vitali-fedulov/images4"
 )
 
@@ -15,15 +14,15 @@ const MaxDifference = 2804
 // CalculateSimilarity computes a similarity score between two Media objects.
 // Returns a value between 0 and 1, where higher values indicate greater similarity.
 func CalculateSimilarity(media1, media2 Media) float64 {
-	frameGroup := lo.Filter([][]images4.IconT{
+	frameGroup := slices.DeleteFunc([][]images4.IconT{
 		media2.FramesOriginal,
 		media2.FramesFlippedV,
 		media2.FramesFlippedH,
 		media2.FramesRotated90,
 		media2.FramesRotated180,
 		media2.FramesRotated270,
-	}, func(f []images4.IconT, _ int) bool {
-		return len(f) > 0
+	}, func(f []images4.IconT) bool {
+		return len(f) == 0
 	})
 
 	similarity := 0.0
@@ -118,12 +117,14 @@ func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
 	// Dynamic Time Warping (DTW) is used to measure the similarity of videos. It does that by creating a matrix
 	// measuring the image similarity of every frame with the other frames of the opposing video and calculating the
 	// shortest path to traverse the matrix.
-	for i := 0; i < len(frames1); i++ {
-		for j := 0; j < len(frames2); j++ {
+	for i, f1 := range frames1 {
+		// Pre-allocate each row to avoid repeated append reallocations.
+		matrix[i] = make([]float64, len(frames2))
+
+		for j, f2 := range frames2 {
 			// We are using the inverted similarity here (in other words, the difference) because DTW uses the shortest
 			// path to traverse the matrix.
-			difference := 1 - calculateImageSimilarity(frames1[i], frames2[j])
-			matrix[i] = append(matrix[i], difference)
+			matrix[i][j] = 1 - calculateImageSimilarity(f1, f2)
 		}
 	}
 
