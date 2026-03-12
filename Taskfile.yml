@@ -10,9 +10,9 @@ tasks:
   cli:
     desc: Build the CLI version of the app
     dir: cmd/cli
-    requires:
-      vars: [ os, arch ]
     vars:
+      os: "{{.os | default OS}}"
+      arch: "{{.arch | default ARCH}}"
       FILE: "{{if eq .os `windows`}}mediasim.exe{{else}}mediasim{{end}}"
       LDFLAGS: "{{if eq .os `windows`}}-ldflags=\"-linkmode=external -s -w -extldflags '-static -static-libgcc -static-libstdc++'\"{{end}}"
     env:
