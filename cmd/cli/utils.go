@@ -11,6 +11,18 @@ import (
 	"github.com/vegidio/mediasim"
 )
 
+func expandPaths(paths []string) ([]string, error) {
+	result := make([]string, 0, len(paths))
+	for _, p := range paths {
+		expanded, err := expandPath(p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to expand path %q: %w", p, err)
+		}
+		result = append(result, expanded)
+	}
+	return result, nil
+}
+
 func expandPath(path string) (string, error) {
 	path = filepath.Clean(path)
 

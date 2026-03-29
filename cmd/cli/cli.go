@@ -2,28 +2,34 @@ package main
 
 import (
 	"cli/internal"
-	"cli/internal/charm"
 	"context"
 	"fmt"
 
-	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"github.com/vegidio/go-sak/o11y"
-	"github.com/vegidio/mediasim"
 )
 
+type cmdContext struct {
+	threshold    float64
+	output       string
+	recursive    bool
+	frameFlip    bool
+	frameRotate  bool
+	mediaType    string
+	ignoreErrors bool
+	otel         *o11y.Telemetry
+}
+
+func validateMediaType(s string) error {
+	if s != "image" && s != "video" && s != "all" {
+		return fmt.Errorf("invalid media type; must be 'image', 'video', or 'all'")
+	}
+
+	return nil
+}
+
 func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
-	var media []mediasim.Media
-	var files []string
-	var directory string
-	var threshold float64
-	var output string
-	var recursive bool
-	var frameFlip bool
-	var frameRotate bool
-	var mediaType string
-	var ignoreErrors bool
-	var err error
+	c := &cmdContext{otel: otel}
 
 	return &cli.Command{
 		Name:            "mediasim",
@@ -37,39 +43,30 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Usage:     "calculate the similarity score of two media files",
 				UsageText: "mediasim score <file1> <file2>",
 				Action: func(ctx context.Context, command *cli.Command) error {
-					otel.LogInfo("Calculate score", map[string]any{
-						"frame.flip":   frameFlip,
-						"frame.rotate": frameRotate,
-						"output.type":  output,
+					c.otel.LogInfo("Calculate score", map[string]any{
+						"frame.flip":   c.frameFlip,
+						"frame.rotate": c.frameRotate,
+						"output.type":  c.output,
 					})
 
-					files = command.Args().Slice()
+					files := command.Args().Slice()
 
 					if len(files) != 2 {
 						return fmt.Errorf("you must specify exactly two files")
 					}
 
-					files = lo.Map(files, func(file string, _ int) string {
-						fullFile, _ := expandPath(file)
-						return fullFile
-					})
+					files, err := expandPaths(files)
+					if err != nil {
+						return err
+					}
 
-					media, err = loadFiles(files, frameFlip, frameRotate, output, ignoreErrors)
+					media, err := c.loadFiles(files)
 					if err != nil {
 						return err
 					}
 
 					score := calculateScore(media)
-
-					switch output {
-					case "report":
-						charm.PrintScoreReport(score)
-					case "json":
-						charm.PrintScoreJson(score)
-					case "csv":
-						charm.PrintScoreCsv(score)
-					}
-
+					printScore(c.output, score)
 					return nil
 				},
 			},
@@ -77,27 +74,25 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Name:      "files",
 				Usage:     "group two or more media files based on similarity",
 				UsageText: "mediasim files <file1> <file2> [<file3> ...] ",
-				Flags:     []cli.Flag{},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					otel.LogInfo("Compare files", map[string]any{
-						"frame.flip":   frameFlip,
-						"frame.rotate": frameRotate,
-						"output.type":  output,
+					c.otel.LogInfo("Compare files", map[string]any{
+						"frame.flip":   c.frameFlip,
+						"frame.rotate": c.frameRotate,
+						"output.type":  c.output,
 					})
 
-					files = command.Args().Slice()
+					files := command.Args().Slice()
 
 					if len(files) < 2 {
 						return fmt.Errorf("at least two files must be specified")
 					}
 
-					files = lo.Map(files, func(file string, _ int) string {
-						fullFile, _ := expandPath(file)
-						return fullFile
-					})
+					files, err := expandPaths(files)
+					if err != nil {
+						return err
+					}
 
-					media, err = loadFiles(files, frameFlip, frameRotate, output, ignoreErrors)
-
+					media, err := c.loadFiles(files)
 					if err != nil {
 						return err
 					}
@@ -105,18 +100,12 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return nil
 					}
 
-					groups := groupMedia(media, threshold, output, "🔎 Grouping media with at least %s similarity threshold...")
-
-					switch output {
-					case "report":
-						charm.PrintGroupReport(groups)
-					case "json":
-						charm.PrintGroupJson(groups)
-					case "csv":
-						charm.PrintGroupCsv(groups)
+					groups, err := c.groupMedia(media, "🔎 Grouping media with at least %s similarity threshold...")
+					if err != nil {
+						return err
 					}
 
-					return nil
+					return printGroups(c.output, groups)
 				},
 			},
 			{
@@ -130,7 +119,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						Usage:       "recursively search for files in the directory",
 						Value:       false,
 						DefaultText: "false",
-						Destination: &recursive,
+						Destination: &c.recursive,
 					},
 					&cli.StringFlag{
 						Name:        "media-type",
@@ -138,40 +127,24 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						Usage:       "type of media to compare; image | video | all",
 						Value:       "all",
 						DefaultText: "all",
-						Destination: &mediaType,
-						Validator: func(s string) error {
-							if s != "image" && s != "video" && s != "all" {
-								return fmt.Errorf("invalid media type")
-							}
-
-							return nil
-						},
+						Destination: &c.mediaType,
+						Validator:   validateMediaType,
 					},
 				},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					otel.LogInfo("Compare directory", map[string]any{
-						"frame.flip":   frameFlip,
-						"frame.rotate": frameRotate,
-						"output.type":  output,
-						"media.type":   mediaType,
+					c.otel.LogInfo("Compare directory", map[string]any{
+						"frame.flip":   c.frameFlip,
+						"frame.rotate": c.frameRotate,
+						"output.type":  c.output,
+						"media.type":   c.mediaType,
 					})
 
-					directory = command.Args().First()
-					directory, err = expandPath(directory)
+					directory, err := expandPath(command.Args().First())
 					if err != nil {
 						return err
 					}
 
-					media, err = loadDirectory(
-						directory,
-						recursive,
-						frameFlip,
-						frameRotate,
-						mediaType,
-						output,
-						ignoreErrors,
-					)
-
+					media, err := c.loadDirectory(directory)
 					if err != nil {
 						return err
 					}
@@ -179,18 +152,12 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return nil
 					}
 
-					groups := groupMedia(media, threshold, output, "🔎 Grouping media with at least %s similarity threshold...")
-
-					switch output {
-					case "report":
-						charm.PrintGroupReport(groups)
-					case "json":
-						charm.PrintGroupJson(groups)
-					case "csv":
-						charm.PrintGroupCsv(groups)
+					groups, err := c.groupMedia(media, "🔎 Grouping media with at least %s similarity threshold...")
+					if err != nil {
+						return err
 					}
 
-					return nil
+					return printGroups(c.output, groups)
 				},
 			},
 			{
@@ -204,39 +171,23 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						Usage:       "type of media to compare; image | video | all",
 						Value:       "all",
 						DefaultText: "all",
-						Destination: &mediaType,
-						Validator: func(s string) error {
-							if s != "image" && s != "video" && s != "all" {
-								return fmt.Errorf("invalid media type")
-							}
-
-							return nil
-						},
+						Destination: &c.mediaType,
+						Validator:   validateMediaType,
 					},
 				},
 				Action: func(ctx context.Context, command *cli.Command) error {
-					otel.LogInfo("Rename files", map[string]any{
-						"frame.flip":   frameFlip,
-						"frame.rotate": frameRotate,
-						"media.type":   mediaType,
+					c.otel.LogInfo("Rename files", map[string]any{
+						"frame.flip":   c.frameFlip,
+						"frame.rotate": c.frameRotate,
+						"media.type":   c.mediaType,
 					})
 
-					directory = command.Args().First()
-					directory, err = expandPath(directory)
+					directory, err := expandPath(command.Args().First())
 					if err != nil {
 						return err
 					}
 
-					media, err = loadDirectory(
-						directory,
-						false,
-						frameFlip,
-						frameRotate,
-						mediaType,
-						output,
-						ignoreErrors,
-					)
-
+					media, err := c.loadDirectory(directory)
 					if err != nil {
 						return err
 					}
@@ -244,14 +195,12 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return nil
 					}
 
-					groups := groupMedia(media, threshold, output, "📝 Renaming media with at least %s similarity threshold...")
-					err = renameMedia(groups)
-
+					groups, err := c.groupMedia(media, "📝 Renaming media with at least %s similarity threshold...")
 					if err != nil {
 						return err
 					}
 
-					return nil
+					return renameMedia(groups)
 				},
 			},
 		},
@@ -261,7 +210,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Aliases:     []string{"t"},
 				Usage:       "similarity threshold; between 0-1",
 				Value:       0.8,
-				Destination: &threshold,
+				Destination: &c.threshold,
 				Validator: func(f float64) error {
 					if f < 0 || f > 1 {
 						return fmt.Errorf("threshold must be between 0 and 1")
@@ -276,7 +225,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Usage:       "flip the frame vertically and horizontally during comparison",
 				Value:       false,
 				DefaultText: "false",
-				Destination: &frameFlip,
+				Destination: &c.frameFlip,
 			},
 			&cli.BoolFlag{
 				Name:        "frame-rotate",
@@ -284,7 +233,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Usage:       "rotate the frame in 90º, 180º and 270º during comparison",
 				Value:       false,
 				DefaultText: "false",
-				Destination: &frameRotate,
+				Destination: &c.frameRotate,
 			},
 			&cli.StringFlag{
 				Name:        "output",
@@ -292,7 +241,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Usage:       "format how similarity is reported; report | json | csv",
 				Value:       "report",
 				DefaultText: "report",
-				Destination: &output,
+				Destination: &c.output,
 				Validator: func(s string) error {
 					if s != "report" && s != "json" && s != "csv" {
 						return fmt.Errorf("invalid output format")
@@ -307,7 +256,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Usage:       "continues processing files even if an error occurs",
 				Value:       false,
 				DefaultText: "false",
-				Destination: &ignoreErrors,
+				Destination: &c.ignoreErrors,
 			},
 		},
 		Action: func(ctx context.Context, command *cli.Command) error {

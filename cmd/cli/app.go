@@ -5,77 +5,52 @@ import (
 	"fmt"
 	"runtime"
 
-	. "github.com/vegidio/go-sak/types"
-	. "github.com/vegidio/mediasim"
+	"github.com/vegidio/go-sak/types"
+	"github.com/vegidio/mediasim"
 )
 
-// The max number of files to process in parallel, depending on the number of cores in the computer
 var numWorkers = runtime.NumCPU()
 
-func loadFiles(
-	files []string,
-	frameFlip,
-	frameRotate bool,
-	output string,
-	ignoreErrors bool,
-) ([]Media, error) {
-	if output == "report" {
+func (c *cmdContext) loadFiles(files []string) ([]mediasim.Media, error) {
+	if c.output == "report" {
 		charm.PrintCalculateFiles(len(files))
 	}
 
-	mediaCh := LoadMediaFromFiles(files, FilesOptions{
+	mediaCh := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
 		Parallel:     numWorkers,
-		FrameOptions: FrameOptions{FrameFlip: frameFlip, FrameRotate: frameRotate},
+		FrameOptions: mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
 	})
 
-	return getMedia(mediaCh, len(files), output, ignoreErrors)
+	return c.getMedia(mediaCh, len(files))
 }
 
-func loadDirectory(
-	directory string,
-	recursive bool,
-	frameFlip bool,
-	frameRotate bool,
-	mediaType string,
-	output string,
-	ignoreErrors bool,
-) ([]Media, error) {
-	if output == "report" {
+func (c *cmdContext) loadDirectory(directory string) ([]mediasim.Media, error) {
+	if c.output == "report" {
 		charm.PrintCalculateDirectory(directory)
 	}
 
-	// Determine what media types to include
-	var includeImages, includeVideos bool
-	if mediaType == "image" {
-		includeImages = true
-	} else if mediaType == "video" {
-		includeVideos = true
-	} else {
-		includeImages = true
-		includeVideos = true
-	}
+	includeImages := c.mediaType != "video"
+	includeVideos := c.mediaType != "image"
 
-	mediaCh, total := LoadMediaFromDirectory(directory, DirectoryOptions{
+	mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
-		IsRecursive:   recursive,
+		IsRecursive:   c.recursive,
 		Parallel:      numWorkers,
-		FrameOptions:  FrameOptions{FrameFlip: frameFlip, FrameRotate: frameRotate},
+		FrameOptions:  mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
 	})
 
-	return getMedia(mediaCh, total, output, ignoreErrors)
+	return c.getMedia(mediaCh, total)
 }
 
-func getMedia(
-	channel <-chan Result[Media],
+func (c *cmdContext) getMedia(
+	channel <-chan types.Result[mediasim.Media],
 	total int,
-	output string,
-	ignoreErrors bool,
-) ([]Media, error) {
-	media := make([]Media, 0, total)
+) ([]mediasim.Media, error) {
+	media := make([]mediasim.Media, 0, total)
 	var err error
 
-	if output == "report" {
+	if c.output == "report" {
 		media, err = charm.StartProgress(channel, total)
 		if err != nil {
 			return nil, fmt.Errorf("error loading media: %w", err)
@@ -83,7 +58,7 @@ func getMedia(
 	} else {
 		for r := range channel {
 			if r.Err != nil {
-				if ignoreErrors {
+				if c.ignoreErrors {
 					continue
 				}
 
@@ -97,14 +72,38 @@ func getMedia(
 	return media, nil
 }
 
-func calculateScore(media []Media) float64 {
-	return CalculateSimilarity(media[0], media[1])
+func calculateScore(media []mediasim.Media) float64 {
+	return mediasim.CalculateSimilarity(media[0], media[1])
 }
 
-func groupMedia(media []Media, threshold float64, output, message string) [][]Media {
-	if output == "report" {
-		return charm.StartSpinner(media, threshold, message)
+func (c *cmdContext) groupMedia(media []mediasim.Media, message string) ([][]mediasim.Media, error) {
+	if c.output == "report" {
+		return charm.StartSpinner(media, c.threshold, message)
 	}
 
-	return GroupMedia(media, threshold)
+	return mediasim.GroupMedia(media, c.threshold), nil
+}
+
+func printScore(output string, score float64) {
+	switch output {
+	case "report":
+		charm.PrintScoreReport(score)
+	case "json":
+		charm.PrintScoreJson(score)
+	case "csv":
+		charm.PrintScoreCsv(score)
+	}
+}
+
+func printGroups(output string, groups [][]mediasim.Media) error {
+	switch output {
+	case "report":
+		charm.PrintGroupReport(groups)
+	case "json":
+		return charm.PrintGroupJson(groups)
+	case "csv":
+		charm.PrintGroupCsv(groups)
+	}
+
+	return nil
 }

@@ -31,6 +31,6 @@ func main() {
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
 		otel.LogError("Error running app", make(map[string]any), err)
-		charm.PrintError(err.Error())
+		charm.PrintError("%s", err.Error())
 	}
 }

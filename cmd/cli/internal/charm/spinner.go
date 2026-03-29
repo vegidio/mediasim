@@ -78,8 +78,16 @@ func (m *spinnerModel) View() string {
 	return fmt.Sprintf("\n%s %s\n", m.text, m.spinner.View())
 }
 
-func StartSpinner(media []mediasim.Media, threshold float64, message string) [][]mediasim.Media {
-	model, _ := tea.NewProgram(initSpinnerModel(media, threshold, message)).Run()
-	m := model.(*spinnerModel)
-	return m.groups
+func StartSpinner(media []mediasim.Media, threshold float64, message string) ([][]mediasim.Media, error) {
+	model, err := tea.NewProgram(initSpinnerModel(media, threshold, message)).Run()
+	if err != nil {
+		return nil, err
+	}
+
+	m, ok := model.(*spinnerModel)
+	if !ok {
+		return nil, fmt.Errorf("unexpected model type from spinner program")
+	}
+
+	return m.groups, nil
 }

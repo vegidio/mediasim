@@ -6,7 +6,6 @@ require (
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.6.0
 	github.com/vegidio/avif-go v0.0.0-20250912170012-c931df36186e
@@ -50,6 +49,7 @@ require (
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/samber/lo v1.52.0 // indirect
 	github.com/u2takey/ffmpeg-go v0.5.0 // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect

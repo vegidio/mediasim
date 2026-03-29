@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
-	. "github.com/vegidio/go-sak/types"
-	. "github.com/vegidio/mediasim"
+	"github.com/vegidio/go-sak/types"
+	"github.com/vegidio/mediasim"
 )
 
 type tickMsg time.Time
@@ -22,10 +22,10 @@ func tickCmd() tea.Cmd {
 type doneMsg struct{}
 
 type loadMsg struct {
-	result Result[Media]
+	result types.Result[mediasim.Media]
 }
 
-func loadCmd(ch <-chan Result[Media]) tea.Cmd {
+func loadCmd(ch <-chan types.Result[mediasim.Media]) tea.Cmd {
 	return func() tea.Msg {
 		if result, ok := <-ch; ok {
 			return loadMsg{result}
@@ -37,8 +37,8 @@ func loadCmd(ch <-chan Result[Media]) tea.Cmd {
 
 type progressModel struct {
 	progress      progress.Model
-	result        <-chan Result[Media]
-	media         []Media
+	result        <-chan types.Result[mediasim.Media]
+	media         []mediasim.Media
 	total         int
 	completed     int
 	startTime     time.Time
@@ -88,7 +88,9 @@ func (m *progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case progress.FrameMsg:
 		updated, cmd := m.progress.Update(msg)
-		m.progress = updated.(progress.Model)
+		if p, ok := updated.(progress.Model); ok {
+			m.progress = p
+		}
 		return m, cmd
 
 	case tea.KeyMsg:
@@ -132,7 +134,7 @@ func (m *progressModel) View() string {
 	)
 }
 
-func initProgressModel(result <-chan Result[Media], total int) *progressModel {
+func initProgressModel(result <-chan types.Result[mediasim.Media], total int) *progressModel {
 	p := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithoutPercentage(),
@@ -142,7 +144,7 @@ func initProgressModel(result <-chan Result[Media], total int) *progressModel {
 	return &progressModel{
 		progress:      p,
 		result:        result,
-		media:         make([]Media, 0),
+		media:         make([]mediasim.Media, 0),
 		total:         total,
 		startTime:     time.Now(),
 		lastEtaUpdate: time.Now(),
@@ -150,12 +152,16 @@ func initProgressModel(result <-chan Result[Media], total int) *progressModel {
 	}
 }
 
-func StartProgress(result <-chan Result[Media], total int) ([]Media, error) {
+func StartProgress(result <-chan types.Result[mediasim.Media], total int) ([]mediasim.Media, error) {
 	model, err := tea.NewProgram(initProgressModel(result, total)).Run()
 	if err != nil {
 		return nil, err
 	}
 
-	m := model.(*progressModel)
+	m, ok := model.(*progressModel)
+	if !ok {
+		return nil, fmt.Errorf("unexpected model type from progress program")
+	}
+
 	return m.media, nil
 }

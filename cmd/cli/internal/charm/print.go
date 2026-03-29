@@ -50,9 +50,14 @@ func PrintGroupReport(groups [][]mediasim.Media) {
 	}
 }
 
-func PrintGroupJson(groups [][]mediasim.Media) {
-	jsonBytes, _ := json.MarshalIndent(groups, "", "  ")
+func PrintGroupJson(groups [][]mediasim.Media) error {
+	jsonBytes, err := json.MarshalIndent(groups, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal groups to JSON: %w", err)
+	}
+
 	fmt.Println(string(jsonBytes))
+	return nil
 }
 
 func PrintGroupCsv(groups [][]mediasim.Media) {
@@ -63,16 +68,12 @@ func PrintGroupCsv(groups [][]mediasim.Media) {
 	}
 }
 
-// region - Private function
-
 func mediaInfo(media mediasim.Media) string {
 	const megapixel = 1_000_000
 
 	if media.Type == "image" {
 		return fmt.Sprintf("(%.1f MP)", float64(media.Width)*float64(media.Height)/megapixel)
-	} else {
-		return fmt.Sprintf("(%d sec, %.1f MP)", media.Length, float64(media.Width)*float64(media.Height)/megapixel)
 	}
-}
 
-// endregion
+	return fmt.Sprintf("(%d sec, %.1f MP)", media.Length, float64(media.Width)*float64(media.Height)/megapixel)
+}
