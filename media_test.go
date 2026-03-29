@@ -75,16 +75,3 @@ func TestMedia_Equal(t *testing.T) {
 		assert.False(t, base.Equal(other))
 	})
 }
-
-func TestGroup_String(t *testing.T) {
-	group := Group{
-		Media: []Media{
-			{Name: "a.jpg", Type: "image"},
-			{Name: "b.jpg", Type: "image"},
-		},
-	}
-
-	result := group.String()
-	assert.Contains(t, result, "a.jpg")
-	assert.Contains(t, result, "b.jpg")
-}

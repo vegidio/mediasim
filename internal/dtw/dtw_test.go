@@ -1,4 +1,4 @@
-package mediasim
+package dtw
 
 import (
 	"testing"
@@ -34,14 +34,14 @@ func TestMin(t *testing.T) {
 
 func TestDTW(t *testing.T) {
 	t.Run("empty input", func(t *testing.T) {
-		distance, path := dtw([][]float64{})
+		distance, path := DTW([][]float64{})
 		assert.Equal(t, 0.0, distance)
 		assert.Nil(t, path)
 	})
 
 	t.Run("single element", func(t *testing.T) {
 		input := [][]float64{{0.5}}
-		distance, path := dtw(input)
+		distance, path := DTW(input)
 		assert.Equal(t, 0.5, distance)
 		assert.Equal(t, []Pair{{0, 0}}, path)
 	})
@@ -53,7 +53,7 @@ func TestDTW(t *testing.T) {
 			{1, 0, 1},
 			{1, 1, 0},
 		}
-		distance, path := dtw(input)
+		distance, path := DTW(input)
 		assert.Equal(t, 0.0, distance)
 		// Path should follow the diagonal
 		assert.Equal(t, []Pair{{0, 0}, {1, 1}, {2, 2}}, path)
@@ -65,7 +65,7 @@ func TestDTW(t *testing.T) {
 			{0.5, 0.0, 0.5},
 			{1.0, 0.5, 0.0},
 		}
-		distance, path := dtw(input)
+		distance, path := DTW(input)
 		assert.Equal(t, 0.0, distance)
 		assert.Equal(t, []Pair{{0, 0}, {1, 1}, {2, 2}}, path)
 	})
@@ -76,7 +76,7 @@ func TestDTW(t *testing.T) {
 			{0.3, 0.1},
 			{0.2, 0.1},
 		}
-		distance, path := dtw(input)
+		distance, path := DTW(input)
 		assert.Greater(t, distance, 0.0)
 		// Path should start at (0,0) and end at (2,1)
 		assert.Equal(t, Pair{0, 0}, path[0])
@@ -90,7 +90,7 @@ func TestDTW(t *testing.T) {
 			{0.8, 0.4, 0.1},
 			{0.9, 0.7, 0.3},
 		}
-		_, path := dtw(input)
+		_, path := DTW(input)
 
 		for i := 1; i < len(path); i++ {
 			assert.GreaterOrEqual(t, path[i].I, path[i-1].I)

@@ -1,4 +1,4 @@
-package mediasim
+package dsu
 
 type DSU struct {
 	parent []int

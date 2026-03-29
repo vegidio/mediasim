@@ -4,23 +4,25 @@ import (
 	"math"
 	"slices"
 
+	"github.com/vegidio/mediasim/internal/dsu"
+	idtw "github.com/vegidio/mediasim/internal/dtw"
 	"github.com/vitali-fedulov/images4"
 )
 
-// MaxDifference is the maximum numeric difference when comparing two images:
+// maxDifference is the maximum numeric difference when comparing two images:
 // i.e., a completely white image compared to a completely black image.
-const MaxDifference = 2804
+const maxDifference = 2804
 
 // CalculateSimilarity computes a similarity score between two Media objects.
 // Returns a value between 0 and 1, where higher values indicate greater similarity.
 func CalculateSimilarity(media1, media2 Media) float64 {
 	frameGroup := slices.DeleteFunc([][]images4.IconT{
-		media2.FramesOriginal,
-		media2.FramesFlippedV,
-		media2.FramesFlippedH,
-		media2.FramesRotated90,
-		media2.FramesRotated180,
-		media2.FramesRotated270,
+		media2.framesOriginal,
+		media2.framesFlippedV,
+		media2.framesFlippedH,
+		media2.framesRotated90,
+		media2.framesRotated180,
+		media2.framesRotated270,
 	}, func(f []images4.IconT) bool {
 		return len(f) == 0
 	})
@@ -29,11 +31,11 @@ func CalculateSimilarity(media1, media2 Media) float64 {
 
 	if media1.Type == "image" && media2.Type == "image" {
 		for _, frames := range frameGroup {
-			similarity = max(similarity, calculateImageSimilarity(media1.FramesOriginal[0], frames[0]))
+			similarity = max(similarity, calculateImageSimilarity(media1.framesOriginal[0], frames[0]))
 		}
 	} else if media1.Type == "video" && media2.Type == "video" {
 		for _, frames := range frameGroup {
-			similarity = max(similarity, calculateVideoSimilarity(media1.FramesOriginal, frames))
+			similarity = max(similarity, calculateVideoSimilarity(media1.framesOriginal, frames))
 		}
 	}
 
@@ -56,20 +58,20 @@ func CalculateSimilarity(media1, media2 Media) float64 {
 func GroupMedia(media []Media, threshold float64) [][]Media {
 	groups := make([][]Media, 0)
 	size := len(media)
-	dsu := NewDSU(size)
+	d := dsu.NewDSU(size)
 
 	for i := 0; i < size; i++ {
 		for j := i + 1; j < size; j++ {
 			similarity := CalculateSimilarity(media[i], media[j])
 			if similarity >= threshold {
-				dsu.Union(i, j)
+				d.Union(i, j)
 			}
 		}
 	}
 
 	groupsMap := make(map[int][]Media)
 	for idx, m := range media {
-		root := dsu.Find(idx)
+		root := d.Find(idx)
 		groupsMap[root] = append(groupsMap[root], m)
 	}
 
@@ -106,7 +108,7 @@ func calculateImageSimilarity(frame1 images4.IconT, frame2 images4.IconT) float6
 	// m1 is the lumen, in other words, what makes easy to identify the form and shape in the image, so this value
 	// is the most important doing the similarity comparison. The other values, m2 and m3, are the colors, which are
 	// not so important to calculate the similarity, that's why their values have half the weight of lumen.
-	difference := math.Sqrt(m1+m2/2+m3/2) / MaxDifference
+	difference := math.Sqrt(m1+m2/2+m3/2) / maxDifference
 
 	return 1 - difference
 }
@@ -128,7 +130,7 @@ func calculateVideoSimilarity(frames1, frames2 []images4.IconT) float64 {
 		}
 	}
 
-	distance, path := dtw(matrix)
+	distance, path := idtw.DTW(matrix)
 
 	// After calculating the distance, we need to invert it again to get the similarity.
 	return 1 - (distance / float64(len(path)))

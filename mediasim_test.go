@@ -32,24 +32,24 @@ func TestCalculateSimilarity(t *testing.T) {
 	blackIcon := iconFromImage(blackImg)
 
 	t.Run("identical images have similarity of 1", func(t *testing.T) {
-		m1 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
-		m2 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
+		m1 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
+		m2 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
 
 		score := CalculateSimilarity(m1, m2)
 		assert.Equal(t, 1.0, score)
 	})
 
 	t.Run("very different images have low similarity", func(t *testing.T) {
-		m1 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
-		m2 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{blackIcon}}}
+		m1 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
+		m2 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{blackIcon}}}
 
 		score := CalculateSimilarity(m1, m2)
 		assert.Less(t, score, 0.5)
 	})
 
 	t.Run("similarity is between 0 and 1", func(t *testing.T) {
-		m1 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
-		m2 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{blackIcon}}}
+		m1 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
+		m2 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{blackIcon}}}
 
 		score := CalculateSimilarity(m1, m2)
 		assert.GreaterOrEqual(t, score, 0.0)
@@ -57,17 +57,17 @@ func TestCalculateSimilarity(t *testing.T) {
 	})
 
 	t.Run("mixed types return zero similarity", func(t *testing.T) {
-		m1 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
-		m2 := Media{Type: "video", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
+		m1 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
+		m2 := Media{Type: "video", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
 
 		score := CalculateSimilarity(m1, m2)
 		assert.Equal(t, 0.0, score)
 	})
 
 	t.Run("identical video frames have high similarity", func(t *testing.T) {
-		frames := []images4.IconT{whiteIcon, whiteIcon, whiteIcon}
-		m1 := Media{Type: "video", Frames: Frames{FramesOriginal: frames}}
-		m2 := Media{Type: "video", Frames: Frames{FramesOriginal: frames}}
+		icons := []images4.IconT{whiteIcon, whiteIcon, whiteIcon}
+		m1 := Media{Type: "video", frames: frames{framesOriginal: icons}}
+		m2 := Media{Type: "video", frames: frames{framesOriginal: icons}}
 
 		score := CalculateSimilarity(m1, m2)
 		assert.Equal(t, 1.0, score)
@@ -77,15 +77,15 @@ func TestCalculateSimilarity(t *testing.T) {
 		grayImg := createSolidImage(color.Gray{Y: 128}, 100, 100)
 		grayIcon := iconFromImage(grayImg)
 
-		m1 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}}
-		m2 := Media{Type: "image", Frames: Frames{
-			FramesOriginal: []images4.IconT{blackIcon},
-			FramesFlippedH: []images4.IconT{grayIcon},
+		m1 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}}
+		m2 := Media{Type: "image", frames: frames{
+			framesOriginal: []images4.IconT{blackIcon},
+			framesFlippedH: []images4.IconT{grayIcon},
 		}}
 
 		scoreWithFlip := CalculateSimilarity(m1, m2)
 
-		m3 := Media{Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{blackIcon}}}
+		m3 := Media{Type: "image", frames: frames{framesOriginal: []images4.IconT{blackIcon}}}
 		scoreWithout := CalculateSimilarity(m1, m3)
 
 		// The flipped version (gray) should be closer to white than black
@@ -101,8 +101,8 @@ func TestGroupMedia(t *testing.T) {
 
 	t.Run("identical media are grouped together", func(t *testing.T) {
 		media := []Media{
-			{Name: "a.jpg", Type: "image", Width: 100, Height: 100, Size: 1000, Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
-			{Name: "b.jpg", Type: "image", Width: 100, Height: 100, Size: 500, Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "a.jpg", Type: "image", Width: 100, Height: 100, Size: 1000, frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "b.jpg", Type: "image", Width: 100, Height: 100, Size: 500, frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
 		}
 
 		groups := GroupMedia(media, 0.9)
@@ -112,8 +112,8 @@ func TestGroupMedia(t *testing.T) {
 
 	t.Run("dissimilar media are not grouped", func(t *testing.T) {
 		media := []Media{
-			{Name: "white.jpg", Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
-			{Name: "black.jpg", Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{blackIcon}}},
+			{Name: "white.jpg", Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "black.jpg", Type: "image", frames: frames{framesOriginal: []images4.IconT{blackIcon}}},
 		}
 
 		groups := GroupMedia(media, 0.9)
@@ -122,8 +122,8 @@ func TestGroupMedia(t *testing.T) {
 
 	t.Run("groups are sorted by quality - resolution", func(t *testing.T) {
 		media := []Media{
-			{Name: "small.jpg", Type: "image", Width: 100, Height: 100, Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
-			{Name: "large.jpg", Type: "image", Width: 1920, Height: 1080, Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "small.jpg", Type: "image", Width: 100, Height: 100, frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "large.jpg", Type: "image", Width: 1920, Height: 1080, frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
 		}
 
 		groups := GroupMedia(media, 0.9)
@@ -133,8 +133,8 @@ func TestGroupMedia(t *testing.T) {
 
 	t.Run("groups are sorted by quality - file size as tiebreaker", func(t *testing.T) {
 		media := []Media{
-			{Name: "small.jpg", Type: "image", Width: 100, Height: 100, Size: 500, Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
-			{Name: "big.jpg", Type: "image", Width: 100, Height: 100, Size: 5000, Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "small.jpg", Type: "image", Width: 100, Height: 100, Size: 500, frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "big.jpg", Type: "image", Width: 100, Height: 100, Size: 5000, frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
 		}
 
 		groups := GroupMedia(media, 0.9)
@@ -144,7 +144,7 @@ func TestGroupMedia(t *testing.T) {
 
 	t.Run("single item is not returned as a group", func(t *testing.T) {
 		media := []Media{
-			{Name: "alone.jpg", Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "alone.jpg", Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
 		}
 
 		groups := GroupMedia(media, 0.5)
@@ -158,8 +158,8 @@ func TestGroupMedia(t *testing.T) {
 
 	t.Run("threshold of 0 groups everything together", func(t *testing.T) {
 		media := []Media{
-			{Name: "white.jpg", Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{whiteIcon}}},
-			{Name: "black.jpg", Type: "image", Frames: Frames{FramesOriginal: []images4.IconT{blackIcon}}},
+			{Name: "white.jpg", Type: "image", frames: frames{framesOriginal: []images4.IconT{whiteIcon}}},
+			{Name: "black.jpg", Type: "image", frames: frames{framesOriginal: []images4.IconT{blackIcon}}},
 		}
 
 		groups := GroupMedia(media, 0.0)

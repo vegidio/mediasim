@@ -1,4 +1,4 @@
-package mediasim
+package dsu
 
 import (
 	"testing"

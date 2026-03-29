@@ -6,24 +6,18 @@ import (
 	"github.com/vitali-fedulov/images4"
 )
 
-type Frames struct {
-	// FramesOriginal contain the original image data.
-	FramesOriginal []images4.IconT `json:"-"`
-	// FramesFlippedV contain the image data flipped vertically.
-	FramesFlippedV []images4.IconT `json:"-"`
-	// FramesFlippedH contain the image data flipped horizontally.
-	FramesFlippedH []images4.IconT `json:"-"`
-	// FramesRotated90 contain the image data rotated 90 degrees.
-	FramesRotated90 []images4.IconT `json:"-"`
-	// FramesRotated180 contain the image data rotated 180 degrees.
-	FramesRotated180 []images4.IconT `json:"-"`
-	// FramesRotated270 contain the image data rotated 270 degrees.
-	FramesRotated270 []images4.IconT `json:"-"`
+type frames struct {
+	framesOriginal   []images4.IconT
+	framesFlippedV   []images4.IconT
+	framesFlippedH   []images4.IconT
+	framesRotated90  []images4.IconT
+	framesRotated180 []images4.IconT
+	framesRotated270 []images4.IconT
 }
 
 // Media represents a media object.
 type Media struct {
-	Frames
+	frames
 
 	// Name of the media.
 	Name string `json:"name"`
@@ -51,13 +45,4 @@ func (m Media) Equal(other Media) bool {
 		m.Height == other.Height &&
 		m.Size == other.Size &&
 		m.Length == other.Length
-}
-
-type Group struct {
-	// Media represents the similar media files and their properties
-	Media []Media `json:"media"`
-}
-
-func (g Group) String() string {
-	return fmt.Sprintf(`{Media: %s}`, g.Media)
 }

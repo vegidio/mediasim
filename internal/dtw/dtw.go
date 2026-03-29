@@ -1,4 +1,4 @@
-package mediasim
+package dtw
 
 import "math"
 
@@ -6,7 +6,7 @@ type Pair struct {
 	I, J int
 }
 
-func dtw(input [][]float64) (float64, []Pair) {
+func DTW(input [][]float64) (float64, []Pair) {
 	n := len(input)
 	if n == 0 {
 		return 0, nil

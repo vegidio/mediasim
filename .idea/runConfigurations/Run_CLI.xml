@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run CLI" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="mediasim" />
+    <working_directory value="$PROJECT_DIR$/cmd/cli" />
+    <parameters value="dir $USER_HOME$/Downloads/UMD/Reddit/WetWith_Jasmine --ff --fr" />
+    <kind value="PACKAGE" />
+    <package value="cli" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/cmd/cli/main.go" />
+    <pty_enabled value="true" />
+    <method v="2" />
+  </configuration>
+</component>
