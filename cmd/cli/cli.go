@@ -2,11 +2,13 @@ package main
 
 import (
 	"cli/internal"
+	"cli/internal/charm"
 	"context"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
 	"github.com/vegidio/go-sak/o11y"
+	"github.com/vegidio/mediasim"
 )
 
 type cmdContext struct {
@@ -92,15 +94,16 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return err
 					}
 
-					media, err := c.loadFiles(files)
-					if err != nil {
-						return err
-					}
-					if len(media) == 0 {
-						return nil
+					if c.output == "report" {
+						charm.PrintCalculateFiles(len(files))
 					}
 
-					groups, err := c.groupMedia(media, "🔎 Grouping media with at least %s similarity threshold...")
+					mediaCh := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
+						Parallel:     numWorkers,
+						FrameOptions: mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
+					})
+
+					groups, err := c.loadAndGroup(mediaCh, len(files))
 					if err != nil {
 						return err
 					}
@@ -144,15 +147,22 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return err
 					}
 
-					media, err := c.loadDirectory(directory)
-					if err != nil {
-						return err
-					}
-					if len(media) == 0 {
-						return nil
+					includeImages := c.mediaType != "video"
+					includeVideos := c.mediaType != "image"
+
+					if c.output == "report" {
+						charm.PrintCalculateDirectory(directory)
 					}
 
-					groups, err := c.groupMedia(media, "🔎 Grouping media with at least %s similarity threshold...")
+					mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
+						IncludeImages: includeImages,
+						IncludeVideos: includeVideos,
+						IsRecursive:   c.recursive,
+						Parallel:      numWorkers,
+						FrameOptions:  mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
+					})
+
+					groups, err := c.loadAndGroup(mediaCh, total)
 					if err != nil {
 						return err
 					}
@@ -187,15 +197,18 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						return err
 					}
 
-					media, err := c.loadDirectory(directory)
-					if err != nil {
-						return err
-					}
-					if len(media) == 0 {
-						return nil
-					}
+					includeImages := c.mediaType != "video"
+					includeVideos := c.mediaType != "image"
 
-					groups, err := c.groupMedia(media, "📝 Renaming media with at least %s similarity threshold...")
+					mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
+						IncludeImages: includeImages,
+						IncludeVideos: includeVideos,
+						IsRecursive:   c.recursive,
+						Parallel:      numWorkers,
+						FrameOptions:  mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
+					})
+
+					groups, err := c.loadAndGroup(mediaCh, total)
 					if err != nil {
 						return err
 					}

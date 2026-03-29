@@ -56,7 +56,6 @@ func CalculateSimilarity(media1, media2 Media) float64 {
 //   - [][]Media A two-dimensional slice where each inner slice represents a group of media items (minimum length of 2),
 //     sorted by quality descending.
 func GroupMedia(media []Media, threshold float64) [][]Media {
-	groups := make([][]Media, 0)
 	size := len(media)
 	d := dsu.NewDSU(size)
 
@@ -69,7 +68,14 @@ func GroupMedia(media []Media, threshold float64) [][]Media {
 		}
 	}
 
+	return extractGroups(media, d)
+}
+
+// extractGroups builds groups from a DSU, keeping only groups with 2+ items, sorted by quality.
+func extractGroups(media []Media, d *dsu.DSU) [][]Media {
+	groups := make([][]Media, 0)
 	groupsMap := make(map[int][]Media)
+
 	for idx, m := range media {
 		root := d.Find(idx)
 		groupsMap[root] = append(groupsMap[root], m)
@@ -77,8 +83,6 @@ func GroupMedia(media []Media, threshold float64) [][]Media {
 
 	for _, m := range groupsMap {
 		if len(m) >= 2 {
-			// Sort the media keeping the one with the "best" quality first.
-			// The best media are the videos highest number of megapixels and the biggest length (if it's a video).
 			slices.SortFunc(m, func(a, b Media) int {
 				if a.Length != b.Length {
 					return b.Length - a.Length

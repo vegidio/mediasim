@@ -24,24 +24,6 @@ func (c *cmdContext) loadFiles(files []string) ([]mediasim.Media, error) {
 	return c.getMedia(mediaCh, len(files))
 }
 
-func (c *cmdContext) loadDirectory(directory string) ([]mediasim.Media, error) {
-	if c.output == "report" {
-		charm.PrintCalculateDirectory(directory)
-	}
-
-	includeImages := c.mediaType != "video"
-	includeVideos := c.mediaType != "image"
-
-	mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
-		IncludeImages: includeImages,
-		IncludeVideos: includeVideos,
-		IsRecursive:   c.recursive,
-		Parallel:      numWorkers,
-		FrameOptions:  mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
-	})
-
-	return c.getMedia(mediaCh, total)
-}
 
 func (c *cmdContext) getMedia(
 	channel <-chan types.Result[mediasim.Media],
@@ -76,12 +58,30 @@ func calculateScore(media []mediasim.Media) float64 {
 	return mediasim.CalculateSimilarity(media[0], media[1])
 }
 
-func (c *cmdContext) groupMedia(media []mediasim.Media, message string) ([][]mediasim.Media, error) {
+func (c *cmdContext) loadAndGroup(
+	channel <-chan types.Result[mediasim.Media],
+	total int,
+) ([][]mediasim.Media, error) {
 	if c.output == "report" {
-		return charm.StartSpinner(media, c.threshold, message)
+		return charm.StartLoadAndGroup(channel, total, c.threshold, c.ignoreErrors)
 	}
 
-	return mediasim.GroupMedia(media, c.threshold), nil
+	var groups [][]mediasim.Media
+	for update := range mediasim.LoadAndGroupMedia(channel, total, c.threshold, c.ignoreErrors) {
+		if update.Err != nil {
+			if update.Done {
+				return nil, fmt.Errorf("error loading media: %w", update.Err)
+			}
+
+			continue
+		}
+
+		if update.Done {
+			groups = update.Groups
+		}
+	}
+
+	return groups, nil
 }
 
 func printScore(output string, score float64) {
