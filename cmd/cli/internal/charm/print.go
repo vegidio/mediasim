@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/vegidio/mediasim"
 )
@@ -15,8 +14,7 @@ func PrintError(message string, a ...interface{}) {
 }
 
 func PrintScoreReport(score float64) {
-	percent := fmt.Sprintf("%.5f", score)
-	percent = strings.TrimRight(strings.TrimRight(percent, "0"), ".")
+	percent := fmt.Sprintf("%.5g", score)
 	fmt.Printf("\n🧮 Similarity score between the files is %s\n", magenta.Render(percent))
 }
 
@@ -34,6 +32,11 @@ func PrintCalculateFiles(amount int) {
 
 func PrintCalculateDirectory(dir string) {
 	fmt.Printf("\n⏳ Calculating similarity in the directory %s\n", green.Render(dir))
+}
+
+func PrintGroupingThreshold(threshold float64) {
+	temp := fmt.Sprintf("%.5g", threshold)
+	fmt.Printf("🔎 Grouping media with at least %s similarity threshold...\n", yellow.Render(temp))
 }
 
 func PrintGroupReport(groups [][]mediasim.Media) {

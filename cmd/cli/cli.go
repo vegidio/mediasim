@@ -96,6 +96,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 
 					if c.output == "report" {
 						charm.PrintCalculateFiles(len(files))
+						charm.PrintGroupingThreshold(c.threshold)
 					}
 
 					mediaCh := mediasim.LoadMediaFromFiles(files, mediasim.FilesOptions{
@@ -152,6 +153,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 
 					if c.output == "report" {
 						charm.PrintCalculateDirectory(directory)
+						charm.PrintGroupingThreshold(c.threshold)
 					}
 
 					mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
