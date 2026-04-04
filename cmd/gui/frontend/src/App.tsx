@@ -1,6 +1,13 @@
-import { Navbar, Preview, Sidebar } from '@/components/organisms';
+import { useState } from 'react';
+import { Navbar, Preview, Sidebar, WelcomeDialog } from '@/components/organisms';
 
 export const App = () => {
+    const [dialogOpen, setDialogOpen] = useState(true);
+
+    const handleDirectorySelected = (_path: string) => {
+        setDialogOpen(false);
+    };
+
     return (
         <div className='flex h-screen flex-col'>
             <Navbar />
@@ -10,6 +17,8 @@ export const App = () => {
                 </div>
                 <Sidebar className='w-64 h-full' />
             </main>
+
+            <WelcomeDialog open={dialogOpen} onDirectorySelected={handleDirectorySelected} />
         </div>
     );
 };
