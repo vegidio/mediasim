@@ -3,4 +3,5 @@ go 1.25.4
 use (
 	.
 	cmd/cli
+	cmd/gui
 )
