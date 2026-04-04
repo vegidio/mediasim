@@ -1,1 +1,9 @@
 @import "tailwindcss";
+@layer theme, base, mui, components, utilities;
+
+body {
+    margin: 0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+}
