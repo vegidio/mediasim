@@ -1,6 +1,6 @@
 module changeme
 
-go 1.25.0
+go 1.26.1
 
 require github.com/wailsapp/wails/v3 v3.0.0-alpha.55
 
