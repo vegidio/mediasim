@@ -1,0 +1,67 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+    "vcs": {
+        "enabled": false,
+        "clientKind": "git",
+        "useIgnoreFile": false
+    },
+    "files": {
+        "ignoreUnknown": false,
+        "includes": ["**", "!**/*.html", "!bindings", "!dist"]
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "a11y": {
+                "useAltText": "off",
+                "useValidAnchor": "off"
+            },
+            "complexity": {
+                "noForEach": "off"
+            },
+            "correctness": {
+                "noUnusedImports": "warn",
+                "useUniqueElementIds": "off"
+            },
+            "suspicious": {
+                "noArrayIndexKey": "off"
+            },
+            "recommended": true
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single",
+            "jsxQuoteStyle": "single"
+        }
+    },
+    "assist": {
+        "enabled": true,
+        "actions": {
+            "source": {
+                "organizeImports": {
+                    "level": "on",
+                    "options": {
+                        "groups": [
+                            ["react", "react/**"],
+                            ["@mui/material"],
+                            ["@mui/icons-material"],
+                            ":PACKAGE:",
+                            {
+                                "type": true
+                            },
+                            ":PATH:",
+                            ":SIDE_EFFECT:"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
