@@ -20,5 +20,6 @@
             "@/*": ["./src/*"]
         }
     },
-    "include": ["src", "bindings"]
+    "include": ["src", "bindings"],
+    "references": [{ "path": "./tsconfig.node.json" }]
 }
