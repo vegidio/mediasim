@@ -1,6 +1,4 @@
-import { Navbar } from '@/components/organisms/Navbar';
-import { Preview } from '@/components/organisms/Preview';
-import { Sidebar } from '@/components/organisms/Sidebar';
+import { Navbar, Preview, Sidebar } from '@/components/organisms';
 
 export const App = () => {
     return (

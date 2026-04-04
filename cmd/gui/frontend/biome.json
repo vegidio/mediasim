@@ -30,9 +30,16 @@
                 "useUniqueElementIds": "off"
             },
             "suspicious": {
-                "noArrayIndexKey": "off"
+                "noArrayIndexKey": "off",
+                "noImportCycles": "warn"
             },
             "recommended": true
+        }
+    },
+    "css": {
+        "parser": {
+            "cssModules": false,
+            "tailwindDirectives": true
         }
     },
     "javascript": {
