@@ -6,13 +6,21 @@ import (
 	"log"
 	"log/slog"
 
+	_ "github.com/vegidio/avif-go"
+	_ "github.com/vegidio/heif-go"
+	"github.com/vegidio/mediasim"
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"changeme/services"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
+	// Add support for AVIF and HEIC images
+	mediasim.AddImageType(".avif", ".heic")
+
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
 		Name:        "MediaSim",
@@ -28,6 +36,7 @@ func main() {
 
 	// Register services
 	app.RegisterService(application.NewService(&GreetService{}))
+	app.RegisterService(application.NewService(&services.MediaService{}))
 
 	// Create a new window with the necessary options.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{

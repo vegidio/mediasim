@@ -42,7 +42,7 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
     return (
         <Dialog
             open={open}
-            maxWidth="sm"
+            maxWidth='sm'
             fullWidth
             disableEscapeKeyDown
             slotProps={{
@@ -52,24 +52,24 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
                 if (reason === 'backdropClick') return;
             }}
         >
-            <DialogContent className="flex p-0 min-h-[350px]">
+            <DialogContent className='flex p-0 min-h-[350px]'>
                 {/* Left side: icon + app name */}
-                <Box className="flex flex-col items-center justify-center w-48 shrink-0 bg-[#1a1a1a] p-6">
-                    <PiImageDuotone size={64} className="text-blue-400 mb-3" />
-                    <Typography variant="h6" fontWeight={700}>
+                <Box className='flex flex-col items-center justify-center w-48 shrink-0 bg-[#1a1a1a] p-6'>
+                    <PiImageDuotone size={64} className='text-blue-400 mb-3' />
+                    <Typography variant='h6' fontWeight={700}>
                         MediaSim
                     </Typography>
                 </Box>
 
-                <Divider orientation="vertical" flexItem />
+                <Divider orientation='vertical' flexItem />
 
                 {/* Right side: recents + button */}
-                <Box className="flex flex-col flex-1 min-w-0">
+                <Box className='flex flex-col flex-1 min-w-0'>
                     {/* Recent directories list */}
-                    <Box className="flex-1 overflow-auto p-2">
+                    <Box className='flex-1 overflow-auto p-2'>
                         {recentDirectories.length === 0 ? (
-                            <Box className="flex items-center justify-center h-full">
-                                <Typography variant="body2" color="text.secondary">
+                            <Box className='flex items-center justify-center h-full'>
+                                <Typography variant='body2' color='text.secondary'>
                                     No recent directories
                                 </Typography>
                             </Box>
@@ -79,12 +79,12 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
                                     <ListItemButton key={dir.path} onClick={() => handleRecentClick(dir.path)}>
                                         <ListItemText
                                             primary={
-                                                <Typography variant="body2" fontWeight={700} noWrap>
+                                                <Typography variant='body2' fontWeight={700} noWrap>
                                                     {dir.name}
                                                 </Typography>
                                             }
                                             secondary={
-                                                <Typography variant="caption" color="text.secondary" noWrap>
+                                                <Typography variant='caption' color='text.secondary' noWrap>
                                                     {dir.path}
                                                 </Typography>
                                             }
@@ -98,8 +98,8 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
                     <Divider />
 
                     {/* Open directory button */}
-                    <Box className="p-3">
-                        <Button variant="contained" fullWidth onClick={handlePickDirectory}>
+                    <Box className='p-3'>
+                        <Button variant='contained' fullWidth onClick={handlePickDirectory}>
                             Open Directory...
                         </Button>
                     </Box>

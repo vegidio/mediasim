@@ -8,9 +8,9 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.6.0
-	github.com/vegidio/avif-go v0.0.0-20250912170012-c931df36186e
+	github.com/vegidio/avif-go v0.0.0-20260318201954-49ee16a82be7
 	github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f
-	github.com/vegidio/heif-go v0.0.0-20250601194807-dadc2edf3f24
+	github.com/vegidio/heif-go v0.0.0-20260325052619-b00ee76cfd53
 	github.com/vegidio/mediasim v0.0.0-20251018141605-4f7c04a5a58d
 )
 

@@ -45,6 +45,9 @@ export const useAppStore = create<AppStore>()(
                 });
             },
         })),
-        { name: 'app-store' },
+        {
+            name: 'app-store',
+            partialize: (state) => ({ recentDirectories: state.recentDirectories }),
+        },
     ),
 );
