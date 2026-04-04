@@ -1,9 +1,5 @@
 @import "tailwindcss";
 @layer theme, base, mui, components, utilities;
-:root {
-    color-scheme: dark;
-}
-
 body {
     margin: 0;
     overflow: hidden;

@@ -9,7 +9,6 @@ import './index.css';
 
 const darkTheme = createTheme({
     palette: { mode: 'dark' },
-    cssVariables: true,
 });
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

@@ -3,7 +3,7 @@ import { System } from '@wailsio/runtime';
 
 export const Navbar = () => {
     return (
-        <AppBar position='static' enableColorOnDark>
+        <AppBar position='static'>
             <Toolbar variant='dense' className={System.IsMac() ? 'pl-21.5' : ''}>
                 <Typography variant='subtitle1' fontWeight={500}>
                     MediaSim
