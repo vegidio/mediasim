@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ListImages } from '@bindings/gui/services/mediaservice.ts';
+import { ListMedia } from '@bindings/gui/services/mediaservice.js';
 import { ImageTile } from '@/components/atoms';
 import { useAppStore, useImagesStore } from '@/stores';
 
@@ -11,7 +11,7 @@ export const ImageGrid = () => {
     useEffect(() => {
         if (!selectedDirectory) return;
 
-        ListImages(selectedDirectory).then((paths) => {
+        ListMedia(selectedDirectory).then((paths) => {
             setImages(paths);
         });
     }, [selectedDirectory, setImages]);

@@ -3,7 +3,7 @@ package mediasim
 import "strings"
 
 var validImageTypes = []string{".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp"}
-var validVideoTypes = []string{".avi", ".m4v", ".mp4", ".mkv", ".mov", ".webm"}
+var validVideoTypes = []string{".avi", ".m4v", ".mp4", ".mkv", ".mov", ".webm", "wmv"}
 
 // AddImageType adds one or more image type extensions to the list of valid image types.
 func AddImageType(types ...string) {

@@ -6,8 +6,9 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
- * GetThumbnail loads an image, resizes it to fit within maxSize pixels on the longest dimension,
- * encodes it as JPEG, and returns the bytes along with the resulting width and height.
+ * GetThumbnail loads an image or extracts the first frame of a video, resizes it to fit within maxSize
+ * pixels on the longest dimension, encodes it as JPEG, and returns the bytes along with the resulting
+ * width and height.
  */
 export function GetThumbnail(filePath: string, maxSize: number): $CancellablePromise<[string, number, number]> {
     return $Call.ByID(4155270388, filePath, maxSize).then(($result: any) => {
@@ -17,10 +18,10 @@ export function GetThumbnail(filePath: string, maxSize: number): $CancellablePro
 }
 
 /**
- * ListImages returns all image file paths in the given directory (non-recursive).
+ * ListMedia returns all image and video file paths in the given directory (non-recursive).
  */
-export function ListImages(directory: string): $CancellablePromise<string[]> {
-    return $Call.ByID(780716086, directory).then(($result: any) => {
+export function ListMedia(directory: string): $CancellablePromise<string[]> {
+    return $Call.ByID(2016887960, directory).then(($result: any) => {
         return $$createType0($result);
     });
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { GetThumbnail } from '@bindings/gui/services/mediaservice.ts';
+import { GetThumbnail } from '@bindings/gui/services/mediaservice.js';
 import { useImagesStore } from '@/stores';
 import { createBlobUrl } from '@/utils/image';
 
