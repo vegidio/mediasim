@@ -5,6 +5,10 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * GetThumbnail loads an image or extracts the first frame of a video, resizes it to fit within maxSize
  * pixels on the longest dimension, encodes it as JPEG, and returns the bytes along with the resulting
@@ -18,13 +22,14 @@ export function GetThumbnail(filePath: string, maxSize: number): $CancellablePro
 }
 
 /**
- * ListMedia returns all image and video file paths in the given directory (non-recursive).
+ * ListMedia returns metadata for all image and video files in the given directory (non-recursive).
  */
-export function ListMedia(directory: string): $CancellablePromise<string[]> {
+export function ListMedia(directory: string): $CancellablePromise<$models.MediaInfo[]> {
     return $Call.ByID(2016887960, directory).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
+const $$createType0 = $models.MediaInfo.createFrom;
+const $$createType1 = $Create.Array($$createType0);

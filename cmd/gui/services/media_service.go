@@ -23,6 +23,12 @@ var validImageTypes = []string{".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff",
 var validVideoTypes = []string{".avi", ".m4v", ".mp4", ".mkv", ".mov", ".webm", ".wmv"}
 var validMediaTypes = append(validImageTypes, validVideoTypes...)
 
+type MediaInfo struct {
+	Path     string `json:"path"`
+	ModTime  int64  `json:"modTime"`
+	FileSize int64  `json:"fileSize"`
+}
+
 type MediaService struct {
 	tempDir    string
 	ffmpegPath string
@@ -30,8 +36,6 @@ type MediaService struct {
 
 // ServiceStartup creates a temp directory for video frame extraction and resolves the FFmpeg binary path.
 func (m *MediaService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
-	fmt.Println("ServiceStartup")
-
 	tempDir, err := os.MkdirTemp("", "mediasim-gui-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
@@ -44,22 +48,34 @@ func (m *MediaService) ServiceStartup(ctx context.Context, options application.S
 
 // ServiceShutdown removes the temp directory created during startup.
 func (m *MediaService) ServiceShutdown() error {
-	fmt.Println("ServiceShutdown")
-
 	if m.tempDir != "" {
 		os.RemoveAll(m.tempDir)
 	}
 	return nil
 }
 
-// ListMedia returns all image and video file paths in the given directory (non-recursive).
-func (m *MediaService) ListMedia(directory string) ([]string, error) {
+// ListMedia returns metadata for all image and video files in the given directory (non-recursive).
+func (m *MediaService) ListMedia(directory string) ([]MediaInfo, error) {
 	filePaths, err := fs.ListPath(directory, fs.LpFile, validMediaTypes)
 	if err != nil {
 		return nil, fmt.Errorf("error listing directory: %w", err)
 	}
 
-	return filePaths, nil
+	mediaInfos := make([]MediaInfo, 0, len(filePaths))
+	for _, path := range filePaths {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+
+		mediaInfos = append(mediaInfos, MediaInfo{
+			Path:     path,
+			ModTime:  info.ModTime().Unix(),
+			FileSize: info.Size(),
+		})
+	}
+
+	return mediaInfos, nil
 }
 
 // GetThumbnail loads an image or extracts the first frame of a video, resizes it to fit within maxSize
@@ -71,9 +87,12 @@ func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, 
 		return nil, 0, 0, err
 	}
 
+	// Capture original dimensions before resizing
+	origBounds := img.Bounds()
+	origWidth, origHeight := origBounds.Dx(), origBounds.Dy()
+
 	if maxSize > 0 {
-		bounds := img.Bounds()
-		if bounds.Dx() >= bounds.Dy() {
+		if origWidth >= origHeight {
 			img = imaging.Resize(img, maxSize, 0, imaging.Lanczos)
 		} else {
 			img = imaging.Resize(img, 0, maxSize, imaging.Lanczos)
@@ -85,8 +104,7 @@ func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, 
 		return nil, 0, 0, fmt.Errorf("error encoding thumbnail: %w", err)
 	}
 
-	bounds := img.Bounds()
-	return buf.Bytes(), bounds.Dx(), bounds.Dy(), nil
+	return buf.Bytes(), origWidth, origHeight, nil
 }
 
 // openMedia opens an image directly or extracts the first frame of a video.

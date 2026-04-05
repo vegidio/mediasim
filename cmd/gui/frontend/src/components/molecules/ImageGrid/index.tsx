@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ListMedia } from '@bindings/gui/services/mediaservice.js';
+import { ListMedia } from '@bindings/gui/services/mediaservice';
 import { ImageTile } from '@/components/atoms';
 import { useAppStore, useImagesStore } from '@/stores';
 
@@ -11,14 +11,14 @@ export const ImageGrid = () => {
     useEffect(() => {
         if (!selectedDirectory) return;
 
-        ListMedia(selectedDirectory).then((paths) => {
-            setImages(paths);
+        ListMedia(selectedDirectory).then((mediaInfos) => {
+            setImages(mediaInfos);
         });
     }, [selectedDirectory, setImages]);
 
     return (
         <div className='overflow-y-auto h-full p-4'>
-            <div className='grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3'>
+            <div className='grid grid-cols-[repeat(auto-fill,180px)] gap-3 justify-center'>
                 {images.map((entry) => (
                     <ImageTile
                         key={entry.path}
@@ -26,6 +26,10 @@ export const ImageGrid = () => {
                         filename={entry.filename}
                         blobUrl={entry.blobUrl}
                         loading={entry.loading}
+                        modTime={entry.modTime}
+                        fileSize={entry.fileSize}
+                        width={entry.width}
+                        height={entry.height}
                     />
                 ))}
             </div>

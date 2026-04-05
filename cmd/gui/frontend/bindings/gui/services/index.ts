@@ -5,3 +5,7 @@ import * as MediaService from "./mediaservice.js";
 export {
     MediaService
 };
+
+export {
+    MediaInfo
+} from "./models.js";
