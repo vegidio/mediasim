@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ListImages } from '@bindings/changeme/services/mediaservice';
+import { ListImages } from '@bindings/gui/services/mediaservice.ts';
 import { ImageTile } from '@/components/atoms';
 import { useAppStore, useImagesStore } from '@/stores';
 

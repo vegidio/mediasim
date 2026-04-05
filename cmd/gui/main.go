@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	_ "embed"
+	"gui/services"
 	"log"
 	"log/slog"
 
@@ -10,8 +11,6 @@ import (
 	_ "github.com/vegidio/heif-go"
 	"github.com/vegidio/mediasim"
 	"github.com/wailsapp/wails/v3/pkg/application"
-
-	"changeme/services"
 )
 
 //go:embed all:frontend/dist
@@ -35,7 +34,6 @@ func main() {
 	})
 
 	// Register services
-	app.RegisterService(application.NewService(&GreetService{}))
 	app.RegisterService(application.NewService(&services.MediaService{}))
 
 	// Create a new window with the necessary options.

@@ -10,7 +10,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * encodes it as JPEG, and returns the bytes along with the resulting width and height.
  */
 export function GetThumbnail(filePath: string, maxSize: number): $CancellablePromise<[string, number, number]> {
-    return $Call.ByID(1889325845, filePath, maxSize).then(($result: any) => {
+    return $Call.ByID(4155270388, filePath, maxSize).then(($result: any) => {
         $result[0] = $Create.ByteSlice($result[0]);
         return $result;
     });
@@ -20,7 +20,7 @@ export function GetThumbnail(filePath: string, maxSize: number): $CancellablePro
  * ListImages returns all image file paths in the given directory (non-recursive).
  */
 export function ListImages(directory: string): $CancellablePromise<string[]> {
-    return $Call.ByID(3226678135, directory).then(($result: any) => {
+    return $Call.ByID(780716086, directory).then(($result: any) => {
         return $$createType0($result);
     });
 }
