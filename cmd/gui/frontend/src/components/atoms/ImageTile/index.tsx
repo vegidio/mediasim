@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { GetThumbnail } from '@bindings/gui/services/mediaservice.js';
 import { MdImage, MdVideocam } from 'react-icons/md';
 import { useImagesStore } from '@/stores';
 import { formatDate, formatFileSize } from '@/utils/format';
-import { createBlobUrl } from '@/utils/image';
+import { toDataUrl } from '@/utils/image';
+import { acquireSlot, releaseSlot } from '@/utils/throttle';
 
 const VIDEO_EXTENSIONS = new Set(['.avi', '.m4v', '.mp4', '.mkv', '.mov', '.webm', '.wmv']);
 
@@ -12,7 +13,7 @@ const getExtension = (filename: string): string => filename.slice(filename.lastI
 type ImageTileProps = {
     path: string;
     filename: string;
-    blobUrl: string | undefined;
+    dataUrl: string | undefined;
     loading: boolean;
     modTime: number | undefined;
     fileSize: number | undefined;
@@ -20,25 +21,28 @@ type ImageTileProps = {
     height: number | undefined;
 };
 
-export const ImageTile = ({ path, filename, blobUrl, loading, modTime, fileSize, width, height }: ImageTileProps) => {
+export const ImageTile = memo(({ path, filename, dataUrl, loading, modTime, fileSize, width, height }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
     const setLoading = useImagesStore((s) => s.setLoading);
     const setThumbnail = useImagesStore((s) => s.setThumbnail);
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
     useEffect(() => {
-        if (!ref.current || blobUrl || loading) return;
+        if (!ref.current || dataUrl || loading) return;
 
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting) {
                     observer.disconnect();
 
-                    setLoading(path);
+                    acquireSlot().then(() => {
+                        setLoading(path);
 
-                    GetThumbnail(path, 200).then(async ([data, w, h]) => {
-                        const url = await createBlobUrl(data);
-                        setThumbnail(path, url, w, h);
+                        GetThumbnail(path, 200)
+                            .then(([data, w, h]) => {
+                                setThumbnail(path, toDataUrl(data), w, h);
+                            })
+                            .finally(releaseSlot);
                     });
                 }
             },
@@ -47,7 +51,7 @@ export const ImageTile = ({ path, filename, blobUrl, loading, modTime, fileSize,
 
         observer.observe(ref.current);
         return () => observer.disconnect();
-    }, [path, blobUrl, loading, setLoading, setThumbnail]);
+    }, [path, dataUrl, loading, setLoading, setThumbnail]);
 
     const metaLine = [
         modTime !== undefined ? formatDate(modTime) : undefined,
@@ -60,13 +64,13 @@ export const ImageTile = ({ path, filename, blobUrl, loading, modTime, fileSize,
     return (
         <div ref={ref} className='w-[180px]'>
             <div className='relative w-[180px] h-[180px] bg-black/30 rounded-t overflow-hidden flex items-center justify-center'>
-                {blobUrl ? (
-                    <img src={blobUrl} alt={filename} className='object-cover w-full h-full' />
+                {dataUrl ? (
+                    <img src={dataUrl} alt={filename} className='object-cover w-full h-full' />
                 ) : (
                     <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
                 )}
 
-                {blobUrl && (
+                {dataUrl && (
                     <div className='absolute bottom-1 right-1 bg-black/60 rounded p-0.5'>
                         {isVideo ? (
                             <MdVideocam className='text-white' size={14} />
@@ -85,4 +89,4 @@ export const ImageTile = ({ path, filename, blobUrl, loading, modTime, fileSize,
             </div>
         </div>
     );
-};
+});

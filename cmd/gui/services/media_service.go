@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/disintegration/imaging"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
@@ -22,6 +23,9 @@ import (
 var validImageTypes = []string{".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp", ".avif", ".heic"}
 var validVideoTypes = []string{".avi", ".m4v", ".mp4", ".mkv", ".mov", ".webm", ".wmv"}
 var validMediaTypes = append(validImageTypes, validVideoTypes...)
+
+// thumbnailSem limits concurrent thumbnail generation to avoid CPU/memory overload.
+var thumbnailSem = make(chan struct{}, 4)
 
 type MediaInfo struct {
 	Path     string `json:"path"`
@@ -61,27 +65,45 @@ func (m *MediaService) ListMedia(directory string) ([]MediaInfo, error) {
 		return nil, fmt.Errorf("error listing directory: %w", err)
 	}
 
-	mediaInfos := make([]MediaInfo, 0, len(filePaths))
-	for _, path := range filePaths {
-		info, err := os.Stat(path)
-		if err != nil {
-			continue
-		}
+	mediaInfos := make([]MediaInfo, len(filePaths))
+	var wg sync.WaitGroup
 
-		mediaInfos = append(mediaInfos, MediaInfo{
-			Path:     path,
-			ModTime:  info.ModTime().Unix(),
-			FileSize: info.Size(),
-		})
+	for i, p := range filePaths {
+		wg.Add(1)
+		go func(idx int, filePath string) {
+			defer wg.Done()
+			info, err := os.Stat(filePath)
+			if err != nil {
+				return
+			}
+			mediaInfos[idx] = MediaInfo{
+				Path:     filePath,
+				ModTime:  info.ModTime().Unix(),
+				FileSize: info.Size(),
+			}
+		}(i, p)
 	}
 
-	return mediaInfos, nil
+	wg.Wait()
+
+	// Filter out entries where os.Stat failed
+	result := make([]MediaInfo, 0, len(mediaInfos))
+	for _, info := range mediaInfos {
+		if info.Path != "" {
+			result = append(result, info)
+		}
+	}
+
+	return result, nil
 }
 
 // GetThumbnail loads an image or extracts the first frame of a video, resizes it to fit within maxSize
 // pixels on the longest dimension, encodes it as JPEG, and returns the bytes along with the resulting
 // width and height.
 func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, int, error) {
+	thumbnailSem <- struct{}{}
+	defer func() { <-thumbnailSem }()
+
 	var img, err = m.openMedia(filePath)
 	if err != nil {
 		return nil, 0, 0, err
@@ -93,9 +115,9 @@ func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, 
 
 	if maxSize > 0 {
 		if origWidth >= origHeight {
-			img = imaging.Resize(img, maxSize, 0, imaging.Lanczos)
+			img = imaging.Resize(img, maxSize, 0, imaging.Box)
 		} else {
-			img = imaging.Resize(img, 0, maxSize, imaging.Lanczos)
+			img = imaging.Resize(img, 0, maxSize, imaging.Box)
 		}
 	}
 

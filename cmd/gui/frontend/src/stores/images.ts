@@ -6,7 +6,7 @@ import { immer } from 'zustand/middleware/immer';
 type ImageEntry = {
     path: string;
     filename: string;
-    blobUrl: string | undefined;
+    dataUrl: string | undefined;
     loading: boolean;
     modTime: number | undefined;
     fileSize: number | undefined;
@@ -18,7 +18,7 @@ type ImagesStore = {
     images: ImageEntry[];
     setImages: (mediaInfos: MediaInfo[]) => void;
     setLoading: (path: string) => void;
-    setThumbnail: (path: string, blobUrl: string, width: number, height: number) => void;
+    setThumbnail: (path: string, dataUrl: string, width: number, height: number) => void;
     clear: () => void;
 };
 
@@ -28,17 +28,10 @@ export const useImagesStore = create<ImagesStore>()(
 
         setImages: (mediaInfos: MediaInfo[]) => {
             set((state) => {
-                // Revoke old blob URLs to prevent memory leaks
-                for (const img of state.images) {
-                    if (img.blobUrl) {
-                        URL.revokeObjectURL(img.blobUrl);
-                    }
-                }
-
                 state.images = mediaInfos.map((info) => ({
                     path: info.path,
                     filename: basename(info.path),
-                    blobUrl: undefined,
+                    dataUrl: undefined,
                     loading: false,
                     modTime: info.modTime,
                     fileSize: info.fileSize,
@@ -55,11 +48,11 @@ export const useImagesStore = create<ImagesStore>()(
             });
         },
 
-        setThumbnail: (path: string, blobUrl: string, width: number, height: number) => {
+        setThumbnail: (path: string, dataUrl: string, width: number, height: number) => {
             set((state) => {
                 const entry = state.images.find((img) => img.path === path);
                 if (entry) {
-                    entry.blobUrl = blobUrl;
+                    entry.dataUrl = dataUrl;
                     entry.loading = false;
                     entry.width = width;
                     entry.height = height;
@@ -69,11 +62,6 @@ export const useImagesStore = create<ImagesStore>()(
 
         clear: () => {
             set((state) => {
-                for (const img of state.images) {
-                    if (img.blobUrl) {
-                        URL.revokeObjectURL(img.blobUrl);
-                    }
-                }
                 state.images = [];
             });
         },

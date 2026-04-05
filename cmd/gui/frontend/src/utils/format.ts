@@ -1,7 +1,6 @@
-export const formatDate = (unix: number): string => {
-    const d = new Date(unix * 1000);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-};
+const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+export const formatDate = (unix: number): string => dateFormatter.format(new Date(unix * 1000));
 
 export const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
