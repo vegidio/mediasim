@@ -13,26 +13,24 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-
-export type CompareSettings = {
-    mediaType: 'all' | 'images' | 'videos';
-    frameFlip: boolean;
-    frameRotate: boolean;
-    threshold: number;
-};
+import { type MediaType, useSettingsStore } from '@/stores';
 
 type CompareDialogProps = {
     open: boolean;
     onClose?: () => void;
-    onStart?: (settings: CompareSettings) => void;
+    onStart?: () => void;
 };
 
 export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) => {
-    const [mediaType, setMediaType] = useState('all');
-    const [frameFlip, setFrameFlip] = useState(false);
-    const [frameRotate, setFrameRotate] = useState(false);
-    const [threshold, setThreshold] = useState(0.8);
-    const [thresholdText, setThresholdText] = useState('0.8');
+    const mediaType = useSettingsStore((s) => s.mediaType);
+    const setMediaType = useSettingsStore((s) => s.setMediaType);
+    const frameFlip = useSettingsStore((s) => s.frameFlip);
+    const setFrameFlip = useSettingsStore((s) => s.setFrameFlip);
+    const frameRotate = useSettingsStore((s) => s.frameRotate);
+    const setFrameRotate = useSettingsStore((s) => s.setFrameRotate);
+    const threshold = useSettingsStore((s) => s.threshold);
+    const setThreshold = useSettingsStore((s) => s.setThreshold);
+    const [thresholdText, setThresholdText] = useState(String(threshold));
 
     const handleThresholdSliderChange = (_: Event, value: number | number[]) => {
         const num = value as number;
@@ -69,7 +67,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
                 {/* Media type */}
                 <div className='flex items-center justify-between'>
                     <Typography variant='body1'>Media type</Typography>
-                    <RadioGroup row value={mediaType} onChange={(e) => setMediaType(e.target.value)}>
+                    <RadioGroup row value={mediaType} onChange={(e) => setMediaType(e.target.value as MediaType)}>
                         <FormControlLabel value='all' control={<Radio size='small' />} label='All' />
                         <FormControlLabel value='images' control={<Radio size='small' />} label='Images' />
                         <FormControlLabel value='videos' control={<Radio size='small' />} label='Videos' />
@@ -126,17 +124,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
 
             <DialogActions className='px-6 pb-4'>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button
-                    variant='contained'
-                    onClick={() =>
-                        onStart?.({
-                            mediaType: mediaType as CompareSettings['mediaType'],
-                            frameFlip,
-                            frameRotate,
-                            threshold,
-                        })
-                    }
-                >
+                <Button variant='contained' onClick={() => onStart?.()}>
                     Start
                 </Button>
             </DialogActions>

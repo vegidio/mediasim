@@ -1,5 +1,5 @@
 export { BottomBar } from './BottomBar';
-export { CompareDialog, type CompareSettings } from './CompareDialog';
+export { CompareDialog } from './CompareDialog';
 export { Preview } from './Preview';
 export { ProgressDialog } from './ProgressDialog';
 export { Sidebar } from './Sidebar';

@@ -2,31 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, LinearProgress, Typography } from '@mui/material';
 import { StartComparison } from '@bindings/gui/services/comparisonservice';
 import { Events } from '@wailsio/runtime';
+import { useSettingsStore } from '@/stores';
 
 type ProgressDialogProps = {
     open: boolean;
     directory: string;
-    threshold: number;
-    mediaType: 'all' | 'images' | 'videos';
-    frameFlip: boolean;
-    frameRotate: boolean;
     onClose?: () => void;
 };
 
-export const ProgressDialog = ({
-    open,
-    directory,
-    threshold,
-    mediaType,
-    frameFlip,
-    frameRotate,
-    onClose,
-}: ProgressDialogProps) => {
+export const ProgressDialog = ({ open, directory, onClose }: ProgressDialogProps) => {
+    const threshold = useSettingsStore((s) => s.threshold);
+    const mediaType = useSettingsStore((s) => s.mediaType);
+    const frameFlip = useSettingsStore((s) => s.frameFlip);
+    const frameRotate = useSettingsStore((s) => s.frameRotate);
     const [current, setCurrent] = useState(0);
     const [total, setTotal] = useState(0);
     const promiseRef = useRef<{ cancel: () => void } | undefined>(undefined);
 
-    // Only re-run when `open` changes — other props are set before the dialog opens
+    // Only re-run when `open` changes — other values are set before the dialog opens
     // and must not restart the comparison mid-progress.
     // biome-ignore lint/correctness/useExhaustiveDependencies: see above
     useEffect(() => {

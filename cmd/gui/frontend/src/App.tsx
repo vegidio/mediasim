@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
     BottomBar,
     CompareDialog,
-    type CompareSettings,
     Preview,
     ProgressDialog,
     Sidebar,
@@ -15,12 +14,6 @@ export const App = () => {
     const [dialogOpen, setDialogOpen] = useState(true);
     const [compareOpen, setCompareOpen] = useState(false);
     const [progressOpen, setProgressOpen] = useState(false);
-    const [compareSettings, setCompareSettings] = useState<CompareSettings>({
-        mediaType: 'all',
-        frameFlip: false,
-        frameRotate: false,
-        threshold: 0.8,
-    });
     const clearImages = useImagesStore((s) => s.clear);
     const clearSelectedDirectory = useAppStore((s) => s.clearSelectedDirectory);
     const selectedDirectory = useAppStore((s) => s.selectedDirectory);
@@ -35,9 +28,8 @@ export const App = () => {
         setDialogOpen(true);
     };
 
-    const handleCompareStart = (settings: CompareSettings) => {
+    const handleCompareStart = () => {
         setCompareOpen(false);
-        setCompareSettings(settings);
         setProgressOpen(true);
     };
 
@@ -58,10 +50,6 @@ export const App = () => {
             <ProgressDialog
                 open={progressOpen}
                 directory={selectedDirectory ?? ''}
-                threshold={compareSettings.threshold}
-                mediaType={compareSettings.mediaType}
-                frameFlip={compareSettings.frameFlip}
-                frameRotate={compareSettings.frameRotate}
                 onClose={() => setProgressOpen(false)}
             />
             <WelcomeDialog open={dialogOpen} onDirectorySelected={handleDirectorySelected} />
