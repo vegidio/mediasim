@@ -6,12 +6,12 @@ import { immer } from 'zustand/middleware/immer';
 type ImageEntry = {
     path: string;
     filename: string;
-    dataUrl: string | undefined;
+    dataUrl?: string;
     loading: boolean;
-    modTime: number | undefined;
-    fileSize: number | undefined;
-    width: number | undefined;
-    height: number | undefined;
+    modTime?: number;
+    fileSize?: number;
+    width?: number;
+    height?: number;
 };
 
 type ImagesStore = {

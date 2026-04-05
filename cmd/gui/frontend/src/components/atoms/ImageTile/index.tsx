@@ -13,80 +13,82 @@ const getExtension = (filename: string): string => filename.slice(filename.lastI
 type ImageTileProps = {
     path: string;
     filename: string;
-    dataUrl: string | undefined;
+    dataUrl?: string;
     loading: boolean;
-    modTime: number | undefined;
-    fileSize: number | undefined;
-    width: number | undefined;
-    height: number | undefined;
+    modTime?: number;
+    fileSize?: number;
+    width?: number;
+    height?: number;
 };
 
-export const ImageTile = memo(({ path, filename, dataUrl, loading, modTime, fileSize, width, height }: ImageTileProps) => {
-    const ref = useRef<HTMLDivElement>(null);
-    const setLoading = useImagesStore((s) => s.setLoading);
-    const setThumbnail = useImagesStore((s) => s.setThumbnail);
-    const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
+export const ImageTile = memo(
+    ({ path, filename, dataUrl, loading, modTime, fileSize, width, height }: ImageTileProps) => {
+        const ref = useRef<HTMLDivElement>(null);
+        const setLoading = useImagesStore((s) => s.setLoading);
+        const setThumbnail = useImagesStore((s) => s.setThumbnail);
+        const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
-    useEffect(() => {
-        if (!ref.current || dataUrl || loading) return;
+        useEffect(() => {
+            if (!ref.current || dataUrl || loading) return;
 
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    observer.disconnect();
+            const observer = new IntersectionObserver(
+                ([entry]) => {
+                    if (entry.isIntersecting) {
+                        observer.disconnect();
 
-                    acquireSlot().then(() => {
-                        setLoading(path);
+                        acquireSlot().then(() => {
+                            setLoading(path);
 
-                        GetThumbnail(path, 200)
-                            .then(([data, w, h]) => {
-                                setThumbnail(path, toDataUrl(data), w, h);
-                            })
-                            .finally(releaseSlot);
-                    });
-                }
-            },
-            { threshold: 0.1 },
+                            GetThumbnail(path, 200)
+                                .then(([data, w, h]) => {
+                                    setThumbnail(path, toDataUrl(data), w, h);
+                                })
+                                .finally(releaseSlot);
+                        });
+                    }
+                },
+                { threshold: 0.1 },
+            );
+
+            observer.observe(ref.current);
+            return () => observer.disconnect();
+        }, [path, dataUrl, loading, setLoading, setThumbnail]);
+
+        const metaLine = [
+            modTime !== undefined ? formatDate(modTime) : undefined,
+            width !== undefined && height !== undefined ? `${width}x${height}` : undefined,
+            fileSize !== undefined ? formatFileSize(fileSize) : undefined,
+        ]
+            .filter(Boolean)
+            .join(' \u00b7 ');
+
+        return (
+            <div ref={ref} className='w-45'>
+                <div className='relative w-45 h-45 bg-black/30 rounded-t overflow-hidden flex items-center justify-center'>
+                    {dataUrl ? (
+                        <img src={dataUrl} alt={filename} className='object-cover w-full h-full' />
+                    ) : (
+                        <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
+                    )}
+
+                    {dataUrl && (
+                        <div className='absolute bottom-1 right-1 bg-black/60 rounded p-0.5'>
+                            {isVideo ? (
+                                <MdVideocam className='text-white' size={16} />
+                            ) : (
+                                <MdImage className='text-white' size={16} />
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className='bg-white/5 rounded-b px-2 py-1.5'>
+                    <p className='text-xs text-gray-200 truncate' title={filename}>
+                        {filename}
+                    </p>
+                    {metaLine && <p className='text-[10px] text-gray-400 truncate'>{metaLine}</p>}
+                </div>
+            </div>
         );
-
-        observer.observe(ref.current);
-        return () => observer.disconnect();
-    }, [path, dataUrl, loading, setLoading, setThumbnail]);
-
-    const metaLine = [
-        modTime !== undefined ? formatDate(modTime) : undefined,
-        width !== undefined && height !== undefined ? `${width}x${height}` : undefined,
-        fileSize !== undefined ? formatFileSize(fileSize) : undefined,
-    ]
-        .filter(Boolean)
-        .join(' \u00b7 ');
-
-    return (
-        <div ref={ref} className='w-[180px]'>
-            <div className='relative w-[180px] h-[180px] bg-black/30 rounded-t overflow-hidden flex items-center justify-center'>
-                {dataUrl ? (
-                    <img src={dataUrl} alt={filename} className='object-cover w-full h-full' />
-                ) : (
-                    <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
-                )}
-
-                {dataUrl && (
-                    <div className='absolute bottom-1 right-1 bg-black/60 rounded p-0.5'>
-                        {isVideo ? (
-                            <MdVideocam className='text-white' size={14} />
-                        ) : (
-                            <MdImage className='text-white' size={14} />
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div className='bg-white/5 rounded-b px-2 py-1.5'>
-                <p className='text-xs text-gray-200 truncate' title={filename}>
-                    {filename}
-                </p>
-                {metaLine && <p className='text-[10px] text-gray-400 truncate'>{metaLine}</p>}
-            </div>
-        </div>
-    );
-});
+    },
+);

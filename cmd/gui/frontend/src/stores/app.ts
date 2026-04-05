@@ -11,7 +11,7 @@ type DirectoryEntry = {
 
 type AppStore = {
     recentDirectories: DirectoryEntry[];
-    selectedDirectory: string | undefined;
+    selectedDirectory?: string;
     addDirectory: (path: string) => void;
     selectDirectory: (path: string) => void;
     clearSelectedDirectory: () => void;

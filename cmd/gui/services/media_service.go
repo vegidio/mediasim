@@ -115,9 +115,9 @@ func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, 
 
 	if maxSize > 0 {
 		if origWidth >= origHeight {
-			img = imaging.Resize(img, maxSize, 0, imaging.Box)
+			img = imaging.Resize(img, maxSize, 0, imaging.Lanczos)
 		} else {
-			img = imaging.Resize(img, 0, maxSize, imaging.Box)
+			img = imaging.Resize(img, 0, maxSize, imaging.Lanczos)
 		}
 	}
 
