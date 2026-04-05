@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, LinearProgress, Typography } from '@mui/material';
 import { StartComparison } from '@bindings/gui/services/comparisonservice';
 import { Events } from '@wailsio/runtime';
+import { ModalTitle } from '@/components/molecules';
 import { useSettingsStore } from '@/stores';
 
 type ProgressDialogProps = {
@@ -62,7 +63,17 @@ export const ProgressDialog = ({ open, directory, onClose }: ProgressDialogProps
     const percent = total > 0 ? Math.round((current / total) * 100) : 0;
 
     return (
-        <Dialog open={open} maxWidth='sm' fullWidth>
+        <Dialog
+            open={open}
+            maxWidth='sm'
+            fullWidth
+            disableEscapeKeyDown
+            onClose={(_event, reason) => {
+                if (reason === 'backdropClick') return;
+            }}
+        >
+            <ModalTitle title='Comparing...' onClose={handleCancel} />
+
             <DialogContent className='flex flex-col gap-4 pt-5!'>
                 <Typography variant='body1'>Calculating similarity in the directory {directory}</Typography>
                 <Typography variant='body1'>

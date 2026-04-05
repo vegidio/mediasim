@@ -5,7 +5,6 @@ import {
     Dialog,
     DialogActions,
     DialogContent,
-    DialogTitle,
     FormControlLabel,
     Radio,
     RadioGroup,
@@ -13,6 +12,7 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
+import { ModalTitle } from '@/components/molecules';
 import { type MediaType, useSettingsStore } from '@/stores';
 
 type CompareDialogProps = {
@@ -60,8 +60,16 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
     };
 
     return (
-        <Dialog open={open} maxWidth='sm' fullWidth onClose={onClose}>
-            <DialogTitle>Compare Settings</DialogTitle>
+        <Dialog
+            open={open}
+            maxWidth='sm'
+            fullWidth
+            onClose={(_event, reason) => {
+                if (reason === 'backdropClick') return;
+                onClose?.();
+            }}
+        >
+            <ModalTitle title='Settings' onClose={onClose} />
 
             <DialogContent className='flex flex-col gap-5 pt-2!'>
                 {/* Media type */}

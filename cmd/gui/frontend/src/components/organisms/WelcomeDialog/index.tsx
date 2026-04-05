@@ -9,8 +9,9 @@ import {
     ListItemText,
     Typography,
 } from '@mui/material';
-import { Dialogs } from '@wailsio/runtime';
+import { Application, Dialogs } from '@wailsio/runtime';
 import { PiImageDuotone } from 'react-icons/pi';
+import { ModalTitle } from '@/components/molecules';
 import { useAppStore } from '@/stores';
 
 type WelcomeDialogProps = {
@@ -39,6 +40,10 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
         onDirectorySelected(path);
     };
 
+    const handleQuit = () => {
+        Application.Quit();
+    };
+
     return (
         <Dialog
             open={open}
@@ -52,6 +57,8 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
                 if (reason === 'backdropClick') return;
             }}
         >
+            <ModalTitle title='Welcome' onClose={handleQuit} />
+
             <DialogContent className='flex p-0 min-h-87.5'>
                 {/* Left side: icon + app name */}
                 <Box className='flex flex-col items-center justify-center w-48 shrink-0 bg-[#1a1a1a] p-6'>
