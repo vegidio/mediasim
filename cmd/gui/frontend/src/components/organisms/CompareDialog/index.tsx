@@ -17,9 +17,10 @@ import {
 type CompareDialogProps = {
     open: boolean;
     onClose?: () => void;
+    onStart?: (threshold: number) => void;
 };
 
-export const CompareDialog = ({ open, onClose }: CompareDialogProps) => {
+export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) => {
     const [mediaType, setMediaType] = useState('all');
     const [frameFlip, setFrameFlip] = useState(false);
     const [frameRotate, setFrameRotate] = useState(false);
@@ -115,7 +116,9 @@ export const CompareDialog = ({ open, onClose }: CompareDialogProps) => {
 
             <DialogActions className='px-6 pb-4'>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button variant='contained'>Start</Button>
+                <Button variant='contained' onClick={() => onStart?.(threshold)}>
+                    Start
+                </Button>
             </DialogActions>
         </Dialog>
     );
