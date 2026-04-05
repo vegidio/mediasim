@@ -1,7 +1,7 @@
 import { AppBar, Toolbar, Typography } from '@mui/material';
 import { System } from '@wailsio/runtime';
 
-export const Navbar = () => {
+export const TopBar = () => {
     return (
         <AppBar position='static'>
             <Toolbar variant='dense' className={System.IsMac() ? 'pl-21.5' : ''}>
