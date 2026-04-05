@@ -5,9 +5,10 @@ import { TileSlider } from '@/components/molecules';
 
 type BottomBarProps = TailwindProps & {
     onClose?: () => void;
+    onCompare?: () => void;
 };
 
-export const BottomBar = ({ onClose }: BottomBarProps) => {
+export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
     return (
         <AppBar position='static' component='footer'>
             <Toolbar variant='dense' className='flex'>
@@ -18,7 +19,7 @@ export const BottomBar = ({ onClose }: BottomBarProps) => {
                 </div>
 
                 <div className='flex flex-1 justify-center'>
-                    <Button color='inherit' size='small' startIcon={<MdCompare />}>
+                    <Button color='inherit' size='small' startIcon={<MdCompare />} onClick={onCompare}>
                         Compare
                     </Button>
                 </div>

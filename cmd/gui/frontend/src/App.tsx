@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { BottomBar, Preview, Sidebar, TopBar, WelcomeDialog } from '@/components/organisms';
+import { BottomBar, CompareDialog, Preview, Sidebar, TopBar, WelcomeDialog } from '@/components/organisms';
 import { useAppStore, useImagesStore } from '@/stores';
 
 export const App = () => {
     const [dialogOpen, setDialogOpen] = useState(true);
+    const [compareOpen, setCompareOpen] = useState(false);
     const clearImages = useImagesStore((s) => s.clear);
     const clearSelectedDirectory = useAppStore((s) => s.clearSelectedDirectory);
 
@@ -28,8 +29,9 @@ export const App = () => {
                 <Sidebar className='w-64 h-full' />
             </main>
 
-            <BottomBar onClose={handleClose} />
+            <BottomBar onClose={handleClose} onCompare={() => setCompareOpen(true)} />
 
+            <CompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} />
             <WelcomeDialog open={dialogOpen} onDirectorySelected={handleDirectorySelected} />
         </div>
     );
