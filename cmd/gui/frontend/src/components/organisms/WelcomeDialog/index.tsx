@@ -28,7 +28,7 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
             CanChooseFiles: false,
         });
 
-        if (selected && typeof selected === 'string' && selected.length > 0) {
+        if (selected.length > 0) {
             selectDirectory(selected);
             onDirectorySelected(selected);
         }
@@ -52,7 +52,7 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
                 if (reason === 'backdropClick') return;
             }}
         >
-            <DialogContent className='flex p-0 min-h-[350px]'>
+            <DialogContent className='flex p-0 min-h-87.5'>
                 {/* Left side: icon + app name */}
                 <Box className='flex flex-col items-center justify-center w-48 shrink-0 bg-[#1a1a1a] p-6'>
                     <PiImageDuotone size={64} className='text-blue-400 mb-3' />

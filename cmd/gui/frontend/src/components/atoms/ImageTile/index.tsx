@@ -6,12 +6,13 @@ import { createBlobUrl } from '@/utils/image';
 type ImageTileProps = {
     path: string;
     filename: string;
-    blobUrl: string | null;
+    blobUrl: string | undefined;
     loading: boolean;
 };
 
 export const ImageTile = ({ path, filename, blobUrl, loading }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
+    const setLoading = useImagesStore((s) => s.setLoading);
     const setThumbnail = useImagesStore((s) => s.setThumbnail);
 
     useEffect(() => {
@@ -22,10 +23,7 @@ export const ImageTile = ({ path, filename, blobUrl, loading }: ImageTileProps) 
                 if (entry.isIntersecting) {
                     observer.disconnect();
 
-                    useImagesStore.setState((state) => {
-                        const img = state.images.find((i) => i.path === path);
-                        if (img) img.loading = true;
-                    });
+                    setLoading(path);
 
                     GetThumbnail(path, 200).then(async ([data]) => {
                         const url = await createBlobUrl(data);
@@ -38,7 +36,7 @@ export const ImageTile = ({ path, filename, blobUrl, loading }: ImageTileProps) 
 
         observer.observe(ref.current);
         return () => observer.disconnect();
-    }, [path, blobUrl, loading, setThumbnail]);
+    }, [path, blobUrl, loading, setLoading, setThumbnail]);
 
     return (
         <div ref={ref} className='aspect-square bg-black/30 rounded overflow-hidden flex items-center justify-center'>

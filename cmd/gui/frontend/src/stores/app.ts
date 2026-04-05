@@ -11,24 +11,27 @@ type DirectoryEntry = {
 
 type AppStore = {
     recentDirectories: DirectoryEntry[];
-    selectedDirectory: string | null;
+    selectedDirectory: string | undefined;
     addDirectory: (path: string) => void;
     selectDirectory: (path: string) => void;
+    clearSelectedDirectory: () => void;
     removeDirectory: (path: string) => void;
 };
+
+const MAX_RECENT_DIRECTORIES = 5;
 
 export const useAppStore = create<AppStore>()(
     persist(
         immer((set, get) => ({
             recentDirectories: [],
-            selectedDirectory: null,
+            selectedDirectory: undefined,
 
             addDirectory: (path: string) => {
                 const name = basename(path);
                 set((state) => {
                     state.recentDirectories = state.recentDirectories.filter((d) => d.path !== path);
                     state.recentDirectories.unshift({ path, name, lastUsed: Date.now() });
-                    state.recentDirectories = state.recentDirectories.slice(0, 10);
+                    state.recentDirectories = state.recentDirectories.slice(0, MAX_RECENT_DIRECTORIES);
                 });
             },
 
@@ -37,6 +40,12 @@ export const useAppStore = create<AppStore>()(
                     state.selectedDirectory = path;
                 });
                 get().addDirectory(path);
+            },
+
+            clearSelectedDirectory: () => {
+                set((state) => {
+                    state.selectedDirectory = undefined;
+                });
             },
 
             removeDirectory: (path: string) => {

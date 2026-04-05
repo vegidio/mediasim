@@ -5,13 +5,14 @@ import { immer } from 'zustand/middleware/immer';
 type ImageEntry = {
     path: string;
     filename: string;
-    blobUrl: string | null;
+    blobUrl: string | undefined;
     loading: boolean;
 };
 
 type ImagesStore = {
     images: ImageEntry[];
     setImages: (paths: string[]) => void;
+    setLoading: (path: string) => void;
     setThumbnail: (path: string, blobUrl: string) => void;
     clear: () => void;
 };
@@ -32,9 +33,16 @@ export const useImagesStore = create<ImagesStore>()(
                 state.images = paths.map((path) => ({
                     path,
                     filename: basename(path),
-                    blobUrl: null,
+                    blobUrl: undefined,
                     loading: false,
                 }));
+            });
+        },
+
+        setLoading: (path: string) => {
+            set((state) => {
+                const entry = state.images.find((img) => img.path === path);
+                if (entry) entry.loading = true;
             });
         },
 
