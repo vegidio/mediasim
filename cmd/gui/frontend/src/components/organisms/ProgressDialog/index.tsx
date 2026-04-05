@@ -1,16 +1,72 @@
+import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, LinearProgress, Typography } from '@mui/material';
+import { StartComparison } from '@bindings/gui/services/mediaservice';
+import { Events } from '@wailsio/runtime';
 
 type ProgressDialogProps = {
     open: boolean;
     directory: string;
     threshold: number;
+    mediaType: 'all' | 'images' | 'videos';
+    frameFlip: boolean;
+    frameRotate: boolean;
     onClose?: () => void;
 };
 
-export const ProgressDialog = ({ open, directory, threshold, onClose }: ProgressDialogProps) => {
-    const current = 123;
-    const total = 300;
-    const percent = Math.round((current / total) * 100);
+export const ProgressDialog = ({
+    open,
+    directory,
+    threshold,
+    mediaType,
+    frameFlip,
+    frameRotate,
+    onClose,
+}: ProgressDialogProps) => {
+    const [current, setCurrent] = useState(0);
+    const [total, setTotal] = useState(0);
+    const promiseRef = useRef<{ cancel: () => void } | undefined>(undefined);
+
+    // Only re-run when `open` changes — other props are set before the dialog opens
+    // and must not restart the comparison mid-progress.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+    useEffect(() => {
+        if (!open) return;
+
+        setCurrent(0);
+        setTotal(0);
+
+        const offProgress = Events.On('comparison:progress', (event: { data: unknown }) => {
+            const { current: c, total: t } = event.data as { current: number; total: number };
+            setCurrent(c);
+            setTotal(t);
+        });
+
+        const includeImages = mediaType === 'all' || mediaType === 'images';
+        const includeVideos = mediaType === 'all' || mediaType === 'videos';
+
+        const promise = StartComparison(directory, includeImages, includeVideos, frameFlip, frameRotate, threshold);
+        promiseRef.current = promise;
+
+        promise
+            .then(() => {
+                onClose?.();
+            })
+            .catch(() => {
+                // Cancelled or error — dialog closes via onClose
+            });
+
+        return () => {
+            offProgress();
+            promiseRef.current = undefined;
+        };
+    }, [open]);
+
+    const handleCancel = () => {
+        promiseRef.current?.cancel();
+        onClose?.();
+    };
+
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
 
     return (
         <Dialog open={open} maxWidth='sm' fullWidth>
@@ -34,7 +90,7 @@ export const ProgressDialog = ({ open, directory, threshold, onClose }: Progress
             </DialogContent>
 
             <DialogActions className='px-6 pb-4'>
-                <Button onClick={onClose}>Cancel</Button>
+                <Button onClick={handleCancel}>Cancel</Button>
             </DialogActions>
         </Dialog>
     );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ChangeEvent, useState } from 'react';
 import {
     Button,
     Checkbox,
@@ -14,10 +14,17 @@ import {
     Typography,
 } from '@mui/material';
 
+export type CompareSettings = {
+    mediaType: 'all' | 'images' | 'videos';
+    frameFlip: boolean;
+    frameRotate: boolean;
+    threshold: number;
+};
+
 type CompareDialogProps = {
     open: boolean;
     onClose?: () => void;
-    onStart?: (threshold: number) => void;
+    onStart?: (settings: CompareSettings) => void;
 };
 
 export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) => {
@@ -33,7 +40,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
         setThresholdText(String(num));
     };
 
-    const handleThresholdInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleThresholdInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value.replace(',', '.');
 
         // Allow only digits and a single decimal point
@@ -72,6 +79,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
                 {/* Extra comparisons */}
                 <div className='flex items-center justify-between'>
                     <Typography variant='body1'>Extra comparisons</Typography>
+
                     <div className='flex'>
                         <FormControlLabel
                             control={
@@ -83,6 +91,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
                             }
                             label='Frame Flip'
                         />
+
                         <FormControlLabel
                             control={
                                 <Checkbox
@@ -101,6 +110,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
                     <Typography variant='body1' className='shrink-0'>
                         Similarity threshold
                     </Typography>
+
                     <div className='flex flex-1 items-center gap-3'>
                         <Slider value={threshold} min={0} max={1} step={0.01} onChange={handleThresholdSliderChange} />
                         <TextField
@@ -116,7 +126,17 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
 
             <DialogActions className='px-6 pb-4'>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button variant='contained' onClick={() => onStart?.(threshold)}>
+                <Button
+                    variant='contained'
+                    onClick={() =>
+                        onStart?.({
+                            mediaType: mediaType as CompareSettings['mediaType'],
+                            frameFlip,
+                            frameRotate,
+                            threshold,
+                        })
+                    }
+                >
                     Start
                 </Button>
             </DialogActions>

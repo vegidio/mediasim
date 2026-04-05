@@ -30,6 +30,13 @@ export function ListMedia(directory: string): $CancellablePromise<$models.MediaI
     });
 }
 
+/**
+ * StartComparison loads media from a directory and groups them by similarity, emitting progress events.
+ */
+export function StartComparison(directory: string, includeImages: boolean, includeVideos: boolean, frameFlip: boolean, frameRotate: boolean, threshold: number): $CancellablePromise<void> {
+    return $Call.ByID(3338446049, directory, includeImages, includeVideos, frameFlip, frameRotate, threshold);
+}
+
 // Private type creation functions
 const $$createType0 = $models.MediaInfo.createFrom;
 const $$createType1 = $Create.Array($$createType0);
