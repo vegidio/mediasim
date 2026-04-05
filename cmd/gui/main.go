@@ -35,6 +35,7 @@ func main() {
 
 	// Register services
 	app.RegisterService(application.NewService(&services.MediaService{}))
+	app.RegisterService(application.NewService(&services.ComparisonService{}))
 
 	// Create a new window with the necessary options.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{

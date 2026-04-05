@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, LinearProgress, Typography } from '@mui/material';
-import { StartComparison } from '@bindings/gui/services/mediaservice';
+import { StartComparison } from '@bindings/gui/services/comparisonservice';
 import { Events } from '@wailsio/runtime';
 
 type ProgressDialogProps = {
