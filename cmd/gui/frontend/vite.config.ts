@@ -9,7 +9,15 @@ export default defineConfig({
     build: {
         target: 'esnext',
     },
-    plugins: [react(), wails('./bindings'), tailwindcss()],
+    plugins: [
+        react({
+            babel: {
+                plugins: ['babel-plugin-react-compiler'],
+            },
+        }),
+        wails('./bindings'),
+        tailwindcss(),
+    ],
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),

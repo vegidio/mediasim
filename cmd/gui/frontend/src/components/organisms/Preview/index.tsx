@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import type { TailwindProps } from '@/types/TailwindProps';
 import { ComparisonGrid, ImageGrid } from '@/components/molecules';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
@@ -11,10 +11,7 @@ export const Preview = ({ className = '' }: TailwindProps) => {
     const groups = useComparisonStore((s) => s.groups);
     const images = useImagesStore((s) => s.images);
 
-    const paths = useMemo(() => {
-        if (groups) return groups.flatMap((g) => g.media.map((m) => m.path));
-        return images.map((i) => i.path);
-    }, [groups, images]);
+    const paths = groups ? groups.flatMap((g) => g.media.map((m) => m.path)) : images.map((i) => i.path);
 
     useKeyboardNavigation(containerRef, paths);
 

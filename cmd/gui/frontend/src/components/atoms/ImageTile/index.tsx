@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { GetThumbnail } from '@bindings/gui/services/mediaservice.js';
 import { MdImage, MdVideocam } from 'react-icons/md';
 import { useImagesStore, useSelectionStore } from '@/stores';
@@ -19,7 +19,7 @@ type ImageTileProps = {
     fileSize?: number;
 };
 
-export const ImageTile = memo(({ path, filename, status, modTime, fileSize }: ImageTileProps) => {
+export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
     const setLoading = useImagesStore((s) => s.setLoading);
     const setThumbnailLoaded = useImagesStore((s) => s.setThumbnailLoaded);
@@ -105,4 +105,4 @@ export const ImageTile = memo(({ path, filename, status, modTime, fileSize }: Im
             </div>
         </div>
     );
-});
+};
