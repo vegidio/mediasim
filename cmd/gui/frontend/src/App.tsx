@@ -3,17 +3,20 @@ import {
     BottomBar,
     CompareDialog,
     Preview,
+    PreviewDialog,
     ProgressDialog,
     Sidebar,
     TopBar,
     WelcomeDialog,
 } from '@/components/organisms';
-import { useAppStore, useComparisonStore, useImagesStore } from '@/stores';
+import { useAppStore, useComparisonStore, useImagesStore, usePreviewStore } from '@/stores';
 
 export const App = () => {
     const [dialogOpen, setDialogOpen] = useState(true);
     const [compareOpen, setCompareOpen] = useState(false);
     const [progressOpen, setProgressOpen] = useState(false);
+    const previewPath = usePreviewStore((s) => s.previewPath);
+    const closePreview = usePreviewStore((s) => s.closePreview);
     const clearComparison = useComparisonStore((s) => s.clear);
     const clearImages = useImagesStore((s) => s.clear);
     const clearSelectedDirectory = useAppStore((s) => s.clearSelectedDirectory);
@@ -51,6 +54,7 @@ export const App = () => {
             <WelcomeDialog open={dialogOpen} onDirectorySelected={handleDirectorySelected} />
             <CompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} onStart={handleCompareStart} />
             <ProgressDialog open={progressOpen} onClose={() => setProgressOpen(false)} />
+            <PreviewDialog path={previewPath} onClose={closePreview} />
         </div>
     );
 };

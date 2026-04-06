@@ -1,5 +1,5 @@
 import { type RefObject, useEffect } from 'react';
-import { GetThumbnail } from '@bindings/gui/services/mediaservice.js';
+import { GetImage } from '@bindings/gui/services/mediaservice.js';
 import { useImagesStore } from '@/stores';
 import { toDataUrl } from '@/utils/image';
 import { acquireSlot, releaseSlot } from '@/utils/throttle';
@@ -24,7 +24,7 @@ export const useLazyThumbnail = (
                     acquireSlot().then(() => {
                         setLoading(path);
 
-                        GetThumbnail(path, 180)
+                        GetImage(path, 180)
                             .then(([data, w, h]) => setThumbnailLoaded(path, toDataUrl(data), w, h))
                             .finally(releaseSlot);
                     });

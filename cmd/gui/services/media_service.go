@@ -99,10 +99,10 @@ func (m *MediaService) ListMedia(directory string) ([]MediaInfo, error) {
 	return result, nil
 }
 
-// GetThumbnail loads an image or extracts the first frame of a video, resizes it to fit within maxSize
-// pixels on the longest dimension, encodes it as JPEG, and returns the bytes along with the resulting
-// width and height.
-func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, int, error) {
+// GetImage loads an image or extracts the first frame of a video, optionally resizes it to fit within
+// maxSize pixels on the longest dimension (0 means no resize), encodes it as JPEG, and returns the
+// bytes along with the original width and height.
+func (m *MediaService) GetImage(filePath string, maxSize int) ([]byte, int, int, error) {
 	thumbnailSem <- struct{}{}
 	defer func() { <-thumbnailSem }()
 

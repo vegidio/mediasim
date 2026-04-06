@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { MdImage, MdVideocam } from 'react-icons/md';
 import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
-import { useSelectionStore } from '@/stores';
+import { usePreviewStore, useSelectionStore } from '@/stores';
 import { formatDate, formatFileSize } from '@/utils/format';
 
 const VIDEO_EXTENSIONS = new Set(['.avi', '.m4v', '.mp4', '.mkv', '.mov', '.webm', '.wmv']);
@@ -21,6 +21,7 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
     const ref = useRef<HTMLDivElement>(null);
     const isSelected = useSelectionStore((s) => s.selectedPath === path);
     const select = useSelectionStore((s) => s.select);
+    const openPreview = usePreviewStore((s) => s.openPreview);
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
     useScrollIntoView(ref, isSelected);
@@ -41,6 +42,7 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
             ref={ref}
             className={`w-45 cursor-pointer rounded ${isSelected ? 'ring-3 ring-blue-500' : ''}`}
             onClick={() => select(path)}
+            onDoubleClick={() => !isVideo && openPreview(path)}
         >
             <div className='relative w-45 h-45 bg-black/30 rounded-t overflow-hidden flex items-center justify-center'>
                 {thumbnail?.dataUrl ? (
