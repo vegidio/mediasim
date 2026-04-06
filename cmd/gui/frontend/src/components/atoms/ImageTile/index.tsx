@@ -8,6 +8,7 @@ import { acquireSlot, releaseSlot } from '@/utils/throttle';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
 const VIDEO_EXTENSIONS = new Set(['.avi', '.m4v', '.mp4', '.mkv', '.mov', '.webm', '.wmv']);
+const GAP = 16;
 
 const getExtension = (filename: string): string => filename.slice(filename.lastIndexOf('.')).toLowerCase();
 
@@ -27,10 +28,26 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
     const select = useSelectionStore((s) => s.select);
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
-    // Scroll into view when selected via keyboard navigation
+    // Scroll into view when selected via keyboard navigation, with 16px padding
     useEffect(() => {
-        if (isSelected && ref.current) {
-            ref.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (!isSelected || !ref.current) return;
+
+        const el = ref.current;
+        let container = el.parentElement;
+        while (container) {
+            const overflow = getComputedStyle(container).overflowY;
+            if (overflow === 'auto' || overflow === 'scroll') break;
+            container = container.parentElement;
+        }
+        if (!container) return;
+
+        const tileRect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        if (tileRect.bottom > containerRect.bottom) {
+            container.scrollBy({ top: tileRect.bottom - containerRect.bottom + GAP, behavior: 'smooth' });
+        } else if (tileRect.top < containerRect.top) {
+            container.scrollBy({ top: tileRect.top - containerRect.top - GAP, behavior: 'smooth' });
         }
     }, [isSelected]);
 
