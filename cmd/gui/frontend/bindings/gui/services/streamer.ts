@@ -6,6 +6,13 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
+ * PrepareDirectPlay stores the video path for direct serving and returns a URL the frontend can use.
+ */
+export function PrepareDirectPlay(videoPath: string): $CancellablePromise<string> {
+    return $Call.ByID(2235911232, videoPath);
+}
+
+/**
  * StartStream transcodes the video at videoPath into HLS segments and returns the middleware URL for the HLS manifest.
  * Uses a cache to skip transcoding if the video was already processed.
  */

@@ -5,11 +5,13 @@ import './styles.css';
 
 type VideoPlayerProps = {
     src: string;
+    type?: string;
     width: number;
     height: number;
+    onError?: () => void;
 };
 
-export const VideoPlayer = ({ src, width, height }: VideoPlayerProps) => {
+export const VideoPlayer = ({ src, type, width, height, onError }: VideoPlayerProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<ReturnType<typeof videojs>>(null);
 
@@ -52,8 +54,10 @@ export const VideoPlayer = ({ src, width, height }: VideoPlayerProps) => {
                     'volumePanel',
                 ],
             },
-            sources: [{ src, type: 'application/x-mpegURL' }],
+            sources: [type ? { src, type } : { src }],
         });
+
+        player.on('error', () => onError?.());
 
         playerRef.current = player;
 
@@ -63,7 +67,7 @@ export const VideoPlayer = ({ src, width, height }: VideoPlayerProps) => {
                 playerRef.current = null;
             }
         };
-    }, [src, width, height]);
+    }, [src, type, width, height, onError]);
 
     return <div ref={containerRef} />;
 };

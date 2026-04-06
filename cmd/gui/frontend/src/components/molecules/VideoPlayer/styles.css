@@ -1,3 +1,7 @@
+.video-js .vjs-big-play-button {
+    display: none;
+}
+
 .video-js .vjs-custom-control-spacer {
     flex: 1 1 auto;
 }

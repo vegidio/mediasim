@@ -17,11 +17,12 @@ import (
 )
 
 type Streamer struct {
-	mu         sync.Mutex
-	ffmpegPath string
-	cache      map[string]string  // videoPath → tmpDir
-	activeDir  string             // current stream's temp dir
-	cancel     context.CancelFunc // active FFmpeg cancel
+	mu              sync.Mutex
+	ffmpegPath      string
+	cache           map[string]string  // videoPath → tmpDir
+	activeDir       string             // current stream's temp dir
+	cancel          context.CancelFunc // active FFmpeg cancel
+	activeVideoPath string             // for direct playback
 }
 
 // ServiceStartup resolves the FFmpeg binary path and initializes the cache map.
@@ -102,7 +103,6 @@ func (s *Streamer) StartStream(videoPath string) (string, error) {
 		"c:a":           "aac",
 		"preset":        "ultrafast",
 		"tune":          "zerolatency",
-		"vf":            "scale=-2:'min(720,ih)'",
 		"f":             "hls",
 		"hls_time":      1,
 		"hls_list_size": 0,
@@ -130,6 +130,14 @@ func (s *Streamer) StartStream(videoPath string) (string, error) {
 	return "", fmt.Errorf("timeout waiting for HLS manifest")
 }
 
+// PrepareDirectPlay stores the video path for direct serving and returns a URL the frontend can use.
+func (s *Streamer) PrepareDirectPlay(videoPath string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.activeVideoPath = videoPath
+	return "/video/stream" + filepath.Ext(videoPath)
+}
+
 // StopStream cancels the active FFmpeg process without deleting cached segments.
 func (s *Streamer) StopStream() {
 	s.mu.Lock()
@@ -148,6 +156,21 @@ func (s *Streamer) StopStream() {
 func NewHlsMiddleware(s *Streamer) application.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Direct video serving.
+			if strings.HasPrefix(r.URL.Path, "/video/") {
+				s.mu.Lock()
+				videoPath := s.activeVideoPath
+				s.mu.Unlock()
+
+				if videoPath == "" {
+					http.NotFound(w, r)
+					return
+				}
+
+				http.ServeFile(w, r, videoPath)
+				return
+			}
+
 			if !strings.HasPrefix(r.URL.Path, "/hls/") {
 				next.ServeHTTP(w, r)
 				return

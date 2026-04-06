@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@mui/material';
 import { GetImage } from '@bindings/gui/services/mediaservice.js';
-import { StartStream, StopStream } from '@bindings/gui/services/streamer.js';
+import { PrepareDirectPlay, StartStream, StopStream } from '@bindings/gui/services/streamer.js';
 import { basename } from 'pathe';
 import { ModalTitle, VideoPlayer } from '@/components/molecules';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
@@ -20,18 +20,22 @@ const getExtension = (path: string): string => path.slice(path.lastIndexOf('.'))
 
 export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
     const [fullSizeUrl, setFullSizeUrl] = useState<string>();
-    const [hlsUrl, setHlsUrl] = useState<string>();
+    const [videoUrl, setVideoUrl] = useState<string>();
+    const [videoType, setVideoType] = useState<string>();
+    const [fallback, setFallback] = useState(false);
     const open = path !== undefined;
     const isVideo = path !== undefined && VIDEO_EXTENSIONS.has(getExtension(path));
 
     useEffect(() => {
         if (!path) return;
         setFullSizeUrl(undefined);
-        setHlsUrl(undefined);
+        setVideoUrl(undefined);
+        setVideoType(undefined);
+        setFallback(false);
 
         if (VIDEO_EXTENSIONS.has(getExtension(path))) {
-            const promise = StartStream(path);
-            promise.then((url) => setHlsUrl(url));
+            const promise = PrepareDirectPlay(path);
+            promise.then((url) => setVideoUrl(url));
 
             return () => {
                 promise.cancel();
@@ -46,6 +50,16 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
             promise.cancel();
         };
     }, [path]);
+
+    const handleVideoError = () => {
+        if (!path || fallback) return;
+        setFallback(true);
+        setVideoUrl(undefined);
+        StartStream(path).then((url) => {
+            setVideoUrl(url);
+            setVideoType('application/x-mpegURL');
+        });
+    };
 
     if (!path) return undefined;
 
@@ -93,8 +107,14 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
 
             <DialogContent className='p-0! flex items-center justify-center bg-black overflow-hidden'>
                 {isVideo ? (
-                    hlsUrl ? (
-                        <VideoPlayer src={hlsUrl} width={dialogW} height={dialogH} />
+                    videoUrl ? (
+                        <VideoPlayer
+                            src={videoUrl}
+                            type={videoType}
+                            width={dialogW}
+                            height={dialogH}
+                            onError={handleVideoError}
+                        />
                     ) : (
                         spinner
                     )
