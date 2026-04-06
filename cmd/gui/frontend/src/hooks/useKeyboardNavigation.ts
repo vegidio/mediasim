@@ -84,6 +84,7 @@ export const useKeyboardNavigation = (
 ) => {
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const select = useSelectionStore((s) => s.select);
+    const previewPath = usePreviewStore((s) => s.previewPath);
     const openPreview = usePreviewStore((s) => s.openPreview);
     const [colCount, setColCount] = useState(1);
 
@@ -135,9 +136,10 @@ export const useKeyboardNavigation = (
             }
 
             select(paths[nextIndex]);
+            if (previewPath) openPreview(paths[nextIndex]);
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [paths, selectedPath, select, openPreview, colCount, groupSizes]);
+    }, [paths, selectedPath, select, previewPath, openPreview, colCount, groupSizes]);
 };

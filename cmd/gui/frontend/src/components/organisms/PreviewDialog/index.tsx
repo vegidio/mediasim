@@ -20,6 +20,7 @@ const getExtension = (path: string): string => path.slice(path.lastIndexOf('.'))
 
 export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
     const [fullSizeUrl, setFullSizeUrl] = useState<string>();
+    const [fullSizeDims, setFullSizeDims] = useState<{ width: number; height: number }>();
     const [videoUrl, setVideoUrl] = useState<string>();
     const [videoType, setVideoType] = useState<string>();
     const [fallback, setFallback] = useState(false);
@@ -29,6 +30,7 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
     useEffect(() => {
         if (!path) return;
         setFullSizeUrl(undefined);
+        setFullSizeDims(undefined);
         setVideoUrl(undefined);
         setVideoType(undefined);
         setFallback(false);
@@ -44,7 +46,10 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
         }
 
         const promise = GetImage(path, 0);
-        promise.then(([data]) => setFullSizeUrl(toDataUrl(data)));
+        promise.then(([data, width, height]) => {
+            setFullSizeUrl(toDataUrl(data));
+            setFullSizeDims({ width, height });
+        });
 
         return () => {
             promise.cancel();
@@ -67,8 +72,8 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
     const filename = basename(path);
     const displayUrl = fullSizeUrl ?? cached?.dataUrl;
 
-    const origW = cached?.width ?? 1;
-    const origH = cached?.height ?? 1;
+    const origW = fullSizeDims?.width ?? cached?.width ?? 1;
+    const origH = fullSizeDims?.height ?? cached?.height ?? 1;
     const aspectRatio = origW / origH;
 
     const maxW = window.innerWidth - PADDING * 2;
