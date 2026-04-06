@@ -23,7 +23,7 @@ export const ComparisonGrid = () => {
                                     filename={basename(media.path)}
                                     dataUrl={cached?.dataUrl}
                                     loading={cached?.loading ?? false}
-                                    modTime={undefined}
+                                    modTime={cached?.modTime}
                                     fileSize={media.size}
                                     width={cached?.width ?? media.width}
                                     height={cached?.height ?? media.height}

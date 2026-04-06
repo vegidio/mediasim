@@ -1,6 +1,7 @@
 package mediasim
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ func TestFilesOptions_SetDefaults(t *testing.T) {
 	t.Run("sets parallel to 5 when zero", func(t *testing.T) {
 		opts := FilesOptions{}
 		opts.SetDefaults()
-		assert.Equal(t, 5, opts.Parallel)
+		assert.Equal(t, runtime.NumCPU(), opts.Parallel)
 	})
 
 	t.Run("preserves non-zero parallel", func(t *testing.T) {
@@ -52,7 +53,7 @@ func TestDirectoryOptions_SetDefaults(t *testing.T) {
 	t.Run("sets parallel to 5 when zero", func(t *testing.T) {
 		opts := DirectoryOptions{}
 		opts.SetDefaults()
-		assert.Equal(t, 5, opts.Parallel)
+		assert.Equal(t, runtime.NumCPU(), opts.Parallel)
 	})
 
 	t.Run("preserves non-zero parallel", func(t *testing.T) {

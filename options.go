@@ -53,6 +53,6 @@ func (o *DirectoryOptions) SetDefaults() {
 	}
 
 	if o.Parallel == 0 {
-		o.Parallel = 5
+		o.Parallel = runtime.NumCPU()
 	}
 }

@@ -3,20 +3,21 @@ import { Button, Dialog, DialogActions, DialogContent, LinearProgress, Typograph
 import { StartComparison } from '@bindings/gui/services/comparisonservice';
 import { Events } from '@wailsio/runtime';
 import { ModalTitle } from '@/components/molecules';
-import { useComparisonStore, useSettingsStore } from '@/stores';
+import { useAppStore, useComparisonStore, useSettingsStore } from '@/stores';
 
 type ProgressDialogProps = {
     open: boolean;
-    directory: string;
     onClose?: () => void;
 };
 
-export const ProgressDialog = ({ open, directory, onClose }: ProgressDialogProps) => {
+export const ProgressDialog = ({ open, onClose }: ProgressDialogProps) => {
+    const directory = useAppStore((s) => s.selectedDirectory ?? '');
     const threshold = useSettingsStore((s) => s.threshold);
     const mediaType = useSettingsStore((s) => s.mediaType);
     const frameFlip = useSettingsStore((s) => s.frameFlip);
     const frameRotate = useSettingsStore((s) => s.frameRotate);
     const setGroups = useComparisonStore((s) => s.setGroups);
+
     const [current, setCurrent] = useState(0);
     const [total, setTotal] = useState(0);
     const promiseRef = useRef<{ cancel: () => void } | undefined>(undefined);

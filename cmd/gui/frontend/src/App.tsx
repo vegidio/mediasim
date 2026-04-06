@@ -17,7 +17,6 @@ export const App = () => {
     const clearComparison = useComparisonStore((s) => s.clear);
     const clearImages = useImagesStore((s) => s.clear);
     const clearSelectedDirectory = useAppStore((s) => s.clearSelectedDirectory);
-    const selectedDirectory = useAppStore((s) => s.selectedDirectory);
 
     const handleDirectorySelected = (_path: string) => {
         setDialogOpen(false);
@@ -48,13 +47,10 @@ export const App = () => {
 
             <BottomBar onClose={handleClose} onCompare={() => setCompareOpen(true)} />
 
-            <CompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} onStart={handleCompareStart} />
-            <ProgressDialog
-                open={progressOpen}
-                directory={selectedDirectory ?? ''}
-                onClose={() => setProgressOpen(false)}
-            />
+            {/* Dialogs */}
             <WelcomeDialog open={dialogOpen} onDirectorySelected={handleDirectorySelected} />
+            <CompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} onStart={handleCompareStart} />
+            <ProgressDialog open={progressOpen} onClose={() => setProgressOpen(false)} />
         </div>
     );
 };

@@ -10,32 +10,10 @@ import (
 	"path/filepath"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	downloader "github.com/vegidio/ffmpeg-downloader"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 )
-
-// GetFFmpegPath returns the path to the FFmpeg binary. It checks for a system installation first, then a static
-// installation, and finally downloads FFmpeg if neither is found.
-func GetFFmpegPath(configName string) string {
-	installed := downloader.IsSystemInstalled()
-	if installed {
-		return ""
-	}
-
-	path, installed := downloader.IsStaticallyInstalled(configName)
-	if installed {
-		return path
-	}
-
-	path, err := downloader.Download(configName)
-	if err != nil {
-		return ""
-	}
-
-	return path
-}
 
 // LoadFrames loads all image files from the given directory and returns them as a slice of image.Image.
 func LoadFrames(directory string) ([]image.Image, error) {

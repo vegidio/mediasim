@@ -15,7 +15,8 @@ import (
 
 	"github.com/disintegration/imaging"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	downloader "github.com/vegidio/ffmpeg-downloader"
+	"shared"
+
 	"github.com/vegidio/go-sak/fs"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -46,7 +47,7 @@ func (m *MediaService) ServiceStartup(ctx context.Context, options application.S
 	}
 
 	m.tempDir = tempDir
-	m.ffmpegPath = getFFmpegPath()
+	m.ffmpegPath = shared.GetFFmpegPath("mediasim")
 	return nil
 }
 
@@ -177,23 +178,4 @@ func (m *MediaService) extractFirstFrame(videoPath string) (image.Image, error) 
 func isVideoFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return slices.Contains(validVideoTypes, ext)
-}
-
-// getFFmpegPath returns the path to the FFmpeg binary.
-func getFFmpegPath() string {
-	if downloader.IsSystemInstalled() {
-		return ""
-	}
-
-	path, installed := downloader.IsStaticallyInstalled("mediasim")
-	if installed {
-		return path
-	}
-
-	path, err := downloader.Download("mediasim")
-	if err != nil {
-		return ""
-	}
-
-	return path
 }

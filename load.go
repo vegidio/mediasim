@@ -21,10 +21,11 @@ import (
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
+	"shared"
 )
 
 // Holds the file path to the FFmpeg binary. Defaults to the system-installed path if not explicitly set.
-var ffmpegPath = iffmpeg.GetFFmpegPath("mediasim")
+var ffmpegPath = shared.GetFFmpegPath("mediasim")
 
 // LoadMediaFromImages creates a Media object from the given image or video.
 //

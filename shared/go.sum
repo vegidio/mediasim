@@ -1,0 +1,6 @@
+github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+github.com/google/go-github/v74 v74.0.0 h1:yZcddTUn8DPbj11GxnMrNiAnXH14gNs559AsUpNpPgM=
+github.com/google/go-github/v74 v74.0.0/go.mod h1:ubn/YdyftV80VPSI26nSJvaEsTOnsjrxG3o9kJhcyak=
+github.com/google/go-querystring v1.2.0 h1:yhqkPbu2/OH+V9BfpCVPZkNmUXhb2gBxJArfhIxNtP0=
+github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c h1:9qUsvAMcOWk3MVm8hZxfDYP1MYhesBXPWymXLSM93iM=
+github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c/go.mod h1:pfN6EJWnlcqBVoINzjlGOimXhASNa2yArcBcD9qsw1k=
