@@ -71,8 +71,10 @@ func (c *ComparisonService) StartComparison(
 
 		if result.Done {
 			groups := make([]ComparisonGroup, len(result.Groups))
+
 			for i, g := range result.Groups {
 				media := make([]ComparisonMedia, len(g))
+
 				for j, m := range g {
 					media[j] = ComparisonMedia{
 						Path:   m.Name,
@@ -83,8 +85,10 @@ func (c *ComparisonService) StartComparison(
 						Length: m.Length,
 					}
 				}
+
 				groups[i] = ComparisonGroup{Media: media}
 			}
+
 			return groups, nil
 		}
 

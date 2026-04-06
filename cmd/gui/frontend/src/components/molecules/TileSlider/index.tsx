@@ -22,7 +22,17 @@ export const TileSlider = () => {
             <IconButton color='inherit' size='small' onClick={handleZoomOut}>
                 <MdRemove />
             </IconButton>
-            <Slider className='w-32' size='small' min={1} max={8} step={0.5} value={size} onChange={handleTileChange} />
+
+            <Slider
+                className='w-32'
+                size='small'
+                min={180}
+                max={360}
+                step={10}
+                value={size}
+                onChange={handleTileChange}
+            />
+
             <IconButton color='inherit' size='small' onClick={handleZoomIn}>
                 <MdAdd />
             </IconButton>

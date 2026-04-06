@@ -31,18 +31,18 @@ export const ImageTile = memo(
         useEffect(() => {
             if (!ref.current || dataUrl || loading) return;
 
+            // Make sure we fetch the thumbnail only when the element is visible
             const observer = new IntersectionObserver(
                 ([entry]) => {
                     if (entry.isIntersecting) {
                         observer.disconnect();
 
+                        // Throttle the number of concurrent thumbnail fetches
                         acquireSlot().then(() => {
                             setLoading(path);
 
                             GetThumbnail(path, 200)
-                                .then(([data, w, h]) => {
-                                    setThumbnail(path, toDataUrl(data), w, h);
-                                })
+                                .then(([data, w, h]) => setThumbnail(path, toDataUrl(data), w, h))
                                 .finally(releaseSlot);
                         });
                     }

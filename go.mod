@@ -7,7 +7,7 @@ require (
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.11.1
 	github.com/u2takey/ffmpeg-go v0.5.0
-	github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f
+	github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f
 	github.com/vitali-fedulov/images4 v1.3.1
 	golang.org/x/image v0.38.0
 )

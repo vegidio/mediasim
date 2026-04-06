@@ -3,7 +3,6 @@ package services
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -13,10 +12,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/disintegration/imaging"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"shared"
 
+	"github.com/disintegration/imaging"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
+
+	"github.com/vegidio/go-sak/crypto"
 	"github.com/vegidio/go-sak/fs"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -147,7 +148,10 @@ func (m *MediaService) openMedia(filePath string) (image.Image, error) {
 // extractFirstFrame extracts the first frame of a video file using FFmpeg.
 // Frames are cached on disk using a hash of the video path.
 func (m *MediaService) extractFirstFrame(videoPath string) (image.Image, error) {
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(videoPath)))
+	hash, err := crypto.Xxh3String(videoPath)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing video path: %w", err)
+	}
 	framePath := filepath.Join(m.tempDir, hash+".jpg")
 
 	// Cache hit: frame already extracted
@@ -160,7 +164,6 @@ func (m *MediaService) extractFirstFrame(videoPath string) (image.Image, error) 
 		Output(framePath, ffmpeg.KwArgs{"vframes": 1}).
 		Silent(true)
 
-	var err error
 	if m.ffmpegPath == "" {
 		err = cmd.Run()
 	} else {
