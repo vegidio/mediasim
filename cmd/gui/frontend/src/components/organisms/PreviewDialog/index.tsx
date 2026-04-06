@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@mui/material';
 import { GetImage } from '@bindings/gui/services/mediaservice.js';
 import { StartStream, StopStream } from '@bindings/gui/services/streamer.js';
 import { basename } from 'pathe';
-import { ModalTitle } from '@/components/molecules';
+import { ModalTitle, VideoPlayer } from '@/components/molecules';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { toDataUrl } from '@/utils/image';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
@@ -91,16 +91,10 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
         >
             <ModalTitle title={filename} onClose={onClose} />
 
-            <DialogContent className='p-0! flex items-center justify-center bg-black'>
+            <DialogContent className='p-0! flex items-center justify-center bg-black overflow-hidden'>
                 {isVideo ? (
                     hlsUrl ? (
-                        <video
-                            src={hlsUrl}
-                            autoPlay
-                            controls
-                            style={{ width: dialogW, height: dialogH }}
-                            className='object-contain'
-                        />
+                        <VideoPlayer src={hlsUrl} width={dialogW} height={dialogH} />
                     ) : (
                         spinner
                     )

@@ -1,0 +1,15 @@
+.video-js .vjs-custom-control-spacer {
+    flex: 1 1 auto;
+}
+
+.video-js .vjs-current-time,
+.video-js .vjs-time-divider,
+.video-js .vjs-duration {
+    display: flex;
+}
+
+.video-js .vjs-volume-vertical:hover .vjs-volume-tooltip,
+.video-js .vjs-volume-vertical:hover .vjs-progress-holder:focus .vjs-volume-tooltip {
+    left: auto;
+    right: 1em;
+}
