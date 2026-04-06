@@ -6,7 +6,12 @@ type ThumbnailData = {
     height: number;
 };
 
-const cache = new LRUCache<string, ThumbnailData>({ max: 1500 });
+const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+
+const cache = new LRUCache<string, ThumbnailData>({
+    maxSize: MAX_SIZE,
+    sizeCalculation: (value) => value.dataUrl.length,
+});
 
 export const hasCachedThumbnail = (path: string) => cache.has(path);
 

@@ -6,6 +6,7 @@ import { basename } from 'pathe';
 import { ModalTitle, VideoPlayer } from '@/components/molecules';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { toDataUrl } from '@/utils/image';
+import { getCachedPreview, setCachedPreview } from '@/utils/previewCache';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
 type PreviewDialogProps = {
@@ -45,10 +46,19 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
             };
         }
 
+        const cached = getCachedPreview(path);
+        if (cached) {
+            setFullSizeUrl(cached.dataUrl);
+            setFullSizeDims({ width: cached.width, height: cached.height });
+            return;
+        }
+
         const promise = GetImage(path, 0);
         promise.then(([data, width, height]) => {
-            setFullSizeUrl(toDataUrl(data));
+            const dataUrl = toDataUrl(data);
+            setFullSizeUrl(dataUrl);
             setFullSizeDims({ width, height });
+            setCachedPreview(path, { dataUrl, width, height });
         });
 
         return () => {
