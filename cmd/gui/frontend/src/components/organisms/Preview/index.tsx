@@ -12,8 +12,9 @@ export const Preview = ({ className = '' }: TailwindProps) => {
     const images = useImagesStore((s) => s.images);
 
     const paths = groups ? groups.flatMap((g) => g.media.map((m) => m.path)) : images.map((i) => i.path);
+    const groupSizes = groups?.map((g) => g.media.length);
 
-    useKeyboardNavigation(containerRef, paths);
+    useKeyboardNavigation(containerRef, paths, groupSizes);
 
     return (
         <div

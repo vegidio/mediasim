@@ -4,7 +4,11 @@ import { useSelectionStore } from '@/stores';
 const TILE_WIDTH = 180;
 const GAP = 16;
 
-export const useKeyboardNavigation = (containerRef: RefObject<HTMLDivElement | null>, paths: string[]) => {
+export const useKeyboardNavigation = (
+    containerRef: RefObject<HTMLDivElement | null>,
+    paths: string[],
+    groupSizes?: number[],
+) => {
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const select = useSelectionStore((s) => s.select);
     const [colCount, setColCount] = useState(1);
@@ -49,11 +53,65 @@ export const useKeyboardNavigation = (containerRef: RefObject<HTMLDivElement | n
                     nextIndex = currentIndex < 0 ? 0 : Math.min(paths.length - 1, currentIndex + 1);
                     break;
                 case 'ArrowUp':
-                    nextIndex = currentIndex < 0 ? 0 : Math.max(0, currentIndex - colCount);
+                case 'ArrowDown': {
+                    if (currentIndex < 0) {
+                        nextIndex = 0;
+                        break;
+                    }
+
+                    const direction = e.key === 'ArrowDown' ? 1 : -1;
+
+                    if (!groupSizes) {
+                        // Flat grid: simple row jump
+                        const target = currentIndex + direction * colCount;
+                        nextIndex = Math.max(0, Math.min(paths.length - 1, target));
+                        break;
+                    }
+
+                    // Group-aware navigation
+                    let groupStart = 0;
+                    let groupIndex = 0;
+                    for (let i = 0; i < groupSizes.length; i++) {
+                        if (currentIndex < groupStart + groupSizes[i]) {
+                            groupIndex = i;
+                            break;
+                        }
+                        groupStart += groupSizes[i];
+                    }
+
+                    const posInGroup = currentIndex - groupStart;
+                    const col = posInGroup % colCount;
+                    const row = Math.floor(posInGroup / colCount);
+                    const totalRows = Math.ceil(groupSizes[groupIndex] / colCount);
+
+                    const newRow = row + direction;
+                    if (newRow >= 0 && newRow < totalRows) {
+                        // Stay within the same group
+                        const target = groupStart + newRow * colCount + col;
+                        nextIndex = Math.min(target, groupStart + groupSizes[groupIndex] - 1);
+                    } else {
+                        // Cross to adjacent group
+                        const nextGroupIndex = groupIndex + direction;
+                        if (nextGroupIndex < 0 || nextGroupIndex >= groupSizes.length) {
+                            nextIndex = currentIndex;
+                            break;
+                        }
+
+                        let nextGroupStart = 0;
+                        for (let i = 0; i < nextGroupIndex; i++) nextGroupStart += groupSizes[i];
+
+                        if (direction > 0) {
+                            // Down: go to same column in first row of next group
+                            nextIndex = Math.min(nextGroupStart + col, nextGroupStart + groupSizes[nextGroupIndex] - 1);
+                        } else {
+                            // Up: go to same column in last row of previous group
+                            const prevTotalRows = Math.ceil(groupSizes[nextGroupIndex] / colCount);
+                            const target = nextGroupStart + (prevTotalRows - 1) * colCount + col;
+                            nextIndex = Math.min(target, nextGroupStart + groupSizes[nextGroupIndex] - 1);
+                        }
+                    }
                     break;
-                case 'ArrowDown':
-                    nextIndex = currentIndex < 0 ? 0 : Math.min(paths.length - 1, currentIndex + colCount);
-                    break;
+                }
                 default:
                     return;
             }
