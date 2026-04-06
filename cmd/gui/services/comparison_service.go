@@ -10,6 +10,21 @@ import (
 
 type ComparisonService struct{}
 
+// ComparisonMedia is a DTO representing a media item in a comparison group.
+type ComparisonMedia struct {
+	Path   string `json:"path"`
+	Type   string `json:"type"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Size   int64  `json:"size"`
+	Length int    `json:"length"`
+}
+
+// ComparisonGroup is a DTO representing a group of similar media items.
+type ComparisonGroup struct {
+	Media []ComparisonMedia `json:"media"`
+}
+
 // StartComparison loads media from a directory and groups them by similarity, emitting progress events.
 func (c *ComparisonService) StartComparison(
 	ctx context.Context,
@@ -19,7 +34,7 @@ func (c *ComparisonService) StartComparison(
 	frameFlip bool,
 	frameRotate bool,
 	threshold float64,
-) error {
+) ([]ComparisonGroup, error) {
 	mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
 		IncludeVideos: includeVideos,
@@ -34,35 +49,50 @@ func (c *ComparisonService) StartComparison(
 	app := application.Get()
 	app.Event.Emit("comparison:progress", map[string]int{"current": 0, "total": total})
 
-	updateCh := mediasim.LoadAndGroupMedia(mediaCh, total, threshold, false)
+	resultCh := mediasim.LoadAndGroupMedia(mediaCh, total, threshold, false)
 
-	for update := range updateCh {
+	for result := range resultCh {
 		select {
 		case <-ctx.Done():
 			go func() {
-				for range updateCh {
+				for range resultCh {
 				}
 			}()
-			return ctx.Err()
+			return nil, ctx.Err()
 		default:
 		}
 
-		if update.Err != nil {
-			if update.Done {
-				return update.Err
+		if result.Err != nil {
+			if result.Done {
+				return nil, result.Err
 			}
 			continue
 		}
 
-		if update.Done {
-			break
+		if result.Done {
+			groups := make([]ComparisonGroup, len(result.Groups))
+			for i, g := range result.Groups {
+				media := make([]ComparisonMedia, len(g))
+				for j, m := range g {
+					media[j] = ComparisonMedia{
+						Path:   m.Name,
+						Type:   m.Type,
+						Width:  m.Width,
+						Height: m.Height,
+						Size:   m.Size,
+						Length: m.Length,
+					}
+				}
+				groups[i] = ComparisonGroup{Media: media}
+			}
+			return groups, nil
 		}
 
 		app.Event.Emit("comparison:progress", map[string]int{
-			"current": update.Loaded,
+			"current": result.Loaded,
 			"total":   total,
 		})
 	}
 
-	return nil
+	return nil, nil
 }

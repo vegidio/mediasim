@@ -1,5 +1,7 @@
 package mediasim
 
+import "runtime"
+
 // FrameOptions represents the configuration options for loading media frames.
 //
 // # Fields:
@@ -22,7 +24,7 @@ type FilesOptions struct {
 
 func (o *FilesOptions) SetDefaults() {
 	if o.Parallel == 0 {
-		o.Parallel = 5
+		o.Parallel = runtime.NumCPU()
 	}
 }
 

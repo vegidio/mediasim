@@ -5,9 +5,19 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * StartComparison loads media from a directory and groups them by similarity, emitting progress events.
  */
-export function StartComparison(directory: string, includeImages: boolean, includeVideos: boolean, frameFlip: boolean, frameRotate: boolean, threshold: number): $CancellablePromise<void> {
-    return $Call.ByID(4265235812, directory, includeImages, includeVideos, frameFlip, frameRotate, threshold);
+export function StartComparison(directory: string, includeImages: boolean, includeVideos: boolean, frameFlip: boolean, frameRotate: boolean, threshold: number): $CancellablePromise<$models.ComparisonGroup[]> {
+    return $Call.ByID(4265235812, directory, includeImages, includeVideos, frameFlip, frameRotate, threshold).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
+
+// Private type creation functions
+const $$createType0 = $models.ComparisonGroup.createFrom;
+const $$createType1 = $Create.Array($$createType0);

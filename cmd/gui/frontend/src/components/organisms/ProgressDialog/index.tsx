@@ -3,7 +3,7 @@ import { Button, Dialog, DialogActions, DialogContent, LinearProgress, Typograph
 import { StartComparison } from '@bindings/gui/services/comparisonservice';
 import { Events } from '@wailsio/runtime';
 import { ModalTitle } from '@/components/molecules';
-import { useSettingsStore } from '@/stores';
+import { useComparisonStore, useSettingsStore } from '@/stores';
 
 type ProgressDialogProps = {
     open: boolean;
@@ -16,6 +16,7 @@ export const ProgressDialog = ({ open, directory, onClose }: ProgressDialogProps
     const mediaType = useSettingsStore((s) => s.mediaType);
     const frameFlip = useSettingsStore((s) => s.frameFlip);
     const frameRotate = useSettingsStore((s) => s.frameRotate);
+    const setGroups = useComparisonStore((s) => s.setGroups);
     const [current, setCurrent] = useState(0);
     const [total, setTotal] = useState(0);
     const promiseRef = useRef<{ cancel: () => void } | undefined>(undefined);
@@ -42,7 +43,8 @@ export const ProgressDialog = ({ open, directory, onClose }: ProgressDialogProps
         promiseRef.current = promise;
 
         promise
-            .then(() => {
+            .then((groups) => {
+                setGroups(groups);
                 onClose?.();
             })
             .catch(() => {

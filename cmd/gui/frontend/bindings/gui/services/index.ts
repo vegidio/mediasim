@@ -9,5 +9,7 @@ export {
 };
 
 export {
+    ComparisonGroup,
+    ComparisonMedia,
     MediaInfo
 } from "./models.js";

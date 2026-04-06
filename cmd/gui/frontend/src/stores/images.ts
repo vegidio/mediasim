@@ -44,7 +44,11 @@ export const useImagesStore = create<ImagesStore>()(
         setLoading: (path: string) => {
             set((state) => {
                 const entry = state.images.find((img) => img.path === path);
-                if (entry) entry.loading = true;
+                if (entry) {
+                    entry.loading = true;
+                } else {
+                    state.images.push({ path, filename: basename(path), loading: true });
+                }
             });
         },
 
@@ -56,6 +60,8 @@ export const useImagesStore = create<ImagesStore>()(
                     entry.loading = false;
                     entry.width = width;
                     entry.height = height;
+                } else {
+                    state.images.push({ path, filename: basename(path), dataUrl, loading: false, width, height });
                 }
             });
         },

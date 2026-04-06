@@ -5,6 +5,78 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+/**
+ * ComparisonGroup is a DTO representing a group of similar media items.
+ */
+export class ComparisonGroup {
+    "media": ComparisonMedia[];
+
+    /** Creates a new ComparisonGroup instance. */
+    constructor($$source: Partial<ComparisonGroup> = {}) {
+        if (!("media" in $$source)) {
+            this["media"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ComparisonGroup instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ComparisonGroup {
+        const $$createField0_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("media" in $$parsedSource) {
+            $$parsedSource["media"] = $$createField0_0($$parsedSource["media"]);
+        }
+        return new ComparisonGroup($$parsedSource as Partial<ComparisonGroup>);
+    }
+}
+
+/**
+ * ComparisonMedia is a DTO representing a media item in a comparison group.
+ */
+export class ComparisonMedia {
+    "path": string;
+    "type": string;
+    "width": number;
+    "height": number;
+    "size": number;
+    "length": number;
+
+    /** Creates a new ComparisonMedia instance. */
+    constructor($$source: Partial<ComparisonMedia> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("type" in $$source)) {
+            this["type"] = "";
+        }
+        if (!("width" in $$source)) {
+            this["width"] = 0;
+        }
+        if (!("height" in $$source)) {
+            this["height"] = 0;
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("length" in $$source)) {
+            this["length"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ComparisonMedia instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ComparisonMedia {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ComparisonMedia($$parsedSource as Partial<ComparisonMedia>);
+    }
+}
+
 export class MediaInfo {
     "path": string;
     "modTime": number;
@@ -33,3 +105,7 @@ export class MediaInfo {
         return new MediaInfo($$parsedSource as Partial<MediaInfo>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = ComparisonMedia.createFrom;
+const $$createType1 = $Create.Array($$createType0);
