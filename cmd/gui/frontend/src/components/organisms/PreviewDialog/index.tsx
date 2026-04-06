@@ -1,12 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@mui/material';
-import { GetImage } from '@bindings/gui/services/mediaservice.js';
-import { PrepareDirectPlay, StartStream, StopStream } from '@bindings/gui/services/streamer.js';
 import { basename } from 'pathe';
+import { useImagePreview } from './useImagePreview';
+import { useVideoPreview } from './useVideoPreview';
 import { ModalTitle, VideoPlayer } from '@/components/molecules';
-import { VIDEO_EXTENSIONS } from '@/utils/constants';
-import { toDataUrl } from '@/utils/image';
-import { getCachedPreview, setCachedPreview } from '@/utils/previewCache';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
 type PreviewDialogProps = {
@@ -17,64 +13,10 @@ type PreviewDialogProps = {
 const PADDING = 32;
 const TITLE_HEIGHT = 41;
 
-const getExtension = (path: string): string => path.slice(path.lastIndexOf('.')).toLowerCase();
-
 export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
-    const [fullSizeUrl, setFullSizeUrl] = useState<string>();
-    const [fullSizeDims, setFullSizeDims] = useState<{ width: number; height: number }>();
-    const [videoUrl, setVideoUrl] = useState<string>();
-    const [videoType, setVideoType] = useState<string>();
-    const [fallback, setFallback] = useState(false);
+    const { isVideo, videoUrl, videoType, onError } = useVideoPreview(path);
+    const { fullSizeUrl, fullSizeDims } = useImagePreview(path, isVideo);
     const open = path !== undefined;
-    const isVideo = path !== undefined && VIDEO_EXTENSIONS.has(getExtension(path));
-
-    useEffect(() => {
-        if (!path) return;
-        setFullSizeUrl(undefined);
-        setFullSizeDims(undefined);
-        setVideoUrl(undefined);
-        setVideoType(undefined);
-        setFallback(false);
-
-        if (VIDEO_EXTENSIONS.has(getExtension(path))) {
-            const promise = PrepareDirectPlay(path);
-            promise.then((url) => setVideoUrl(url));
-
-            return () => {
-                promise.cancel();
-                StopStream();
-            };
-        }
-
-        const cached = getCachedPreview(path);
-        if (cached) {
-            setFullSizeUrl(cached.dataUrl);
-            setFullSizeDims({ width: cached.width, height: cached.height });
-            return;
-        }
-
-        const promise = GetImage(path, 0);
-        promise.then(([data, width, height]) => {
-            const dataUrl = toDataUrl(data);
-            setFullSizeUrl(dataUrl);
-            setFullSizeDims({ width, height });
-            setCachedPreview(path, { dataUrl, width, height });
-        });
-
-        return () => {
-            promise.cancel();
-        };
-    }, [path]);
-
-    const handleVideoError = () => {
-        if (!path || fallback) return;
-        setFallback(true);
-        setVideoUrl(undefined);
-        StartStream(path).then((url) => {
-            setVideoUrl(url);
-            setVideoType('application/x-mpegURL');
-        });
-    };
 
     if (!path) return undefined;
 
@@ -128,7 +70,7 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
                             type={videoType}
                             width={dialogW}
                             height={dialogH}
-                            onError={handleVideoError}
+                            onError={onError}
                         />
                     ) : (
                         spinner
