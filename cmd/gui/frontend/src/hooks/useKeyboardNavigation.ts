@@ -1,9 +1,10 @@
 import { type RefObject, useEffect, useState } from 'react';
-import { useSelectionStore } from '@/stores';
+import { usePreviewStore, useSelectionStore } from '@/stores';
 
 const TILE_WIDTH = 180;
 const GAP = 16;
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+const VIDEO_EXTENSIONS = new Set(['.avi', '.m4v', '.mp4', '.mkv', '.mov', '.webm', '.wmv']);
 
 // Returns the flat index where a given group starts in the paths array.
 // e.g. for groupSizes [5, 3, 8], group 0 starts at 0, group 1 at 5, group 2 at 8.
@@ -85,6 +86,7 @@ export const useKeyboardNavigation = (
 ) => {
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const select = useSelectionStore((s) => s.select);
+    const openPreview = usePreviewStore((s) => s.openPreview);
     const [colCount, setColCount] = useState(1);
 
     // Track column count via ResizeObserver
@@ -109,6 +111,14 @@ export const useKeyboardNavigation = (
         const handleKeyDown = (e: KeyboardEvent) => {
             const active = document.activeElement;
             if (active && active !== document.body && active.tagName !== 'DIV') return;
+
+            if (e.key === 'Enter') {
+                if (!selectedPath) return;
+                const ext = selectedPath.slice(selectedPath.lastIndexOf('.')).toLowerCase();
+                if (!VIDEO_EXTENSIONS.has(ext)) openPreview(selectedPath);
+                return;
+            }
+
             if (!ARROW_KEYS.has(e.key)) return;
 
             e.preventDefault();
@@ -132,5 +142,5 @@ export const useKeyboardNavigation = (
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [paths, selectedPath, select, colCount, groupSizes]);
+    }, [paths, selectedPath, select, openPreview, colCount, groupSizes]);
 };

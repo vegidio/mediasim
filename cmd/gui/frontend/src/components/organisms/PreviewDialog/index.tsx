@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { basename } from 'pathe';
 import { Dialog, DialogContent } from '@mui/material';
 import { GetImage } from '@bindings/gui/services/mediaservice.js';
+import { basename } from 'pathe';
 import { ModalTitle } from '@/components/molecules';
-import { getCachedThumbnail } from '@/utils/thumbnailCache';
 import { toDataUrl } from '@/utils/image';
+import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
 type PreviewDialogProps = {
     path?: string;
@@ -59,9 +59,11 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
             open={open}
             onClose={onClose}
             maxWidth={false}
-            PaperProps={{
-                className: 'overflow-hidden',
-                style: { width: dialogW, maxWidth: dialogW },
+            slotProps={{
+                paper: {
+                    className: 'overflow-hidden',
+                    style: { width: dialogW, maxWidth: dialogW },
+                },
             }}
         >
             <ModalTitle title={filename} onClose={onClose} />
@@ -75,10 +77,7 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
                         className={`object-contain ${!fullSizeUrl ? 'blur-sm' : ''}`}
                     />
                 ) : (
-                    <div
-                        className='flex items-center justify-center'
-                        style={{ width: dialogW, height: dialogH }}
-                    >
+                    <div className='flex items-center justify-center' style={{ width: dialogW, height: dialogH }}>
                         <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
                     </div>
                 )}
