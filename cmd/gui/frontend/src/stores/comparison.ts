@@ -21,7 +21,9 @@ export const useComparisonStore = create<ComparisonStore>()(
 
         setGroups: (groups: ComparisonGroup[]) => {
             set((state) => {
-                state.groups = groups;
+                state.groups = [...groups].sort((a, b) =>
+                    (a.media[0]?.path ?? '').localeCompare(b.media[0]?.path ?? ''),
+                );
             });
             useSelectionStore.getState().clear();
         },
