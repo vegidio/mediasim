@@ -71,19 +71,19 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
                     }}
                 >
                     {isChecked ? (
-                        <MdCheckBox className='text-yellow-400' size={18} />
+                        <MdCheckBox className='text-yellow-600' size={18} />
                     ) : (
                         <MdCheckBoxOutlineBlank className='text-white/60' size={18} />
                     )}
                 </button>
             </div>
 
-            <div className={`${isChecked ? 'bg-yellow-800/80' : 'bg-white/5'} rounded-b px-2 py-1.5`}>
+            <div className={`${isChecked ? 'bg-yellow-600' : 'bg-white/5'} rounded-b px-2 py-1.5`}>
                 <p className='text-xs text-gray-200 truncate' title={filename}>
                     {filename}
                 </p>
 
-                {metaLine && <p className='text-[10px] text-gray-400 truncate'>{metaLine}</p>}
+                {metaLine && <p className={`text-[10px] ${isChecked ? 'text-yellow-900' : 'text-gray-400'} truncate`}>{metaLine}</p>}
             </div>
         </div>
     );
