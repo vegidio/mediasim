@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@mui/material';
 import { GetImage } from '@bindings/gui/services/mediaservice.js';
+import { StartStream, StopStream } from '@bindings/gui/services/streamer.js';
 import { basename } from 'pathe';
 import { ModalTitle } from '@/components/molecules';
+import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { toDataUrl } from '@/utils/image';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
@@ -14,13 +16,28 @@ type PreviewDialogProps = {
 const PADDING = 32;
 const TITLE_HEIGHT = 41;
 
+const getExtension = (path: string): string => path.slice(path.lastIndexOf('.')).toLowerCase();
+
 export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
     const [fullSizeUrl, setFullSizeUrl] = useState<string>();
+    const [hlsUrl, setHlsUrl] = useState<string>();
     const open = path !== undefined;
+    const isVideo = path !== undefined && VIDEO_EXTENSIONS.has(getExtension(path));
 
     useEffect(() => {
         if (!path) return;
         setFullSizeUrl(undefined);
+        setHlsUrl(undefined);
+
+        if (VIDEO_EXTENSIONS.has(getExtension(path))) {
+            const promise = StartStream(path);
+            promise.then((url) => setHlsUrl(url));
+
+            return () => {
+                promise.cancel();
+                StopStream();
+            };
+        }
 
         const promise = GetImage(path, 0);
         promise.then(([data]) => setFullSizeUrl(toDataUrl(data)));
@@ -54,6 +71,12 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
         dialogH = maxW / aspectRatio;
     }
 
+    const spinner = (
+        <div className='flex items-center justify-center' style={{ width: dialogW, height: dialogH }}>
+            <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
+        </div>
+    );
+
     return (
         <Dialog
             open={open}
@@ -69,7 +92,19 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
             <ModalTitle title={filename} onClose={onClose} />
 
             <DialogContent className='p-0! flex items-center justify-center bg-black'>
-                {displayUrl ? (
+                {isVideo ? (
+                    hlsUrl ? (
+                        <video
+                            src={hlsUrl}
+                            autoPlay
+                            controls
+                            style={{ width: dialogW, height: dialogH }}
+                            className='object-contain'
+                        />
+                    ) : (
+                        spinner
+                    )
+                ) : displayUrl ? (
                     <img
                         src={displayUrl}
                         alt={filename}
@@ -77,9 +112,7 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
                         className={`object-contain ${!fullSizeUrl ? 'blur-sm' : ''}`}
                     />
                 ) : (
-                    <div className='flex items-center justify-center' style={{ width: dialogW, height: dialogH }}>
-                        <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
-                    </div>
+                    spinner
                 )}
             </DialogContent>
         </Dialog>

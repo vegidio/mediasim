@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useState } from 'react';
 import { usePreviewStore, useSelectionStore } from '@/stores';
-import { GAP, TILE_WIDTH, VIDEO_EXTENSIONS } from '@/utils/constants';
+import { GAP, TILE_WIDTH } from '@/utils/constants';
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
@@ -112,8 +112,7 @@ export const useKeyboardNavigation = (
 
             if (e.key === 'Enter') {
                 if (!selectedPath) return;
-                const ext = selectedPath.slice(selectedPath.lastIndexOf('.')).toLowerCase();
-                if (!VIDEO_EXTENSIONS.has(ext)) openPreview(selectedPath);
+                openPreview(selectedPath);
                 return;
             }
 

@@ -6,8 +6,8 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
- * StartStream transcodes the video at videoPath into HLS segments and returns the middleware URL
- * for the HLS manifest. Uses a cache to skip transcoding if the video was already processed.
+ * StartStream transcodes the video at videoPath into HLS segments and returns the middleware URL for the HLS manifest.
+ * Uses a cache to skip transcoding if the video was already processed.
  */
 export function StartStream(videoPath: string): $CancellablePromise<string> {
     return $Call.ByID(301887808, videoPath);
