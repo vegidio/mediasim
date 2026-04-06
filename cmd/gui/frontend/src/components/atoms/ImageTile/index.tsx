@@ -1,8 +1,8 @@
 import { useRef } from 'react';
-import { MdImage, MdVideocam } from 'react-icons/md';
+import { MdCheckBox, MdCheckBoxOutlineBlank, MdImage, MdVideocam } from 'react-icons/md';
 import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
-import { usePreviewStore, useSelectionStore } from '@/stores';
+import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { formatDate, formatFileSize } from '@/utils/format';
 
@@ -21,6 +21,8 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
     const isSelected = useSelectionStore((s) => s.selectedPath === path);
     const select = useSelectionStore((s) => s.select);
     const openPreview = usePreviewStore((s) => s.openPreview);
+    const isChecked = useCheckedStore((s) => s.checkedPaths.has(path));
+    const toggleChecked = useCheckedStore((s) => s.toggle);
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
     useScrollIntoView(ref, isSelected);
@@ -59,9 +61,24 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
                         )}
                     </div>
                 )}
+
+                <button
+                    type='button'
+                    className='absolute top-1 right-1 bg-black/60 rounded p-0.5 cursor-pointer'
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        toggleChecked(path);
+                    }}
+                >
+                    {isChecked ? (
+                        <MdCheckBox className='text-yellow-400' size={18} />
+                    ) : (
+                        <MdCheckBoxOutlineBlank className='text-white/60' size={18} />
+                    )}
+                </button>
             </div>
 
-            <div className='bg-white/5 rounded-b px-2 py-1.5'>
+            <div className={`${isChecked ? 'bg-yellow-800/80' : 'bg-white/5'} rounded-b px-2 py-1.5`}>
                 <p className='text-xs text-gray-200 truncate' title={filename}>
                     {filename}
                 </p>

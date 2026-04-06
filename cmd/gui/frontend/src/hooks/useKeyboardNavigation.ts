@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useState } from 'react';
-import { usePreviewStore, useSelectionStore } from '@/stores';
+import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
 import { GAP, TILE_WIDTH } from '@/utils/constants';
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
@@ -86,6 +86,7 @@ export const useKeyboardNavigation = (
     const select = useSelectionStore((s) => s.select);
     const previewPath = usePreviewStore((s) => s.previewPath);
     const openPreview = usePreviewStore((s) => s.openPreview);
+    const toggleChecked = useCheckedStore((s) => s.toggle);
     const [colCount, setColCount] = useState(1);
 
     // Track column count via ResizeObserver
@@ -117,6 +118,13 @@ export const useKeyboardNavigation = (
                 return;
             }
 
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (!selectedPath) return;
+                toggleChecked(selectedPath);
+                return;
+            }
+
             if (!ARROW_KEYS.has(e.key)) return;
 
             e.preventDefault();
@@ -141,5 +149,5 @@ export const useKeyboardNavigation = (
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [paths, selectedPath, select, previewPath, openPreview, colCount, groupSizes]);
+    }, [paths, selectedPath, select, previewPath, openPreview, toggleChecked, colCount, groupSizes]);
 };
