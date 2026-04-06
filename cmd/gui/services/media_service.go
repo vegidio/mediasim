@@ -22,10 +22,6 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-var validImageTypes = []string{".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tiff", ".webp", ".avif", ".heic"}
-var validVideoTypes = []string{".avi", ".m4v", ".mp4", ".mkv", ".mov", ".webm", ".wmv"}
-var validMediaTypes = append(validImageTypes, validVideoTypes...)
-
 // thumbnailSem limits concurrent thumbnail generation to avoid CPU/memory overload.
 var thumbnailSem = make(chan struct{}, 4)
 
@@ -62,7 +58,7 @@ func (m *MediaService) ServiceShutdown() error {
 
 // ListMedia returns metadata for all image and video files in the given directory (non-recursive).
 func (m *MediaService) ListMedia(directory string) ([]MediaInfo, error) {
-	filePaths, err := fs.ListPath(directory, fs.LpFile, validMediaTypes)
+	filePaths, err := fs.ListPath(directory, fs.LpFile, append(shared.ValidImageTypes, shared.ValidVideoTypes...))
 	if err != nil {
 		return nil, fmt.Errorf("error listing directory: %w", err)
 	}
@@ -180,5 +176,5 @@ func (m *MediaService) extractFirstFrame(videoPath string) (image.Image, error) 
 // isVideoFile checks if the file has a video extension.
 func isVideoFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
-	return slices.Contains(validVideoTypes, ext)
+	return slices.Contains(shared.ValidVideoTypes, ext)
 }

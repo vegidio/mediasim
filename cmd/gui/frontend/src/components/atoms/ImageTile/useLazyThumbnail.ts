@@ -1,6 +1,7 @@
 import { type RefObject, useEffect } from 'react';
 import { GetImage } from '@bindings/gui/services/mediaservice.js';
 import { useImagesStore } from '@/stores';
+import { TILE_WIDTH } from '@/utils/constants';
 import { toDataUrl } from '@/utils/image';
 import { acquireSlot, releaseSlot } from '@/utils/throttle';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
@@ -24,7 +25,7 @@ export const useLazyThumbnail = (
                     acquireSlot().then(() => {
                         setLoading(path);
 
-                        GetImage(path, 180)
+                        GetImage(path, TILE_WIDTH)
                             .then(([data, w, h]) => setThumbnailLoaded(path, toDataUrl(data), w, h))
                             .finally(releaseSlot);
                     });

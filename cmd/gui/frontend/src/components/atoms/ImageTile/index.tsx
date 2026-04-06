@@ -3,9 +3,8 @@ import { MdImage, MdVideocam } from 'react-icons/md';
 import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
 import { usePreviewStore, useSelectionStore } from '@/stores';
+import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { formatDate, formatFileSize } from '@/utils/format';
-
-const VIDEO_EXTENSIONS = new Set(['.avi', '.m4v', '.mp4', '.mkv', '.mov', '.webm', '.wmv']);
 
 const getExtension = (filename: string): string => filename.slice(filename.lastIndexOf('.')).toLowerCase();
 

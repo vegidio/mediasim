@@ -104,7 +104,7 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 	ext := strings.ToLower(filepath.Ext(file.Name()))
 	images := make([]image.Image, 0)
 
-	if slices.Contains(validImageTypes, ext) {
+	if slices.Contains(shared.ValidImageTypes, ext) {
 		img, _, imgErr := image.Decode(file)
 		if imgErr != nil {
 			return nil, imgErr
@@ -112,7 +112,7 @@ func LoadMediaFromFile(filePath string, options FrameOptions) (*Media, error) {
 
 		images = append(images, img)
 
-	} else if slices.Contains(validVideoTypes, ext) {
+	} else if slices.Contains(shared.ValidVideoTypes, ext) {
 		videos, vidErr := iffmpeg.ExtractFrames(file.Name(), ffmpegPath)
 		if vidErr != nil {
 			return nil, vidErr
@@ -172,10 +172,10 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 
 	mediaTypes := make([]string, 0)
 	if options.IncludeImages {
-		mediaTypes = append(mediaTypes, validImageTypes...)
+		mediaTypes = append(mediaTypes, shared.ValidImageTypes...)
 	}
 	if options.IncludeVideos {
-		mediaTypes = append(mediaTypes, validVideoTypes...)
+		mediaTypes = append(mediaTypes, shared.ValidVideoTypes...)
 	}
 
 	flags := fs.LpFile

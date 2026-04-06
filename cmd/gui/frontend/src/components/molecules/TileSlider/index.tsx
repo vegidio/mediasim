@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { IconButton, Slider } from '@mui/material';
 import { MdAdd, MdRemove } from 'react-icons/md';
+import { TILE_WIDTH } from '@/utils/constants';
 
 export const TileSlider = () => {
     const [size, setSize] = useState(1);
@@ -26,7 +27,7 @@ export const TileSlider = () => {
             <Slider
                 className='w-32'
                 size='small'
-                min={180}
+                min={TILE_WIDTH}
                 max={360}
                 step={10}
                 value={size}

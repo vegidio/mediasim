@@ -1,10 +1,8 @@
 import { type RefObject, useEffect, useState } from 'react';
 import { usePreviewStore, useSelectionStore } from '@/stores';
+import { GAP, TILE_WIDTH, VIDEO_EXTENSIONS } from '@/utils/constants';
 
-const TILE_WIDTH = 180;
-const GAP = 16;
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
-const VIDEO_EXTENSIONS = new Set(['.avi', '.m4v', '.mp4', '.mkv', '.mov', '.webm', '.wmv']);
 
 // Returns the flat index where a given group starts in the paths array.
 // e.g. for groupSizes [5, 3, 8], group 0 starts at 0, group 1 at 5, group 2 at 8.

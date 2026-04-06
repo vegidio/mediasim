@@ -1,6 +1,5 @@
 import { type RefObject, useEffect } from 'react';
-
-const GAP = 16;
+import { GAP } from '@/utils/constants';
 
 export const useScrollIntoView = (ref: RefObject<HTMLDivElement | null>, active: boolean) => {
     useEffect(() => {
