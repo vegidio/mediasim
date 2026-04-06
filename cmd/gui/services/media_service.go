@@ -124,7 +124,7 @@ func (m *MediaService) GetThumbnail(filePath string, maxSize int) ([]byte, int, 
 	}
 
 	var buf bytes.Buffer
-	if err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
+	if err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
 		return nil, 0, 0, fmt.Errorf("error encoding thumbnail: %w", err)
 	}
 

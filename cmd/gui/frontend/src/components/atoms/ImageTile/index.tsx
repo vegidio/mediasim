@@ -14,22 +14,21 @@ const getExtension = (filename: string): string => filename.slice(filename.lastI
 type ImageTileProps = {
     path: string;
     filename: string;
-    loaded: boolean;
-    loading: boolean;
+    status: 'idle' | 'loading' | 'loaded';
     modTime?: number;
     fileSize?: number;
 };
 
-export const ImageTile = memo(({ path, filename, loaded, loading, modTime, fileSize }: ImageTileProps) => {
+export const ImageTile = memo(({ path, filename, status, modTime, fileSize }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
     const setLoading = useImagesStore((s) => s.setLoading);
     const setThumbnailLoaded = useImagesStore((s) => s.setThumbnailLoaded);
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
-    const thumbnail = loaded ? getCachedThumbnail(path) : undefined;
+    const thumbnail = status === 'loaded' ? getCachedThumbnail(path) : undefined;
 
     useEffect(() => {
-        if (!ref.current || loaded || loading) return;
+        if (!ref.current || status !== 'idle') return;
 
         // Make sure we fetch the thumbnail only when the element is visible
         const observer = new IntersectionObserver(
@@ -52,7 +51,7 @@ export const ImageTile = memo(({ path, filename, loaded, loading, modTime, fileS
 
         observer.observe(ref.current);
         return () => observer.disconnect();
-    }, [path, loaded, loading, setLoading, setThumbnailLoaded]);
+    }, [path, status, setLoading, setThumbnailLoaded]);
 
     const metaLine = [
         modTime !== undefined ? formatDate(modTime) : undefined,

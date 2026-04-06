@@ -13,16 +13,17 @@ export const ComparisonGrid = () => {
             {groups.map((group, index) => (
                 <div key={index} className='mb-6'>
                     <h3 className='text-sm font-medium text-gray-300 mb-2'>Group {index + 1}</h3>
+
                     <div className='grid grid-cols-[repeat(auto-fill,180px)] gap-3'>
                         {group.media.map((media) => {
                             const cached = images.find((img) => img.path === media.path);
+
                             return (
                                 <ImageTile
                                     key={media.path}
                                     path={media.path}
                                     filename={basename(media.path)}
-                                    loaded={cached?.loaded ?? false}
-                                    loading={cached?.loading ?? false}
+                                    status={cached?.status ?? 'idle'}
                                     modTime={cached?.modTime}
                                     fileSize={media.size}
                                 />

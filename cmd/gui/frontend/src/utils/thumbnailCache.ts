@@ -8,8 +8,8 @@ type ThumbnailData = {
 
 const cache = new LRUCache<string, ThumbnailData>({ max: 1500 });
 
-export const getCachedThumbnail = (path: string): ThumbnailData | undefined => cache.get(path);
+export const hasCachedThumbnail = (path: string) => cache.has(path);
 
-export const setCachedThumbnail = (path: string, data: ThumbnailData): void => {
-    cache.set(path, data);
-};
+export const getCachedThumbnail = (path: string) => cache.get(path);
+
+export const setCachedThumbnail = (path: string, data: ThumbnailData) => cache.set(path, data);

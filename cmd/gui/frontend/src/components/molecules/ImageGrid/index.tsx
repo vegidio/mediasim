@@ -24,8 +24,7 @@ export const ImageGrid = () => {
                         key={entry.path}
                         path={entry.path}
                         filename={entry.filename}
-                        loaded={entry.loaded}
-                        loading={entry.loading}
+                        status={entry.status}
                         modTime={entry.modTime}
                         fileSize={entry.fileSize}
                     />

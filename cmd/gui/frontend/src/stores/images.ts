@@ -2,13 +2,12 @@ import type { MediaInfo } from '@bindings/gui/services/models.js';
 import { basename } from 'pathe';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { getCachedThumbnail, setCachedThumbnail } from '@/utils/thumbnailCache';
+import { hasCachedThumbnail, setCachedThumbnail } from '@/utils/thumbnailCache';
 
 type ImageEntry = {
     path: string;
     filename: string;
-    loading: boolean;
-    loaded: boolean;
+    status: 'idle' | 'loading' | 'loaded';
     modTime?: number;
     fileSize?: number;
 };
@@ -30,8 +29,7 @@ export const useImagesStore = create<ImagesStore>()(
                 state.images = mediaInfos.map((info) => ({
                     path: info.path,
                     filename: basename(info.path),
-                    loading: false,
-                    loaded: !!getCachedThumbnail(info.path),
+                    status: hasCachedThumbnail(info.path) ? 'loaded' : 'idle',
                     modTime: info.modTime,
                     fileSize: info.fileSize,
                 }));
@@ -42,9 +40,9 @@ export const useImagesStore = create<ImagesStore>()(
             set((state) => {
                 const entry = state.images.find((img) => img.path === path);
                 if (entry) {
-                    entry.loading = true;
+                    entry.status = 'loading';
                 } else {
-                    state.images.push({ path, filename: basename(path), loading: true, loaded: false });
+                    state.images.push({ path, filename: basename(path), status: 'loading' });
                 }
             });
         },
@@ -55,10 +53,9 @@ export const useImagesStore = create<ImagesStore>()(
             set((state) => {
                 const entry = state.images.find((img) => img.path === path);
                 if (entry) {
-                    entry.loaded = true;
-                    entry.loading = false;
+                    entry.status = 'loaded';
                 } else {
-                    state.images.push({ path, filename: basename(path), loading: false, loaded: true });
+                    state.images.push({ path, filename: basename(path), status: 'loaded' });
                 }
             });
         },
