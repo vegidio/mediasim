@@ -3,9 +3,11 @@
 
 import * as ComparisonService from "./comparisonservice.js";
 import * as MediaService from "./mediaservice.js";
+import * as Streamer from "./streamer.js";
 export {
     ComparisonService,
-    MediaService
+    MediaService,
+    Streamer
 };
 
 export {

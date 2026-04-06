@@ -20,12 +20,16 @@ func main() {
 	// Add support for AVIF and HEIC images
 	mediasim.AddImageType(".avif", ".heic")
 
+	// Create streamer service (needed before app init for middleware).
+	streamer := &services.Streamer{}
+
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
 		Name:        "MediaSim",
 		Description: "A tool to calculate the similarity of images & videos.",
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler:    application.AssetFileServerFS(assets),
+			Middleware: services.NewHlsMiddleware(streamer),
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
@@ -36,6 +40,7 @@ func main() {
 	// Register services
 	app.RegisterService(application.NewService(&services.MediaService{}))
 	app.RegisterService(application.NewService(&services.ComparisonService{}))
+	app.RegisterService(application.NewService(streamer))
 
 	// Create a new window with the necessary options.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
