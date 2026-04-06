@@ -2,23 +2,22 @@ import type { MediaInfo } from '@bindings/gui/services/models.js';
 import { basename } from 'pathe';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { getCachedThumbnail, setCachedThumbnail } from '@/utils/thumbnailCache';
 
 type ImageEntry = {
     path: string;
     filename: string;
-    dataUrl?: string;
     loading: boolean;
+    loaded: boolean;
     modTime?: number;
     fileSize?: number;
-    width?: number;
-    height?: number;
 };
 
 type ImagesStore = {
     images: ImageEntry[];
     setImages: (mediaInfos: MediaInfo[]) => void;
     setLoading: (path: string) => void;
-    setThumbnail: (path: string, dataUrl: string, width: number, height: number) => void;
+    setThumbnailLoaded: (path: string, dataUrl: string, width: number, height: number) => void;
     clear: () => void;
 };
 
@@ -31,12 +30,10 @@ export const useImagesStore = create<ImagesStore>()(
                 state.images = mediaInfos.map((info) => ({
                     path: info.path,
                     filename: basename(info.path),
-                    dataUrl: undefined,
                     loading: false,
+                    loaded: !!getCachedThumbnail(info.path),
                     modTime: info.modTime,
                     fileSize: info.fileSize,
-                    width: undefined,
-                    height: undefined,
                 }));
             });
         },
@@ -47,21 +44,21 @@ export const useImagesStore = create<ImagesStore>()(
                 if (entry) {
                     entry.loading = true;
                 } else {
-                    state.images.push({ path, filename: basename(path), loading: true });
+                    state.images.push({ path, filename: basename(path), loading: true, loaded: false });
                 }
             });
         },
 
-        setThumbnail: (path: string, dataUrl: string, width: number, height: number) => {
+        setThumbnailLoaded: (path: string, dataUrl: string, width: number, height: number) => {
+            setCachedThumbnail(path, { dataUrl, width, height });
+
             set((state) => {
                 const entry = state.images.find((img) => img.path === path);
                 if (entry) {
-                    entry.dataUrl = dataUrl;
+                    entry.loaded = true;
                     entry.loading = false;
-                    entry.width = width;
-                    entry.height = height;
                 } else {
-                    state.images.push({ path, filename: basename(path), dataUrl, loading: false, width, height });
+                    state.images.push({ path, filename: basename(path), loading: false, loaded: true });
                 }
             });
         },

@@ -24,12 +24,10 @@ export const ImageGrid = () => {
                         key={entry.path}
                         path={entry.path}
                         filename={entry.filename}
-                        dataUrl={entry.dataUrl}
+                        loaded={entry.loaded}
                         loading={entry.loading}
                         modTime={entry.modTime}
                         fileSize={entry.fileSize}
-                        width={entry.width}
-                        height={entry.height}
                     />
                 ))}
             </div>

@@ -59,8 +59,6 @@ github.com/u2takey/go-utils v0.3.1 h1:TaQTgmEZZeDHQFYfd+AdUT1cT4QJgJn/XVPELhHw4y
 github.com/u2takey/go-utils v0.3.1/go.mod h1:6e+v5vEZ/6gu12w/DC2ixZdZtCrNokVxD0JUklcqdCs=
 github.com/ulikunitz/xz v0.5.15 h1:9DNdB5s+SgV3bQ2ApL10xRc35ck0DuIX/isZvIk+ubY=
 github.com/ulikunitz/xz v0.5.15/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
-github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f h1:sniNhZ3U5mccFAEM+DhCLD7BPSCoh4WaoLBaOTCymT0=
-github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f/go.mod h1:UlZVJKCyXZTW30FJtjiDUPGtgGqXUc/s0Y4JBeJVmjQ=
 github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f h1:ZWJvidZn7F0U/z6fiF3pnFP9B7f/GkL2fAA6VoUJKvA=
 github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f/go.mod h1:UlZVJKCyXZTW30FJtjiDUPGtgGqXUc/s0Y4JBeJVmjQ=
 github.com/vitali-fedulov/images4 v1.3.1 h1:r8q2iDD3Gq63rE1IxRvpa3KsUUtdGNYFg4RoTtkmwYA=

@@ -21,12 +21,10 @@ export const ComparisonGrid = () => {
                                     key={media.path}
                                     path={media.path}
                                     filename={basename(media.path)}
-                                    dataUrl={cached?.dataUrl}
+                                    loaded={cached?.loaded ?? false}
                                     loading={cached?.loading ?? false}
                                     modTime={cached?.modTime}
                                     fileSize={media.size}
-                                    width={cached?.width ?? media.width}
-                                    height={cached?.height ?? media.height}
                                 />
                             );
                         })}

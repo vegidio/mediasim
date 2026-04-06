@@ -15,7 +15,6 @@ type AppStore = {
     addDirectory: (path: string) => void;
     selectDirectory: (path: string) => void;
     clearSelectedDirectory: () => void;
-    removeDirectory: (path: string) => void;
 };
 
 const MAX_RECENT_DIRECTORIES = 5;
@@ -45,12 +44,6 @@ export const useAppStore = create<AppStore>()(
             clearSelectedDirectory: () => {
                 set((state) => {
                     state.selectedDirectory = undefined;
-                });
-            },
-
-            removeDirectory: (path: string) => {
-                set((state) => {
-                    state.recentDirectories = state.recentDirectories.filter((d) => d.path !== path);
                 });
             },
         })),

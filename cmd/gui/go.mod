@@ -6,7 +6,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/vegidio/avif-go v0.0.0-20260318201954-49ee16a82be7
-	github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f
+	github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f
 	github.com/vegidio/heif-go v0.0.0-20260325052619-b00ee76cfd53
 	github.com/vegidio/mediasim v0.0.0-20260404185334-b95d86b2f6b2
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.55
@@ -37,6 +37,7 @@ require (
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
 	github.com/lmittmann/tint v1.0.7 // indirect
@@ -56,6 +57,7 @@ require (
 	github.com/vitali-fedulov/images4 v1.3.1 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
+	github.com/zeebo/xxh3 v1.0.2 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/net v0.50.0 // indirect

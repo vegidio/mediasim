@@ -166,8 +166,7 @@ github.com/vegidio/avif-go v0.0.0-20260318201954-49ee16a82be7 h1:TAgtdm0s/kM05Yd
 github.com/vegidio/avif-go v0.0.0-20260318201954-49ee16a82be7/go.mod h1:/ITCFP53XCH3zFZZLLtPm3jRqsv5CMgefZl4UCuP1rs=
 github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c h1:9qUsvAMcOWk3MVm8hZxfDYP1MYhesBXPWymXLSM93iM=
 github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c/go.mod h1:pfN6EJWnlcqBVoINzjlGOimXhASNa2yArcBcD9qsw1k=
-github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f h1:sniNhZ3U5mccFAEM+DhCLD7BPSCoh4WaoLBaOTCymT0=
-github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f/go.mod h1:UlZVJKCyXZTW30FJtjiDUPGtgGqXUc/s0Y4JBeJVmjQ=
+github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f h1:ZWJvidZn7F0U/z6fiF3pnFP9B7f/GkL2fAA6VoUJKvA=
 github.com/vegidio/heif-go v0.0.0-20260325052619-b00ee76cfd53 h1:sFd0b+B92EPs/hzQ4iS6sFRVtE6fdTTB1a1pF3vv+C4=
 github.com/vegidio/heif-go v0.0.0-20260325052619-b00ee76cfd53/go.mod h1:LIuf1LAlIL2EsPYMJgchx9xAXK6hjfhVZtAUGYHdaQ8=
 github.com/vegidio/mediasim v0.0.0-20260404185334-b95d86b2f6b2 h1:74PIviu/hCe+3pDH3X+Kj9ApAeQY560AtKvclWJp5G8=
@@ -180,6 +179,8 @@ github.com/wailsapp/wails/v3 v3.0.0-alpha.55 h1:Wxwxc4EN6axDAvH/O5n3uoZQ+XRY/HQZ
 github.com/wailsapp/wails/v3 v3.0.0-alpha.55/go.mod h1:AyH9vRcseorpL3p5XvxKgK0Lv/agJ7pTmcPdy25xZPo=
 github.com/xanzy/ssh-agent v0.3.3 h1:+/15pJfg/RsTxqYcX6fHqOXZwwMP+2VyYWJeWM2qQFM=
 github.com/xanzy/ssh-agent v0.3.3/go.mod h1:6dzNDKs0J9rVPHPhaGCukekBHKqfl+L3KghI1Bc68Uw=
+github.com/zeebo/assert v1.3.0 h1:g7C04CbJuIDKNPFHmsk4hwZDO5O+kntRxzaUoNXj+IQ=
+github.com/zeebo/xxh3 v1.0.2 h1:xZmwmqxHZA8AI603jOQ0tMqmBr9lPeFwGg6d+xy9DC0=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670 h1:18EFjUmQOcUvxNYSkA6jO9VAiXCnxFY6NyDX0bHDmkU=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=

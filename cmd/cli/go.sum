@@ -124,8 +124,7 @@ github.com/urfave/cli/v3 v3.6.0/go.mod h1:ysVLtOEmg2tOy6PknnYVhDoouyC/6N42TMeoMz
 github.com/vegidio/avif-go v0.0.0-20260318201954-49ee16a82be7 h1:TAgtdm0s/kM05YdoV3/hqz6ApHHtozxdKl5hdJ6YxqQ=
 github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c h1:9qUsvAMcOWk3MVm8hZxfDYP1MYhesBXPWymXLSM93iM=
 github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c/go.mod h1:pfN6EJWnlcqBVoINzjlGOimXhASNa2yArcBcD9qsw1k=
-github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f h1:sniNhZ3U5mccFAEM+DhCLD7BPSCoh4WaoLBaOTCymT0=
-github.com/vegidio/go-sak v0.0.0-20260305203127-56f5f4053f7f/go.mod h1:UlZVJKCyXZTW30FJtjiDUPGtgGqXUc/s0Y4JBeJVmjQ=
+github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f h1:ZWJvidZn7F0U/z6fiF3pnFP9B7f/GkL2fAA6VoUJKvA=
 github.com/vegidio/heif-go v0.0.0-20260325052619-b00ee76cfd53 h1:sFd0b+B92EPs/hzQ4iS6sFRVtE6fdTTB1a1pF3vv+C4=
 github.com/vegidio/mediasim v0.0.0-20251018141605-4f7c04a5a58d h1:K3r4RGlJMr1CNMcQww0GaiKMKmSibpO2crl05Pe+qog=
 github.com/vegidio/mediasim v0.0.0-20251018141605-4f7c04a5a58d/go.mod h1:509xkW5UZQOC0zPp1RCOJhv3QVHI7iMY5FUTE+802cU=
