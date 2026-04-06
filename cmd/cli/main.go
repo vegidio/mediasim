@@ -5,6 +5,7 @@ import (
 	"cli/internal/charm"
 	"context"
 	"os"
+	"shared"
 
 	_ "github.com/vegidio/avif-go"
 	"github.com/vegidio/go-sak/o11y"
@@ -23,6 +24,9 @@ func main() {
 	)
 
 	defer otel.Close()
+
+	// Remove leftover temp dirs from previous sessions (crash, force quit, etc.)
+	shared.CleanupTempDirs()
 
 	// Add support for AVIF and HEIC images
 	mediasim.AddImageType(".avif", ".heic")

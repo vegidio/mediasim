@@ -64,12 +64,15 @@ func (s *Streamer) StartStream(videoPath string) (string, error) {
 	// Check cache.
 	if dir, ok := s.cache[videoPath]; ok {
 		manifest := filepath.Join(dir, "video.m3u8")
+
 		if _, err := os.Stat(manifest); err == nil {
 			s.activeDir = dir
 			s.mu.Unlock()
 			return "/hls/video.m3u8", nil
 		}
+
 		// Stale entry — remove it.
+		os.RemoveAll(dir)
 		delete(s.cache, videoPath)
 	}
 
@@ -88,13 +91,20 @@ func (s *Streamer) StartStream(videoPath string) (string, error) {
 
 	// Build FFmpeg command with cancellable context
 	outputPath := filepath.Join(tmpDir, "video.m3u8")
-	input := ffmpeg.Input(videoPath)
+	input := ffmpeg.Input(videoPath, ffmpeg.KwArgs{
+		"probesize":       "32",
+		"analyzeduration": "0",
+		"fflags":          "nobuffer",
+	})
+
 	cmd := ffmpeg.OutputContext(ctx, []*ffmpeg.Stream{input}, outputPath, ffmpeg.KwArgs{
 		"c:v":           "libx264",
 		"c:a":           "aac",
 		"preset":        "ultrafast",
+		"tune":          "zerolatency",
+		"vf":            "scale=-2:'min(720,ih)'",
 		"f":             "hls",
-		"hls_time":      4,
+		"hls_time":      1,
 		"hls_list_size": 0,
 	}).Silent(true)
 
@@ -107,14 +117,14 @@ func (s *Streamer) StartStream(videoPath string) (string, error) {
 
 	s.mu.Unlock()
 
-	// Poll for the manifest file to appear (max 10s, 500ms interval).
+	// Poll for the manifest file to appear (max 10s, 100ms interval).
 	manifest := filepath.Join(tmpDir, "video.m3u8")
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(manifest); err == nil {
 			return "/hls/video.m3u8", nil
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	return "", fmt.Errorf("timeout waiting for HLS manifest")

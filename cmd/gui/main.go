@@ -6,6 +6,7 @@ import (
 	"gui/services"
 	"log"
 	"log/slog"
+	"shared"
 
 	_ "github.com/vegidio/avif-go"
 	_ "github.com/vegidio/heif-go"
@@ -19,6 +20,9 @@ var assets embed.FS
 func main() {
 	// Add support for AVIF and HEIC images
 	mediasim.AddImageType(".avif", ".heic")
+
+	// Remove leftover temp dirs from previous sessions (crash, force quit, etc.)
+	shared.CleanupTempDirs()
 
 	// Create streamer service (needed before app init for middleware).
 	streamer := &services.Streamer{}
