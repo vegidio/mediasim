@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef } from 'react';
 import { GetThumbnail } from '@bindings/gui/services/mediaservice.js';
 import { MdImage, MdVideocam } from 'react-icons/md';
-import { useImagesStore } from '@/stores';
+import { useImagesStore, useSelectionStore } from '@/stores';
 import { formatDate, formatFileSize } from '@/utils/format';
 import { toDataUrl } from '@/utils/image';
 import { acquireSlot, releaseSlot } from '@/utils/throttle';
@@ -23,7 +23,16 @@ export const ImageTile = memo(({ path, filename, status, modTime, fileSize }: Im
     const ref = useRef<HTMLDivElement>(null);
     const setLoading = useImagesStore((s) => s.setLoading);
     const setThumbnailLoaded = useImagesStore((s) => s.setThumbnailLoaded);
+    const isSelected = useSelectionStore((s) => s.selectedPath === path);
+    const select = useSelectionStore((s) => s.select);
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
+
+    // Scroll into view when selected via keyboard navigation
+    useEffect(() => {
+        if (isSelected && ref.current) {
+            ref.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }, [isSelected]);
 
     const thumbnail = status === 'loaded' ? getCachedThumbnail(path) : undefined;
 
@@ -62,7 +71,13 @@ export const ImageTile = memo(({ path, filename, status, modTime, fileSize }: Im
         .join(' \u00b7 ');
 
     return (
-        <div ref={ref} className='w-45'>
+        // biome-ignore lint/a11y/noStaticElementInteractions: desktop app with custom keyboard navigation
+        // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard nav handled by useKeyboardNavigation hook
+        <div
+            ref={ref}
+            className={`w-45 cursor-pointer rounded ${isSelected ? 'ring-3 ring-blue-500' : ''}`}
+            onClick={() => select(path)}
+        >
             <div className='relative w-45 h-45 bg-black/30 rounded-t overflow-hidden flex items-center justify-center'>
                 {thumbnail?.dataUrl ? (
                     <img src={thumbnail.dataUrl} alt={filename} className='object-cover w-full h-full' />
@@ -85,6 +100,7 @@ export const ImageTile = memo(({ path, filename, status, modTime, fileSize }: Im
                 <p className='text-xs text-gray-200 truncate' title={filename}>
                     {filename}
                 </p>
+
                 {metaLine && <p className='text-[10px] text-gray-400 truncate'>{metaLine}</p>}
             </div>
         </div>

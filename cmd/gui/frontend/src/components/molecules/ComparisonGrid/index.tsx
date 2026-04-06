@@ -14,7 +14,7 @@ export const ComparisonGrid = () => {
                 <div key={index} className='mb-6'>
                     <h3 className='text-sm font-medium text-gray-300 mb-2'>Group {index + 1}</h3>
 
-                    <div className='grid grid-cols-[repeat(auto-fill,180px)] gap-3'>
+                    <div className='grid grid-cols-[repeat(auto-fill,180px)] gap-4'>
                         {group.media.map((media) => {
                             const cached = images.find((img) => img.path === media.path);
 

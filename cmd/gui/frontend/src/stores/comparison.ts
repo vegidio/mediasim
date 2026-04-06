@@ -1,6 +1,7 @@
 import type { ComparisonGroup } from '@bindings/gui/services/models.js';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { useSelectionStore } from './selection';
 
 type ComparisonStore = {
     /**
@@ -22,12 +23,14 @@ export const useComparisonStore = create<ComparisonStore>()(
             set((state) => {
                 state.groups = groups;
             });
+            useSelectionStore.getState().clear();
         },
 
         clear: () => {
             set((state) => {
                 state.groups = undefined;
             });
+            useSelectionStore.getState().clear();
         },
     })),
 );
