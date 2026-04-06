@@ -24,7 +24,7 @@ func feedChannel(items []Media) <-chan Result[Media] {
 }
 
 // collectGroups drains the LoadAndGroupMedia update channel and returns the final groups.
-func collectGroups(t *testing.T, ch <-chan LoadAndGroupUpdate) ([][]Media, error) {
+func collectGroups(t *testing.T, ch <-chan LoadAndGroupResult) ([][]Media, error) {
 	t.Helper()
 	for update := range ch {
 		if update.Done {

@@ -12,12 +12,12 @@ import (
 )
 
 type lagUpdateMsg struct {
-	update mediasim.LoadAndGroupUpdate
+	update mediasim.LoadAndGroupResult
 }
 
 type lagDoneMsg struct{}
 
-func lagReadCmd(ch <-chan mediasim.LoadAndGroupUpdate) tea.Cmd {
+func lagReadCmd(ch <-chan mediasim.LoadAndGroupResult) tea.Cmd {
 	return func() tea.Msg {
 		if update, ok := <-ch; ok {
 			return lagUpdateMsg{update}
@@ -29,7 +29,7 @@ func lagReadCmd(ch <-chan mediasim.LoadAndGroupUpdate) tea.Cmd {
 
 type loadAndGroupModel struct {
 	progress      progress.Model
-	updateCh      <-chan mediasim.LoadAndGroupUpdate
+	updateCh      <-chan mediasim.LoadAndGroupResult
 	total         int
 	loaded        int
 	groups        [][]mediasim.Media
@@ -141,7 +141,7 @@ func (m *loadAndGroupModel) View() string {
 	)
 }
 
-func initLoadAndGroupModel(updateCh <-chan mediasim.LoadAndGroupUpdate, total int) *loadAndGroupModel {
+func initLoadAndGroupModel(updateCh <-chan mediasim.LoadAndGroupResult, total int) *loadAndGroupModel {
 	p := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithoutPercentage(),

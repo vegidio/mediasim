@@ -5,8 +5,8 @@ import (
 	"github.com/vegidio/mediasim/internal/dsu"
 )
 
-// LoadAndGroupUpdate represents a progress update from the single-pass load-and-group operation.
-type LoadAndGroupUpdate struct {
+// LoadAndGroupResult represents a progress update from the single-pass load-and-group operation.
+type LoadAndGroupResult struct {
 	// Media is the item just loaded (nil on error or final message).
 	Media *Media
 	// Loaded is the number of items successfully loaded so far.
@@ -31,14 +31,14 @@ type LoadAndGroupUpdate struct {
 //   - ignoreErrors: If true, loading errors are skipped; if false, the first error terminates processing.
 //
 // # Returns:
-//   - A channel of LoadAndGroupUpdate messages reporting progress and the final result.
+//   - A channel of LoadAndGroupResult messages reporting progress and the final result.
 func LoadAndGroupMedia(
 	channel <-chan Result[Media],
 	total int,
 	threshold float64,
 	ignoreErrors bool,
-) <-chan LoadAndGroupUpdate {
-	out := make(chan LoadAndGroupUpdate)
+) <-chan LoadAndGroupResult {
+	out := make(chan LoadAndGroupResult)
 
 	go func() {
 		defer close(out)
@@ -49,11 +49,11 @@ func LoadAndGroupMedia(
 		for r := range channel {
 			if r.Err != nil {
 				if ignoreErrors {
-					out <- LoadAndGroupUpdate{Err: r.Err}
+					out <- LoadAndGroupResult{Err: r.Err}
 					continue
 				}
 
-				out <- LoadAndGroupUpdate{Err: r.Err, Done: true}
+				out <- LoadAndGroupResult{Err: r.Err, Done: true}
 				return
 			}
 
@@ -68,14 +68,14 @@ func LoadAndGroupMedia(
 				}
 			}
 
-			out <- LoadAndGroupUpdate{
+			out <- LoadAndGroupResult{
 				Media:  &media[i],
 				Loaded: len(media),
 			}
 		}
 
 		groups := extractGroups(media, d)
-		out <- LoadAndGroupUpdate{
+		out <- LoadAndGroupResult{
 			Done:   true,
 			Groups: groups,
 		}
