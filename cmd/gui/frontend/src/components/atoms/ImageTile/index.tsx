@@ -83,7 +83,11 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
                     {filename}
                 </p>
 
-                {metaLine && <p className={`text-[10px] ${isChecked ? 'text-yellow-900' : 'text-gray-400'} truncate`}>{metaLine}</p>}
+                {metaLine && (
+                    <p className={`text-[10px] ${isChecked ? 'text-yellow-900' : 'text-gray-400'} truncate`}>
+                        {metaLine}
+                    </p>
+                )}
             </div>
         </div>
     );
