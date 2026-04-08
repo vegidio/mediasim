@@ -11,6 +11,7 @@ import {
     MdDeleteOutline,
     MdImage,
     MdRemove,
+    MdRemoveCircleOutline,
     MdVideocam,
 } from 'react-icons/md';
 import { PiImageDuotone } from 'react-icons/pi';
@@ -18,6 +19,7 @@ import { PiImageDuotone } from 'react-icons/pi';
 const icons = {
     'auto-mark': MdAutoFixHigh,
     mark: MdCheckCircleOutline,
+    unmark: MdRemoveCircleOutline,
     delete: MdDeleteOutline,
     close: MdClose,
     compare: MdCompare,

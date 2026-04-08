@@ -5,14 +5,16 @@ import type { TailwindProps } from '@/types/TailwindProps.ts';
 type ToolbarButtonProps = TailwindProps & {
     icon: ReactNode;
     label: string;
+    disabled?: boolean;
     onClick?: () => void;
 };
 
-export const ToolbarButton = ({ icon, label, onClick, className = '' }: ToolbarButtonProps) => {
+export const ToolbarButton = ({ icon, label, disabled, onClick, className = '' }: ToolbarButtonProps) => {
     return (
         <Button
             color='inherit'
             size='small'
+            disabled={disabled}
             className={`flex-col px-2 py-0 min-w-0 gap-1.5 ${className}`}
             onClick={onClick}
         >
