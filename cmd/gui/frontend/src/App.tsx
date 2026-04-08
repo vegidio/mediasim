@@ -5,7 +5,6 @@ import {
     Preview,
     PreviewDialog,
     ProgressDialog,
-    Sidebar,
     TopBar,
     WelcomeDialog,
 } from '@/components/organisms';
@@ -45,7 +44,8 @@ export const App = () => {
                 <div className='flex-1 relative overflow-hidden'>
                     <Preview className='h-full' />
                 </div>
-                <Sidebar className='w-64 h-full' />
+
+                {/*<Sidebar className='w-64 h-full' />*/}
             </main>
 
             <BottomBar onClose={handleClose} onCompare={() => setCompareOpen(true)} />

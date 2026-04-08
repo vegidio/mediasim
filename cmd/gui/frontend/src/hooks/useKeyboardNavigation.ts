@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useState } from 'react';
 import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
-import { GAP, TILE_WIDTH } from '@/utils/constants';
+import { TILE_GAP, TILE_WIDTH } from '@/utils/constants';
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
@@ -96,7 +96,7 @@ export const useKeyboardNavigation = (
 
         const observer = new ResizeObserver(([entry]) => {
             const width = entry.contentRect.width;
-            const cols = Math.max(1, Math.floor((width + GAP) / (TILE_WIDTH + GAP)));
+            const cols = Math.max(1, Math.floor((width + TILE_GAP) / (TILE_WIDTH + TILE_GAP)));
             setColCount(cols);
         });
 
