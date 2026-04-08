@@ -20,7 +20,7 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                         <div className='flex flex-1 items-center gap-2'>
                             <ToolbarButton icon={<Icon name='auto-mark' size={22} />} label='Auto Mark' />
                             <ToolbarButton icon={<Icon name='mark' size={22} />} label='Mark' />
-                            <ToolbarButton icon={<Icon name='delete' size={22} />} label='Delete' />
+                            <ToolbarButton icon={<Icon name='delete' size={22} />} label='Delete Marked' />
                         </div>
 
                         <div className='flex flex-1' />
@@ -28,9 +28,7 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                 ) : (
                     <>
                         <div className='flex flex-1 justify-start'>
-                            <Button color='inherit' size='small' startIcon={<Icon name='close' />} onClick={onClose}>
-                                Close
-                            </Button>
+                            <ToolbarButton icon={<Icon name='close' size={22} />} label='Close' onClick={onClose} />
                         </div>
 
                         <div className='flex flex-1 justify-center'>
@@ -39,6 +37,7 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                                 size='small'
                                 startIcon={<Icon name='compare' />}
                                 onClick={onCompare}
+                                className='normal-case'
                             >
                                 Compare
                             </Button>
