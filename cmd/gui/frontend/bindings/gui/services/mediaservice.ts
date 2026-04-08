@@ -10,6 +10,16 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * DeleteFiles permanently removes the given file paths from disk.
+ * It returns the list of paths that were successfully deleted.
+ */
+export function DeleteFiles(paths: string[]): $CancellablePromise<string[]> {
+    return $Call.ByID(292600382, paths).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
  * GetImage loads an image or extracts the first frame of a video, optionally resizes it to fit within
  * maxSize pixels on the longest dimension (0 means no resize), encodes it as JPEG, and returns the
  * bytes along with the original width and height.
@@ -26,10 +36,11 @@ export function GetImage(filePath: string, maxSize: number): $CancellablePromise
  */
 export function ListMedia(directory: string): $CancellablePromise<$models.MediaInfo[]> {
     return $Call.ByID(2016887960, directory).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = $models.MediaInfo.createFrom;
-const $$createType1 = $Create.Array($$createType0);
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = $models.MediaInfo.createFrom;
+const $$createType2 = $Create.Array($$createType1);

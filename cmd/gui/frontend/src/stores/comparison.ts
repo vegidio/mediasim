@@ -12,6 +12,7 @@ type ComparisonStore = {
     groups?: ComparisonGroup[];
 
     setGroups: (groups: ComparisonGroup[]) => void;
+    removeFiles: (paths: Set<string>) => void;
     clear: () => void;
 };
 
@@ -26,6 +27,19 @@ export const useComparisonStore = create<ComparisonStore>()(
                 );
             });
             useSelectionStore.getState().clear();
+        },
+
+        removeFiles: (paths: Set<string>) => {
+            set((state) => {
+                if (!state.groups) return;
+
+                state.groups = state.groups
+                    .map((group) => ({
+                        ...group,
+                        media: group.media.filter((m) => !paths.has(m.path)),
+                    }))
+                    .filter((group) => group.media.length > 1);
+            });
         },
 
         clear: () => {

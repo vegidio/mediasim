@@ -127,6 +127,20 @@ func (m *MediaService) GetImage(filePath string, maxSize int) ([]byte, int, int,
 	return buf.Bytes(), origWidth, origHeight, nil
 }
 
+// DeleteFiles permanently removes the given file paths from disk.
+// It returns the list of paths that were successfully deleted.
+func (m *MediaService) DeleteFiles(paths []string) []string {
+	deleted := make([]string, 0, len(paths))
+
+	for _, p := range paths {
+		if err := os.Remove(p); err == nil {
+			deleted = append(deleted, p)
+		}
+	}
+
+	return deleted
+}
+
 // openMedia opens an image directly or extracts the first frame of a video.
 func (m *MediaService) openMedia(filePath string) (image.Image, error) {
 	if isVideoFile(filePath) {

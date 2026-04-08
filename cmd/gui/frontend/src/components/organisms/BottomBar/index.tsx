@@ -1,4 +1,5 @@
 import { AppBar, Button, Toolbar } from '@mui/material';
+import { DeleteFiles } from '@bindings/gui/services/mediaservice';
 import { Dialogs } from '@wailsio/runtime';
 import type { TailwindProps } from '@/types/TailwindProps';
 import { Icon, ToolbarButton } from '@/components/atoms';
@@ -12,8 +13,10 @@ type BottomBarProps = TailwindProps & {
 
 export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
     const groups = useComparisonStore((s) => s.groups);
+    const removeFiles = useComparisonStore((s) => s.removeFiles);
     const autoMark = useCheckedStore((s) => s.autoMark);
     const checkedPaths = useCheckedStore((s) => s.checkedPaths);
+    const clearChecked = useCheckedStore((s) => s.clear);
     const toggle = useCheckedStore((s) => s.toggle);
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const isMarked = selectedPath !== undefined && checkedPaths.has(selectedPath);
@@ -29,7 +32,11 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
         });
 
         if (result !== 'Continue') return;
-        // TODO: actual deletion logic
+
+        const paths = [...checkedPaths];
+        await DeleteFiles(paths);
+        removeFiles(checkedPaths);
+        clearChecked();
     };
 
     return (
