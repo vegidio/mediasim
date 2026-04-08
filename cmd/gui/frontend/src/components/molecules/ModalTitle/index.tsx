@@ -1,5 +1,5 @@
 import { Divider, IconButton, Typography } from '@mui/material';
-import { MdClose } from 'react-icons/md';
+import { Icon } from '@/components/atoms';
 
 type ModalTitleProps = {
     title: string;
@@ -13,7 +13,7 @@ export const ModalTitle = ({ title, onClose }: ModalTitleProps) => {
                 <Typography className='text-xs font-medium ml-3 text-[#9e9e9e]'>{title}</Typography>
                 {onClose && (
                     <IconButton size='small' className='mr-1 text-[#9e9e9e]' onClick={onClose}>
-                        <MdClose />
+                        <Icon name='close' />
                     </IconButton>
                 )}
             </div>

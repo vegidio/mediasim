@@ -1,6 +1,6 @@
 import { AppBar, Button, Divider, Toolbar, Typography } from '@mui/material';
 import { System } from '@wailsio/runtime';
-import { MdChevronLeft } from 'react-icons/md';
+import { Icon } from '@/components/atoms';
 import { useComparisonStore } from '@/stores';
 
 export const TopBar = () => {
@@ -17,7 +17,7 @@ export const TopBar = () => {
                 {groups && (
                     <>
                         <Divider orientation='vertical' flexItem className='mx-2' />
-                        <Button color='inherit' size='small' startIcon={<MdChevronLeft />} onClick={clearComparison}>
+                        <Button color='inherit' size='small' startIcon={<Icon name='back' />} onClick={clearComparison}>
                             Back to directory
                         </Button>
                     </>

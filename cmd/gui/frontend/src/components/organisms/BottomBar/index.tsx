@@ -1,7 +1,6 @@
 import { AppBar, Button, Toolbar } from '@mui/material';
-import { MdAutoFixHigh, MdCheckCircleOutline, MdClose, MdCompare, MdDeleteOutline } from 'react-icons/md';
 import type { TailwindProps } from '@/types/TailwindProps';
-import { ToolbarButton } from '@/components/atoms';
+import { Icon, ToolbarButton } from '@/components/atoms';
 import { TileSlider } from '@/components/molecules';
 import { useComparisonStore } from '@/stores';
 
@@ -19,9 +18,9 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                 {groups ? (
                     <>
                         <div className='flex flex-1 items-center gap-2'>
-                            <ToolbarButton icon={<MdAutoFixHigh size={22} />} label='Auto Mark' />
-                            <ToolbarButton icon={<MdCheckCircleOutline size={22} />} label='Mark' />
-                            <ToolbarButton icon={<MdDeleteOutline size={22} />} label='Delete' />
+                            <ToolbarButton icon={<Icon name='auto-mark' size={22} />} label='Auto Mark' />
+                            <ToolbarButton icon={<Icon name='mark' size={22} />} label='Mark' />
+                            <ToolbarButton icon={<Icon name='delete' size={22} />} label='Delete' />
                         </div>
 
                         <div className='flex flex-1' />
@@ -29,13 +28,18 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                 ) : (
                     <>
                         <div className='flex flex-1 justify-start'>
-                            <Button color='inherit' size='small' startIcon={<MdClose />} onClick={onClose}>
+                            <Button color='inherit' size='small' startIcon={<Icon name='close' />} onClick={onClose}>
                                 Close
                             </Button>
                         </div>
 
                         <div className='flex flex-1 justify-center'>
-                            <Button color='inherit' size='small' startIcon={<MdCompare />} onClick={onCompare}>
+                            <Button
+                                color='inherit'
+                                size='small'
+                                startIcon={<Icon name='compare' />}
+                                onClick={onCompare}
+                            >
                                 Compare
                             </Button>
                         </div>

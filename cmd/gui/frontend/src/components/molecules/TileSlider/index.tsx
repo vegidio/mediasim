@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { IconButton, Slider } from '@mui/material';
-import { MdAdd, MdRemove } from 'react-icons/md';
+import { Icon } from '@/components/atoms';
 import { TILE_WIDTH } from '@/utils/constants';
 
 export const TileSlider = () => {
@@ -21,7 +21,7 @@ export const TileSlider = () => {
     return (
         <div className='flex items-center gap-1'>
             <IconButton color='inherit' size='small' onClick={handleZoomOut}>
-                <MdRemove />
+                <Icon name='zoom-out' />
             </IconButton>
 
             <Slider
@@ -35,7 +35,7 @@ export const TileSlider = () => {
             />
 
             <IconButton color='inherit' size='small' onClick={handleZoomIn}>
-                <MdAdd />
+                <Icon name='zoom-in' />
             </IconButton>
         </div>
     );

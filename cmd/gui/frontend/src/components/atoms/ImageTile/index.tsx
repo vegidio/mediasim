@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { MdCheckBox, MdCheckBoxOutlineBlank, MdImage, MdVideocam } from 'react-icons/md';
 import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
+import { Icon } from '@/components/atoms/Icon';
 import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { formatDate, formatFileSize } from '@/utils/format';
@@ -55,9 +55,9 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
                 {thumbnail?.dataUrl && (
                     <div className='absolute bottom-1 right-1 bg-black/60 rounded p-0.5'>
                         {isVideo ? (
-                            <MdVideocam className='text-white' size={16} />
+                            <Icon name='video' className='text-white' size={16} />
                         ) : (
-                            <MdImage className='text-white' size={16} />
+                            <Icon name='image' className='text-white' size={16} />
                         )}
                     </div>
                 )}
@@ -71,9 +71,9 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
                     }}
                 >
                     {isChecked ? (
-                        <MdCheckBox className='text-yellow-600' size={18} />
+                        <Icon name='checked' className='text-yellow-600' size={18} />
                     ) : (
-                        <MdCheckBoxOutlineBlank className='text-white/60' size={18} />
+                        <Icon name='unchecked' className='text-white/60' size={18} />
                     )}
                 </button>
             </div>
