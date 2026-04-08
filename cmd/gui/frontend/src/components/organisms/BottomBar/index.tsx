@@ -1,4 +1,5 @@
 import { AppBar, Button, Toolbar } from '@mui/material';
+import { Dialogs } from '@wailsio/runtime';
 import type { TailwindProps } from '@/types/TailwindProps';
 import { Icon, ToolbarButton } from '@/components/atoms';
 import { TileSlider } from '@/components/molecules';
@@ -16,6 +17,20 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
     const toggle = useCheckedStore((s) => s.toggle);
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const isMarked = selectedPath !== undefined && checkedPaths.has(selectedPath);
+
+    const handleDelete = async () => {
+        const result = await Dialogs.Warning({
+            Title: 'Delete Marked',
+            Message: `Are you sure that you want to delete ${checkedPaths.size} files? This process is irreversible.`,
+            Buttons: [
+                { Label: 'Continue', IsDefault: true },
+                { Label: 'Cancel', IsCancel: true },
+            ],
+        });
+
+        if (result !== 'Continue') return;
+        // TODO: actual deletion logic
+    };
 
     return (
         <AppBar position='static' component='footer'>
@@ -37,7 +52,12 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                                 className='min-w-14'
                             />
 
-                            <ToolbarButton icon={<Icon name='delete' size={22} />} label='Delete Marked' />
+                            <ToolbarButton
+                                icon={<Icon name='delete' size={22} />}
+                                label='Delete Marked'
+                                disabled={checkedPaths.size === 0}
+                                onClick={handleDelete}
+                            />
                         </div>
 
                         <div className='flex flex-1' />
