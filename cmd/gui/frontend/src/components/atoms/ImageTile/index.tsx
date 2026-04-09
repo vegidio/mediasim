@@ -91,9 +91,10 @@ export const ImageTile = ({ path, filename, status, size, modTime, fileSize, len
                 </button>
             </div>
 
-            <div className={`${isChecked ? 'bg-yellow-600' : 'bg-white/5'} rounded-b px-2 py-1.5`}>
-                <p className='text-xs text-gray-200 truncate' title={filename}>
-                    {filename}
+            <div className={`${isChecked ? 'bg-yellow-600' : 'bg-white/5'} rounded-b px-2 py-1.5 text-center`}>
+                <p className='text-xs text-gray-200 flex justify-center overflow-hidden' title={filename}>
+                    <span className='truncate'>{filename.substring(0, filename.lastIndexOf('.'))}</span>
+                    <span className='shrink-0'>{filename.substring(filename.lastIndexOf('.'))}</span>
                 </p>
 
                 {metaLine && (
