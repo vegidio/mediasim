@@ -1,6 +1,5 @@
 import { Dialog, Divider, Link, Typography } from '@mui/material';
 import { Browser } from '@wailsio/runtime';
-import { Icon } from '@/components/atoms';
 import { ModalTitle } from '@/components/molecules/ModalTitle';
 import { VERSION } from '@/utils/constants';
 
@@ -15,7 +14,7 @@ export const AboutDialog = ({ open, onClose }: AboutDialogProps) => {
             <ModalTitle title='About' onClose={onClose} />
 
             <div className='flex flex-col p-6 pt-2.5 gap-4 items-center'>
-                <Icon name='logo' size={144} className='text-blue-400' />
+                <img src='/icon.avif' alt='Logo' className='size-36' />
 
                 <div className='flex flex-col gap-1 items-center'>
                     <Typography variant='h5' className='font-bold'>

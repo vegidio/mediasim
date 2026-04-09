@@ -81,6 +81,7 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
                                 size='small'
                                 startIcon={<Icon name='compare' />}
                                 onClick={onCompare}
+                                sx={{ color: 'text.secondary' }}
                                 className='normal-case'
                             >
                                 Compare

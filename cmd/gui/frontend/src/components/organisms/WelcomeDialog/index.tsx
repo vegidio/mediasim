@@ -10,7 +10,6 @@ import {
     Typography,
 } from '@mui/material';
 import { Application, Dialogs } from '@wailsio/runtime';
-import { Icon } from '@/components/atoms';
 import { ModalTitle } from '@/components/molecules';
 import { useAppStore } from '@/stores';
 
@@ -62,7 +61,8 @@ export const WelcomeDialog = ({ open, onDirectorySelected }: WelcomeDialogProps)
             <DialogContent className='flex p-0 min-h-87.5'>
                 {/* Left side: icon + app name */}
                 <Box className='flex flex-col items-center justify-center w-48 shrink-0 bg-[#1a1a1a] p-6'>
-                    <Icon name='logo' size={64} className='text-blue-400 mb-3' />
+                    <img src='/icon.avif' alt='MediaSim Logo' className='size-32' />
+
                     <Typography variant='h6' fontWeight={700}>
                         MediaSim
                     </Typography>

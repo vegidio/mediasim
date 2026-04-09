@@ -15,6 +15,7 @@ export const ToolbarButton = ({ icon, label, disabled, onClick, className = '' }
             color='inherit'
             size='small'
             disabled={disabled}
+            sx={{ color: 'text.secondary' }}
             className={`flex-col px-2 py-0 min-w-0 gap-1.5 ${className}`}
             onClick={onClick}
         >
