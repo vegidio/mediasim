@@ -16,7 +16,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-type Streamer struct {
+type StreamerService struct {
 	mu              sync.Mutex
 	ffmpegPath      string
 	cache           map[string]string  // videoPath → tmpDir
@@ -26,14 +26,14 @@ type Streamer struct {
 }
 
 // ServiceStartup resolves the FFmpeg binary path and initializes the cache map.
-func (s *Streamer) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
+func (s *StreamerService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	s.ffmpegPath = shared.GetFFmpegPath("mediasim")
 	s.cache = make(map[string]string)
 	return nil
 }
 
 // ServiceShutdown cancels any active FFmpeg process and removes all cached temp directories.
-func (s *Streamer) ServiceShutdown() error {
+func (s *StreamerService) ServiceShutdown() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -53,7 +53,7 @@ func (s *Streamer) ServiceShutdown() error {
 
 // StartStream transcodes the video at videoPath into HLS segments and returns the middleware URL for the HLS manifest.
 // Uses a cache to skip transcoding if the video was already processed.
-func (s *Streamer) StartStream(videoPath string) (string, error) {
+func (s *StreamerService) StartStream(videoPath string) (string, error) {
 	s.mu.Lock()
 
 	// Cancel any active FFmpeg process (keep its cached segments).
@@ -131,7 +131,7 @@ func (s *Streamer) StartStream(videoPath string) (string, error) {
 }
 
 // PrepareDirectPlay stores the video path for direct serving and returns a URL the frontend can use.
-func (s *Streamer) PrepareDirectPlay(videoPath string) string {
+func (s *StreamerService) PrepareDirectPlay(videoPath string) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.activeVideoPath = videoPath
@@ -139,7 +139,7 @@ func (s *Streamer) PrepareDirectPlay(videoPath string) string {
 }
 
 // StopStream cancels the active FFmpeg process without deleting cached segments.
-func (s *Streamer) StopStream() {
+func (s *StreamerService) StopStream() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -153,7 +153,7 @@ func (s *Streamer) StopStream() {
 
 // NewHlsMiddleware returns a Wails asset server middleware that serves HLS segments
 // from the active stream's temp directory under the /hls/ path prefix.
-func NewHlsMiddleware(s *Streamer) application.Middleware {
+func NewHlsMiddleware(s *StreamerService) application.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Direct video serving.

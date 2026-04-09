@@ -9,7 +9,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * PrepareDirectPlay stores the video path for direct serving and returns a URL the frontend can use.
  */
 export function PrepareDirectPlay(videoPath: string): $CancellablePromise<string> {
-    return $Call.ByID(2235911232, videoPath);
+    return $Call.ByID(52902379, videoPath);
 }
 
 /**
@@ -17,12 +17,12 @@ export function PrepareDirectPlay(videoPath: string): $CancellablePromise<string
  * Uses a cache to skip transcoding if the video was already processed.
  */
 export function StartStream(videoPath: string): $CancellablePromise<string> {
-    return $Call.ByID(301887808, videoPath);
+    return $Call.ByID(448723687, videoPath);
 }
 
 /**
  * StopStream cancels the active FFmpeg process without deleting cached segments.
  */
 export function StopStream(): $CancellablePromise<void> {
-    return $Call.ByID(1194479996);
+    return $Call.ByID(390639501);
 }

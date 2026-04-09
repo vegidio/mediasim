@@ -26,7 +26,7 @@ func main() {
 	shared.CleanupTempDirs()
 
 	// Create services needed before app init for middleware.
-	streamerService := &services.Streamer{}
+	streamerService := &services.StreamerService{}
 	thumbService := &services.ThumbnailService{}
 
 	// Create a new Wails application by providing the necessary options.

@@ -5,7 +5,7 @@ import { Icon } from '@/components/atoms/Icon';
 import { Spinner } from '@/components/atoms/Spinner';
 import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
-import { formatDate, formatFileSize } from '@/utils/format';
+import { formatDate, formatDuration, formatFileSize } from '@/utils/format';
 import { getExtension } from '@/utils/path';
 
 type ImageTileProps = {
@@ -15,10 +15,11 @@ type ImageTileProps = {
     size: number;
     modTime?: number;
     fileSize?: number;
+    length?: number;
     scrollRef?: RefObject<HTMLDivElement | null>;
 };
 
-export const ImageTile = ({ path, filename, status, size, modTime, fileSize, scrollRef }: ImageTileProps) => {
+export const ImageTile = ({ path, filename, status, size, modTime, fileSize, length, scrollRef }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
     const isSelected = useSelectionStore((s) => s.selectedPath === path);
     const select = useSelectionStore((s) => s.select);
@@ -61,16 +62,22 @@ export const ImageTile = ({ path, filename, status, size, modTime, fileSize, scr
                 {thumbnail?.url && (
                     <div className='absolute bottom-1 right-1 bg-black/60 rounded p-0.5'>
                         {isVideo ? (
-                            <Icon name='video' className='text-white' size={16} />
+                            <Icon name='video' className='text-white' size={18} />
                         ) : (
-                            <Icon name='image' className='text-white' size={16} />
+                            <Icon name='image' className='text-white' size={18} />
                         )}
                     </div>
                 )}
 
+                {isVideo && length !== undefined && length > 0 && (
+                    <span className='absolute bottom-1 left-1 bg-black/60 rounded px-1 text-white text-[11px] font-medium flex items-center h-5.5'>
+                        {formatDuration(length)}
+                    </span>
+                )}
+
                 <button
                     type='button'
-                    className='absolute top-1 right-1 bg-black/60 rounded p-0.5 cursor-pointer'
+                    className='absolute top-1 left-1 bg-black/60 rounded p-0.5 cursor-pointer'
                     onClick={(e) => {
                         e.stopPropagation();
                         toggleChecked(path);

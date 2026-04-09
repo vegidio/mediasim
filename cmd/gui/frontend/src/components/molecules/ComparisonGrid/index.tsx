@@ -34,6 +34,7 @@ export const ComparisonGrid = () => {
                                     size={tileSize}
                                     modTime={cached?.modTime}
                                     fileSize={media.size}
+                                    length={media.length}
                                     scrollRef={scrollRef}
                                 />
                             );

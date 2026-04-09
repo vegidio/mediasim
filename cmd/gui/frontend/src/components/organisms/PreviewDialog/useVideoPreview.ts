@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PrepareDirectPlay, StartStream, StopStream } from '@bindings/gui/services/streamer.js';
+import { PrepareDirectPlay, StartStream, StopStream } from '@bindings/gui/services/streamerservice.ts';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { getExtension } from '@/utils/path';
 

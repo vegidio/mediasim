@@ -4,13 +4,13 @@
 import * as AppService from "./appservice.js";
 import * as ComparisonService from "./comparisonservice.js";
 import * as MediaService from "./mediaservice.js";
-import * as Streamer from "./streamer.js";
+import * as StreamerService from "./streamerservice.js";
 import * as ThumbnailService from "./thumbnailservice.js";
 export {
     AppService,
     ComparisonService,
     MediaService,
-    Streamer,
+    StreamerService,
     ThumbnailService
 };
 
