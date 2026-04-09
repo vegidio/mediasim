@@ -1,4 +1,4 @@
-package internal
+package shared
 
 import "github.com/vegidio/go-sak/o11y"
 

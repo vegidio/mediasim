@@ -1,3 +1,4 @@
+export * from './AboutDialog';
 export * from './ComparisonGrid';
 export * from './ImageGrid';
 export * from './ModalTitle';

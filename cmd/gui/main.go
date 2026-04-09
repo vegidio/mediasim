@@ -42,6 +42,7 @@ func main() {
 	})
 
 	// Register services
+	app.RegisterService(application.NewService(&services.AppService{}))
 	app.RegisterService(application.NewService(&services.MediaService{}))
 	app.RegisterService(application.NewService(&services.ComparisonService{}))
 	app.RegisterService(application.NewService(streamer))

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"cli/internal"
 	"cli/internal/charm"
 	"context"
 	"fmt"
+	"shared"
 
 	"github.com/urfave/cli/v3"
 	"github.com/vegidio/go-sak/o11y"
@@ -37,7 +37,7 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 		Name:            "mediasim",
 		Usage:           "a tool to calculate the similarity of images & videos",
 		UsageText:       "mediasim <command> [-t <threshold>] [--if] [--ir] [-o <output>]",
-		Version:         internal.Version,
+		Version:         shared.Version,
 		HideHelpCommand: true,
 		Commands: []*cli.Command{
 			{

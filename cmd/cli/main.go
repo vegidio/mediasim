@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cli/internal"
 	"cli/internal/charm"
 	"context"
 	"os"
@@ -15,11 +14,11 @@ import (
 
 func main() {
 	otel := o11y.NewTelemetry(
-		internal.OtelEndpoint,
+		shared.OtelEndpoint,
 		"mediasim",
-		internal.Version,
-		map[string]string{"Authorization": internal.OtelAuth},
-		internal.OtelEnvironment,
+		shared.Version,
+		map[string]string{"Authorization": shared.OtelAuth},
+		shared.OtelEnvironment,
 		true,
 	)
 

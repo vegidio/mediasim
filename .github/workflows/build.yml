@@ -41,10 +41,10 @@ jobs:
       - name: Build binaries
         run: |
           brew install go-task
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "EnvDevelopment=>EnvProduction"
+          node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
+          node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
+          node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
+          node scripts/replace.mjs shared/constants.go "EnvDevelopment=>EnvProduction"
           task package oses=darwin archs='amd64 arm64'
 
       - name: Save artifacts
@@ -71,10 +71,10 @@ jobs:
       - name: Build binaries
         run: |
           npm install -g @go-task/cli
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "EnvDevelopment=>EnvProduction"
+          node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
+          node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
+          node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
+          node scripts/replace.mjs shared/constants.go "EnvDevelopment=>EnvProduction"
           task package oses=linux archs=amd64
 
       - name: Save artifacts
@@ -101,10 +101,10 @@ jobs:
       - name: Build binaries
         run: |
           npm install -g @go-task/cli
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "EnvDevelopment=>EnvProduction"
+          node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
+          node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
+          node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
+          node scripts/replace.mjs shared/constants.go "EnvDevelopment=>EnvProduction"
           task package oses=linux archs=arm64
 
       - name: Save artifacts
@@ -131,10 +131,10 @@ jobs:
       - name: Build binaries
         run: |
           npm install -g @go-task/cli
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "EnvDevelopment=>EnvProduction"
+          node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
+          node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
+          node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
+          node scripts/replace.mjs shared/constants.go "EnvDevelopment=>EnvProduction"
           task package oses=windows archs=amd64
 
       - name: Save artifacts
@@ -175,10 +175,10 @@ jobs:
           CXX: aarch64-w64-mingw32-g++
         run: |
           npm install -g @go-task/cli
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
-          node scripts/replace.mjs cmd/cli/internal/constants.go "EnvDevelopment=>EnvProduction"
+          node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
+          node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
+          node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
+          node scripts/replace.mjs shared/constants.go "EnvDevelopment=>EnvProduction"
           task package oses=windows archs=arm64
 
       - name: Save artifacts
