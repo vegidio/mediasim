@@ -1,8 +1,6 @@
 import { type RefObject, useEffect } from 'react';
-import { GetImage } from '@bindings/gui/services/mediaservice.js';
+import { GetDimensions } from '@bindings/gui/services/thumbnailservice.js';
 import { useAppStore, useImagesStore } from '@/stores';
-import { toDataUrl } from '@/utils/image';
-import { acquireSlot, releaseSlot } from '@/utils/throttle';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
 export const useLazyThumbnail = (
@@ -21,14 +19,11 @@ export const useLazyThumbnail = (
             ([entry]) => {
                 if (entry.isIntersecting) {
                     observer.disconnect();
+                    setLoading(path);
 
-                    acquireSlot().then(() => {
-                        setLoading(path);
+                    const url = `/thumb?path=${encodeURIComponent(path)}&maxSize=${tileSize}`;
 
-                        GetImage(path, tileSize)
-                            .then(([data, w, h]) => setThumbnailLoaded(path, toDataUrl(data), w, h))
-                            .finally(releaseSlot);
-                    });
+                    GetDimensions(path).then(([w, h]) => setThumbnailLoaded(path, url, w, h));
                 }
             },
             { threshold: 0.1 },

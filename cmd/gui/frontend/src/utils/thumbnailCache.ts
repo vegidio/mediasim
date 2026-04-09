@@ -1,16 +1,13 @@
 import { LRUCache } from 'lru-cache';
 
 type ThumbnailData = {
-    dataUrl: string;
+    url: string;
     width: number;
     height: number;
 };
 
-const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
-
 const cache = new LRUCache<string, ThumbnailData>({
-    maxSize: MAX_SIZE,
-    sizeCalculation: (value) => value.dataUrl.length,
+    max: 5000,
 });
 
 export const hasCachedThumbnail = (path: string) => cache.has(path);

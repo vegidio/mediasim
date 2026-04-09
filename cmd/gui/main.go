@@ -6,6 +6,7 @@ import (
 	"gui/services"
 	"log"
 	"log/slog"
+	"net/http"
 	"shared"
 
 	_ "github.com/vegidio/avif-go"
@@ -24,16 +25,21 @@ func main() {
 	// Remove leftover temp dirs from previous sessions (crash, force quit, etc.)
 	shared.CleanupTempDirs()
 
-	// Create streamer service (needed before app init for middleware).
-	streamer := &services.Streamer{}
+	// Create services needed before app init for middleware.
+	streamerService := &services.Streamer{}
+	thumbService := &services.ThumbnailService{}
 
 	// Create a new Wails application by providing the necessary options.
 	app := application.New(application.Options{
 		Name:        "MediaSim",
 		Description: "A tool to calculate the similarity of images & videos.",
 		Assets: application.AssetOptions{
-			Handler:    application.AssetFileServerFS(assets),
-			Middleware: services.NewHlsMiddleware(streamer),
+			Handler: application.AssetFileServerFS(assets),
+			Middleware: func(next http.Handler) http.Handler {
+				return services.NewThumbMiddleware(thumbService)(
+					services.NewHlsMiddleware(streamerService)(next),
+				)
+			},
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
@@ -45,7 +51,8 @@ func main() {
 	app.RegisterService(application.NewService(&services.AppService{}))
 	app.RegisterService(application.NewService(&services.MediaService{}))
 	app.RegisterService(application.NewService(&services.ComparisonService{}))
-	app.RegisterService(application.NewService(streamer))
+	app.RegisterService(application.NewService(thumbService))
+	app.RegisterService(application.NewService(streamerService))
 
 	// Create a new window with the necessary options.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{

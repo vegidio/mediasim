@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GetImage } from '@bindings/gui/services/mediaservice.js';
-import { toDataUrl } from '@/utils/image';
-import { getCachedPreview, setCachedPreview } from '@/utils/previewCache';
+import { GetDimensions } from '@bindings/gui/services/thumbnailservice.js';
 
 export const useImagePreview = (path?: string, isVideo?: boolean) => {
     const [fullSizeUrl, setFullSizeUrl] = useState<string>();
@@ -13,22 +11,11 @@ export const useImagePreview = (path?: string, isVideo?: boolean) => {
 
         if (!path || isVideo) return;
 
-        const cached = getCachedPreview(path);
+        const url = `/thumb?path=${encodeURIComponent(path)}&maxSize=0`;
+        setFullSizeUrl(url);
 
-        if (cached) {
-            setFullSizeUrl(cached.dataUrl);
-            setFullSizeDims({ width: cached.width, height: cached.height });
-            return;
-        }
-
-        const promise = GetImage(path, 0);
-
-        promise.then(([data, width, height]) => {
-            const dataUrl = toDataUrl(data);
-            setFullSizeUrl(dataUrl);
-            setFullSizeDims({ width, height });
-            setCachedPreview(path, { dataUrl, width, height });
-        });
+        const promise = GetDimensions(path);
+        promise.then(([width, height]) => setFullSizeDims({ width, height }));
 
         return () => {
             promise.cancel();

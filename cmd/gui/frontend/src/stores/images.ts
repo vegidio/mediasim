@@ -16,7 +16,7 @@ type ImagesStore = {
     images: ImageEntry[];
     setImages: (mediaInfos: MediaInfo[]) => void;
     setLoading: (path: string) => void;
-    setThumbnailLoaded: (path: string, dataUrl: string, width: number, height: number) => void;
+    setThumbnailLoaded: (path: string, url: string, width: number, height: number) => void;
     clear: () => void;
 };
 
@@ -47,8 +47,8 @@ export const useImagesStore = create<ImagesStore>()(
             });
         },
 
-        setThumbnailLoaded: (path: string, dataUrl: string, width: number, height: number) => {
-            setCachedThumbnail(path, { dataUrl, width, height });
+        setThumbnailLoaded: (path: string, url: string, width: number, height: number) => {
+            setCachedThumbnail(path, { url, width, height });
 
             set((state) => {
                 const entry = state.images.find((img) => img.path === path);

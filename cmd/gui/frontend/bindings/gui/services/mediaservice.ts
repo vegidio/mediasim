@@ -20,18 +20,6 @@ export function DeleteFiles(paths: string[]): $CancellablePromise<string[]> {
 }
 
 /**
- * GetImage loads an image or extracts the first frame of a video, optionally resizes it to fit within
- * maxSize pixels on the longest dimension (0 means no resize), encodes it as JPEG, and returns the
- * bytes along with the original width and height.
- */
-export function GetImage(filePath: string, maxSize: number): $CancellablePromise<[string, number, number]> {
-    return $Call.ByID(1357871781, filePath, maxSize).then(($result: any) => {
-        $result[0] = $Create.ByteSlice($result[0]);
-        return $result;
-    });
-}
-
-/**
  * ListMedia returns metadata for all image and video files in the given directory (non-recursive).
  */
 export function ListMedia(directory: string): $CancellablePromise<$models.MediaInfo[]> {

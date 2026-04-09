@@ -22,7 +22,7 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
 
     const cached = getCachedThumbnail(path);
     const filename = basename(path);
-    const displayUrl = fullSizeUrl ?? cached?.dataUrl;
+    const displayUrl = fullSizeUrl ?? cached?.url;
 
     const origW = fullSizeDims?.width ?? cached?.width ?? 1;
     const origH = fullSizeDims?.height ?? cached?.height ?? 1;

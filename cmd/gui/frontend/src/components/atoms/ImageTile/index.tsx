@@ -51,13 +51,13 @@ export const ImageTile = ({ path, filename, status, size, modTime, fileSize }: I
                 style={{ width: size, height: size }}
                 className='relative bg-black/30 rounded-t overflow-hidden flex items-center justify-center'
             >
-                {thumbnail?.dataUrl ? (
-                    <img src={thumbnail.dataUrl} alt={filename} className='object-cover w-full h-full' />
+                {thumbnail?.url ? (
+                    <img src={thumbnail.url} alt={filename} className='object-cover w-full h-full' />
                 ) : (
                     <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
                 )}
 
-                {thumbnail?.dataUrl && (
+                {thumbnail?.url && (
                     <div className='absolute bottom-1 right-1 bg-black/60 rounded p-0.5'>
                         {isVideo ? (
                             <Icon name='video' className='text-white' size={16} />
