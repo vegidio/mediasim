@@ -7,6 +7,7 @@ export const useLazyThumbnail = (
     ref: RefObject<HTMLDivElement | null>,
     path: string,
     status: 'idle' | 'loading' | 'loaded',
+    scrollRef?: RefObject<HTMLDivElement | null>,
 ) => {
     const tileSize = useAppStore((s) => s.tileSize);
     const setLoading = useImagesStore((s) => s.setLoading);
@@ -26,12 +27,12 @@ export const useLazyThumbnail = (
                     GetDimensions(path).then(([w, h]) => setThumbnailLoaded(path, url, w, h));
                 }
             },
-            { threshold: 0.1 },
+            { threshold: 0.1, rootMargin: '500px', root: scrollRef?.current ?? null },
         );
 
         observer.observe(ref.current);
         return () => observer.disconnect();
-    }, [path, status, tileSize, setLoading, setThumbnailLoaded, ref.current]);
+    }, [path, status, tileSize, setLoading, setThumbnailLoaded, ref.current, scrollRef?.current]);
 
     return status === 'loaded' ? getCachedThumbnail(path) : undefined;
 };

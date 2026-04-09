@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { type RefObject, useRef } from 'react';
 import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
 import { Icon } from '@/components/atoms/Icon';
@@ -15,9 +15,10 @@ type ImageTileProps = {
     size: number;
     modTime?: number;
     fileSize?: number;
+    scrollRef?: RefObject<HTMLDivElement | null>;
 };
 
-export const ImageTile = ({ path, filename, status, size, modTime, fileSize }: ImageTileProps) => {
+export const ImageTile = ({ path, filename, status, size, modTime, fileSize, scrollRef }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
     const isSelected = useSelectionStore((s) => s.selectedPath === path);
     const select = useSelectionStore((s) => s.select);
@@ -27,7 +28,7 @@ export const ImageTile = ({ path, filename, status, size, modTime, fileSize }: I
     const isVideo = VIDEO_EXTENSIONS.has(getExtension(filename));
 
     useScrollIntoView(ref, isSelected);
-    const thumbnail = useLazyThumbnail(ref, path, status);
+    const thumbnail = useLazyThumbnail(ref, path, status, scrollRef);
 
     const metaLine = [
         modTime !== undefined ? formatDate(modTime) : undefined,

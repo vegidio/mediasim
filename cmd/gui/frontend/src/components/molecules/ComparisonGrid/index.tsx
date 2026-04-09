@@ -1,9 +1,11 @@
+import { useRef } from 'react';
 import { basename } from 'pathe';
 import { ImageTile } from '@/components/atoms';
 import { useAppStore, useComparisonStore, useImagesStore } from '@/stores';
 import { TILE_GAP } from '@/utils/constants';
 
 export const ComparisonGrid = () => {
+    const scrollRef = useRef<HTMLDivElement>(null);
     const groups = useComparisonStore((s) => s.groups);
     const images = useImagesStore((s) => s.images);
     const tileSize = useAppStore((s) => s.tileSize);
@@ -11,7 +13,7 @@ export const ComparisonGrid = () => {
     if (!groups) return undefined;
 
     return (
-        <div className='overflow-y-auto h-full p-4'>
+        <div ref={scrollRef} className='overflow-y-auto h-full p-4'>
             {groups.map((group, index) => (
                 <div key={index} className='mb-6'>
                     <h3 className='text-sm font-medium text-gray-300 mb-2'>Group {index + 1}</h3>
@@ -32,6 +34,7 @@ export const ComparisonGrid = () => {
                                     size={tileSize}
                                     modTime={cached?.modTime}
                                     fileSize={media.size}
+                                    scrollRef={scrollRef}
                                 />
                             );
                         })}

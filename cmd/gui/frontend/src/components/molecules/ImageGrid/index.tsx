@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ListMedia } from '@bindings/gui/services/mediaservice';
 import { ImageTile } from '@/components/atoms';
 import { useAppStore, useImagesStore, useSelectionStore } from '@/stores';
 import { TILE_GAP } from '@/utils/constants';
 
 export const ImageGrid = () => {
+    const scrollRef = useRef<HTMLDivElement>(null);
     const selectedDirectory = useAppStore((s) => s.selectedDirectory);
     const tileSize = useAppStore((s) => s.tileSize);
     const images = useImagesStore((s) => s.images);
@@ -21,7 +22,7 @@ export const ImageGrid = () => {
     }, [selectedDirectory, setImages, clearSelection]);
 
     return (
-        <div className='overflow-y-auto h-full p-4'>
+        <div ref={scrollRef} className='overflow-y-auto h-full p-4'>
             <div
                 style={{ gridTemplateColumns: `repeat(auto-fill, ${tileSize}px)`, gap: TILE_GAP }}
                 className='grid justify-center'
@@ -35,6 +36,7 @@ export const ImageGrid = () => {
                         size={tileSize}
                         modTime={entry.modTime}
                         fileSize={entry.fileSize}
+                        scrollRef={scrollRef}
                     />
                 ))}
             </div>
