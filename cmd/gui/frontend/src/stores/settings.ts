@@ -4,14 +4,11 @@ import { immer } from 'zustand/middleware/immer';
 
 export type MediaType = 'all' | 'images' | 'videos';
 
-export type CompareSettings = {
+type SettingsStore = {
     mediaType: MediaType;
     frameFlip: boolean;
     frameRotate: boolean;
     threshold: number;
-};
-
-type SettingsStore = CompareSettings & {
     setMediaType: (mediaType: MediaType) => void;
     setFrameFlip: (frameFlip: boolean) => void;
     setFrameRotate: (frameRotate: boolean) => void;

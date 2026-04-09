@@ -2,11 +2,11 @@ import { useRef } from 'react';
 import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
 import { Icon } from '@/components/atoms/Icon';
+import { Spinner } from '@/components/atoms/Spinner';
 import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { formatDate, formatFileSize } from '@/utils/format';
-
-const getExtension = (filename: string): string => filename.slice(filename.lastIndexOf('.')).toLowerCase();
+import { getExtension } from '@/utils/path';
 
 type ImageTileProps = {
     path: string;
@@ -54,7 +54,7 @@ export const ImageTile = ({ path, filename, status, size, modTime, fileSize }: I
                 {thumbnail?.url ? (
                     <img src={thumbnail.url} alt={filename} className='object-cover w-full h-full' />
                 ) : (
-                    <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
+                    <Spinner />
                 )}
 
                 {thumbnail?.url && (

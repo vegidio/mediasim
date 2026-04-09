@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PrepareDirectPlay, StartStream, StopStream } from '@bindings/gui/services/streamer.js';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
-
-const getExtension = (path: string): string => path.slice(path.lastIndexOf('.')).toLowerCase();
+import { getExtension } from '@/utils/path';
 
 export const useVideoPreview = (path?: string) => {
     const [videoUrl, setVideoUrl] = useState<string>();

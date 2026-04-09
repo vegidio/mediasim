@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,7 +66,7 @@ func (t *ThumbnailService) ServiceShutdown() error {
 
 // GetDimensions returns the original width and height of an image or video without fully decoding it.
 func (t *ThumbnailService) GetDimensions(filePath string) (int, int, error) {
-	if isVideoFile(filePath) {
+	if shared.IsVideoFile(filePath) {
 		// For videos, extract a frame then read its dimensions.
 		framePath, err := t.ensureVideoFrame(filePath)
 		if err != nil {
@@ -108,7 +107,7 @@ func (t *ThumbnailService) GetDimensions(filePath string) (int, int, error) {
 func (t *ThumbnailService) ensureThumbnail(filePath string, maxSize int) (string, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	isNative := browserNativeFormats[ext]
-	isVideo := isVideoFile(filePath)
+	isVideo := shared.IsVideoFile(filePath)
 
 	// Full-size browser-native image: serve original directly.
 	if maxSize == 0 && isNative && !isVideo {
@@ -212,12 +211,6 @@ func (t *ThumbnailService) ensureVideoFrame(videoPath string) (string, error) {
 	}
 
 	return framePath, nil
-}
-
-// isVideoFile checks if the file has a video extension.
-func isVideoFile(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	return slices.Contains(shared.ValidVideoTypes, ext)
 }
 
 // NewThumbMiddleware returns a Wails asset middleware that serves thumbnails via /thumb endpoint.

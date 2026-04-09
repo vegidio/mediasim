@@ -2,6 +2,7 @@ import { Dialog, DialogContent } from '@mui/material';
 import { basename } from 'pathe';
 import { useImagePreview } from './useImagePreview';
 import { useVideoPreview } from './useVideoPreview';
+import { Spinner } from '@/components/atoms';
 import { ModalTitle, VideoPlayer } from '@/components/molecules';
 import { getCachedThumbnail } from '@/utils/thumbnailCache';
 
@@ -44,7 +45,7 @@ export const PreviewDialog = ({ path, onClose }: PreviewDialogProps) => {
 
     const spinner = (
         <div className='flex items-center justify-center' style={{ width: dialogW, height: dialogH }}>
-            <div className='w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin' />
+            <Spinner />
         </div>
     );
 
