@@ -12,11 +12,12 @@ type ImageTileProps = {
     path: string;
     filename: string;
     status: 'idle' | 'loading' | 'loaded';
+    size: number;
     modTime?: number;
     fileSize?: number;
 };
 
-export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTileProps) => {
+export const ImageTile = ({ path, filename, status, size, modTime, fileSize }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
     const isSelected = useSelectionStore((s) => s.selectedPath === path);
     const select = useSelectionStore((s) => s.select);
@@ -41,11 +42,15 @@ export const ImageTile = ({ path, filename, status, modTime, fileSize }: ImageTi
         // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard nav handled by useKeyboardNavigation hook
         <div
             ref={ref}
-            className={`w-45 cursor-pointer rounded ${isSelected ? 'ring-3 ring-blue-500' : ''}`}
+            style={{ width: size }}
+            className={`cursor-pointer rounded ${isSelected ? 'ring-3 ring-blue-500' : ''}`}
             onClick={() => select(path)}
             onDoubleClick={() => openPreview(path)}
         >
-            <div className='relative w-45 h-45 bg-black/30 rounded-t overflow-hidden flex items-center justify-center'>
+            <div
+                style={{ width: size, height: size }}
+                className='relative bg-black/30 rounded-t overflow-hidden flex items-center justify-center'
+            >
                 {thumbnail?.dataUrl ? (
                     <img src={thumbnail.dataUrl} alt={filename} className='object-cover w-full h-full' />
                 ) : (

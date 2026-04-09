@@ -8,7 +8,14 @@ import {
     TopBar,
     WelcomeDialog,
 } from '@/components/organisms';
-import { useAppStore, useComparisonStore, useImagesStore, usePreviewStore } from '@/stores';
+import {
+    useAppStore,
+    useCheckedStore,
+    useComparisonStore,
+    useImagesStore,
+    usePreviewStore,
+    useSelectionStore,
+} from '@/stores';
 
 export const App = () => {
     const [dialogOpen, setDialogOpen] = useState(true);
@@ -19,12 +26,16 @@ export const App = () => {
     const clearComparison = useComparisonStore((s) => s.clear);
     const clearImages = useImagesStore((s) => s.clear);
     const clearSelectedDirectory = useAppStore((s) => s.clearSelectedDirectory);
+    const clearChecked = useCheckedStore((s) => s.clear);
+    const clearSelection = useSelectionStore((s) => s.clear);
 
     const handleDirectorySelected = (_path: string) => {
         setDialogOpen(false);
     };
 
     const handleClose = () => {
+        clearChecked();
+        clearSelection();
         clearComparison();
         clearImages();
         clearSelectedDirectory();

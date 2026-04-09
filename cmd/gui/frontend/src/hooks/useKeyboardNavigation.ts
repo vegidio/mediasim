@@ -1,10 +1,10 @@
 import { type RefObject, useEffect, useState } from 'react';
-import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
-import { TILE_GAP, TILE_WIDTH } from '@/utils/constants';
+import { useAppStore, useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
+import { TILE_GAP } from '@/utils/constants';
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
-// Returns the flat index where a given group starts in the paths array.
+// Returns the flat index where a given group starts in the paths' array.
 // e.g. for groupSizes [5, 3, 8], group 0 starts at 0, group 1 at 5, group 2 at 8.
 function getGroupStart(groupIndex: number, groupSizes: number[]): number {
     let start = 0;
@@ -82,6 +82,7 @@ export const useKeyboardNavigation = (
     paths: string[],
     groupSizes?: number[],
 ) => {
+    const tileSize = useAppStore((s) => s.tileSize);
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const select = useSelectionStore((s) => s.select);
     const previewPath = usePreviewStore((s) => s.previewPath);
@@ -96,13 +97,13 @@ export const useKeyboardNavigation = (
 
         const observer = new ResizeObserver(([entry]) => {
             const width = entry.contentRect.width;
-            const cols = Math.max(1, Math.floor((width + TILE_GAP) / (TILE_WIDTH + TILE_GAP)));
+            const cols = Math.max(1, Math.floor((width + TILE_GAP) / (tileSize + TILE_GAP)));
             setColCount(cols);
         });
 
         observer.observe(el);
         return () => observer.disconnect();
-    }, [containerRef]);
+    }, [containerRef, tileSize]);
 
     // Keyboard navigation
     useEffect(() => {

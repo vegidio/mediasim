@@ -1,21 +1,24 @@
-import { useState } from 'react';
 import { IconButton, Slider } from '@mui/material';
 import { Icon } from '@/components/atoms';
-import { TILE_SLIDER_MAX_SIZE, TILE_SLIDER_MIN_SIZE, TILE_WIDTH } from '@/utils/constants';
+import { useAppStore } from '@/stores';
+import { TILE_MIN_SIZE } from '@/utils/constants.ts';
+
+const TILE_MAX_SIZE = 360;
 
 export const TileSlider = () => {
-    const [size, setSize] = useState(TILE_SLIDER_MIN_SIZE);
+    const tileSize = useAppStore((s) => s.tileSize);
+    const setTileSize = useAppStore((s) => s.setTileSize);
 
     const handleTileChange = (_: Event, value: number | number[]) => {
-        setSize(value as number);
+        setTileSize(value as number);
     };
 
     const handleZoomIn = () => {
-        setSize((prev) => Math.min(prev + 10, TILE_SLIDER_MAX_SIZE));
+        setTileSize(Math.min(tileSize + 10, TILE_MAX_SIZE));
     };
 
     const handleZoomOut = () => {
-        setSize((prev) => Math.max(prev - 10, TILE_SLIDER_MIN_SIZE));
+        setTileSize(Math.max(tileSize - 10, TILE_MIN_SIZE));
     };
 
     return (
@@ -27,10 +30,10 @@ export const TileSlider = () => {
             <Slider
                 className='w-24'
                 size='small'
-                min={TILE_WIDTH}
-                max={TILE_SLIDER_MAX_SIZE}
+                min={TILE_MIN_SIZE}
+                max={TILE_MAX_SIZE}
                 step={10}
-                value={size}
+                value={tileSize}
                 onChange={handleTileChange}
                 valueLabelDisplay='auto'
                 valueLabelFormat={(value) => `${value} px`}

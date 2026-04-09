@@ -2,6 +2,7 @@ import { basename } from 'pathe';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { TILE_MIN_SIZE } from '@/utils/constants.ts';
 
 type DirectoryEntry = {
     path: string;
@@ -12,9 +13,11 @@ type DirectoryEntry = {
 type AppStore = {
     recentDirectories: DirectoryEntry[];
     selectedDirectory?: string;
+    tileSize: number;
     addDirectory: (path: string) => void;
     selectDirectory: (path: string) => void;
     clearSelectedDirectory: () => void;
+    setTileSize: (size: number) => void;
 };
 
 const MAX_RECENT_DIRECTORIES = 5;
@@ -24,6 +27,7 @@ export const useAppStore = create<AppStore>()(
         immer((set, get) => ({
             recentDirectories: [],
             selectedDirectory: undefined,
+            tileSize: TILE_MIN_SIZE,
 
             addDirectory: (path: string) => {
                 const name = basename(path);
@@ -46,10 +50,16 @@ export const useAppStore = create<AppStore>()(
                     state.selectedDirectory = undefined;
                 });
             },
+
+            setTileSize: (size: number) => {
+                set((state) => {
+                    state.tileSize = size;
+                });
+            },
         })),
         {
             name: 'app-store',
-            partialize: (state) => ({ recentDirectories: state.recentDirectories }),
+            partialize: (state) => ({ recentDirectories: state.recentDirectories, tileSize: state.tileSize }),
         },
     ),
 );

@@ -1,9 +1,9 @@
-# Media Similarity (mediasim)
+# Media Similarity (MediaSim)
 
 <p align="center">
 <img src="docs/images/icon.avif" width="240" alt="mediasim"/>
 <br/>
-<strong>mediasim</strong> is a CLI tool and Go library to calculate the similarity of images & videos.
+<strong>MediaSim</strong> is a CLI tool and Go library to calculate the similarity of images & videos.
 
 ## 🖼️ Usage
 
