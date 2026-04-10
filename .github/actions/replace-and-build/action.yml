@@ -1,0 +1,35 @@
+name: Replace Constants and Build
+description: Replace version/secrets in constants.go and run the build
+
+inputs:
+  version:
+    description: Version string to inject
+    required: true
+  otel-endpoint:
+    description: OTEL endpoint
+    required: true
+  otel-auth:
+    description: OTEL auth header
+    required: true
+  oses:
+    description: Target OS(es) for task package
+    required: true
+  archs:
+    description: Target architecture(s) for task package
+    required: true
+  shell:
+    description: Shell to use for the build step
+    required: false
+    default: bash
+
+runs:
+  using: composite
+  steps:
+    - name: Replace constants and build
+      shell: ${{ inputs.shell }}
+      run: |
+        node scripts/replace.mjs shared/constants.go "<version>=>${{ inputs.version }}"
+        node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>${{ inputs.otel-endpoint }}"
+        node scripts/replace.mjs shared/constants.go "<otel_auth>=>${{ inputs.otel-auth }}"
+        node scripts/replace.mjs shared/constants.go "EnvDevelopment=>EnvProduction"
+        task package oses=${{ inputs.oses }} archs='${{ inputs.archs }}'
