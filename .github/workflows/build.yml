@@ -33,14 +33,23 @@ jobs:
       - name: Code checkout
         uses: actions/checkout@v5
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.26'
+
+      - name: Install Wails
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          pnpm install -g @go-task/cli
 
       - name: Build binaries
         run: |
-          brew install go-task
           node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
           node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
           node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
@@ -61,16 +70,30 @@ jobs:
       OTEL_HEADER_AUTH: ${{ secrets.OTEL_HEADER_AUTH }}
     steps:
       - name: Code checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.26'
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+          pnpm install -g @go-task/cli
+
+      - name: Install Wails
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
       - name: Build binaries
         run: |
-          npm install -g @go-task/cli
           node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
           node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
           node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
@@ -91,16 +114,30 @@ jobs:
       OTEL_HEADER_AUTH: ${{ secrets.OTEL_HEADER_AUTH }}
     steps:
       - name: Code checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.26'
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+          pnpm install -g @go-task/cli
+
+      - name: Install Wails
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
       - name: Build binaries
         run: |
-          npm install -g @go-task/cli
           node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
           node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
           node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
@@ -121,16 +158,28 @@ jobs:
       OTEL_HEADER_AUTH: ${{ secrets.OTEL_HEADER_AUTH }}
     steps:
       - name: Code checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.26'
+
+      - name: Install dependencies
+        run: |
+          pnpm install -g @go-task/cli
+
+      - name: Install Wails
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
       - name: Build binaries
         run: |
-          npm install -g @go-task/cli
           node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
           node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
           node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
@@ -151,7 +200,7 @@ jobs:
       OTEL_HEADER_AUTH: ${{ secrets.OTEL_HEADER_AUTH }}
     steps:
       - name: Code checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install MSYS2
         uses: msys2/setup-msys2@v2
@@ -161,10 +210,23 @@ jobs:
           install: |
             mingw-w64-clang-aarch64-gcc-compat
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.26'
+
+      - name: Install dependencies
+        run: |
+          pnpm install -g @go-task/cli
+
+      - name: Install Wails
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
       - name: Build binaries
         shell: msys2 {0}
@@ -174,7 +236,6 @@ jobs:
           CC: aarch64-w64-mingw32-gcc
           CXX: aarch64-w64-mingw32-g++
         run: |
-          npm install -g @go-task/cli
           node scripts/replace.mjs shared/constants.go "<version>=>${{ needs.version.outputs.VERSION }}"
           node scripts/replace.mjs shared/constants.go "<otel_endpoint>=>$OTEL_ENDPOINT"
           node scripts/replace.mjs shared/constants.go "<otel_auth>=>$OTEL_HEADER_AUTH"
@@ -195,7 +256,7 @@ jobs:
     steps:
       # The `fetch-depth: 0` is important to fetch all the tags
       - name: Code checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -206,9 +267,14 @@ jobs:
           path: binaries
           merge-multiple: true
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Create the changelog
         run: |
-          npm install -g release-it @release-it/conventional-changelog@10.0.1
+          pnpm install -g release-it @release-it/conventional-changelog@10.0.1
           release-it --ci
 
       - name: Create release
