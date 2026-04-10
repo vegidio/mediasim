@@ -6,6 +6,36 @@ tasks:
     cmds:
       - rm -rf {{.ROOT_DIR}}/build/*
 
+  # GUI build tasks
+  gui:
+    desc: Build the GUI version of the app
+    dir: cmd/gui
+    vars:
+      os: "{{.os | default OS}}"
+      arch: "{{.arch | default ARCH}}"
+      OLD_FILE: "{{if eq OS `darwin`}}gui.app{{else}}{{if eq OS `windows`}}gui.exe{{else}}gui{{end}}{{end}}"
+      NEW_FILE: "{{if eq OS `darwin`}}MediaSim.app{{else}}{{if eq OS `windows`}}MediaSim.exe{{else}}MediaSim{{end}}{{end}}"
+    env:
+      CGO_ENABLED: 1
+      GOOS: "{{.os}}"
+      GOARCH: "{{.arch}}"
+      PRODUCTION: true
+    cmds:
+      - |
+        {{if eq OS "darwin"}}
+          wails3 package ARCH={{.arch}}
+        {{else}}
+          wails3 build ARCH={{.arch}}
+        {{end}}
+
+        rm -rf "{{.ROOT_DIR}}/build/{{.NEW_FILE}}"
+        mkdir -p "{{.ROOT_DIR}}/build"
+        mv "{{.ROOT_DIR}}/cmd/gui/bin/{{.OLD_FILE}}" "{{.ROOT_DIR}}/build/{{.NEW_FILE}}"
+
+        {{if .isPackage}}
+          7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim-gui_{{OS}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.NEW_FILE}}"
+        {{end}}
+
   # CLI build tasks
   cli:
     desc: Build the CLI version of the app
@@ -22,7 +52,7 @@ tasks:
     cmds:
       - |
         go build {{.LDFLAGS}} -o "{{.ROOT_DIR}}/build/{{.FILE}}"
-        {{if .isPackage}}7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim_{{.os}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.FILE}}"{{end}}
+        {{if .isPackage}}7z a -tzip -mx=9 "{{.ROOT_DIR}}/build/mediasim-cli_{{.os}}_{{.arch}}.zip" "{{.ROOT_DIR}}/build/{{.FILE}}"{{end}}
 
   package:
     desc: Build and pack in .zip files
@@ -33,5 +63,6 @@ tasks:
         for os in {{.oses}}; do
           for arch in {{.archs}}; do
             task cli os=$os arch=$arch isPackage=true
+            task gui os=$os arch=$arch isPackage=true
           done
         done

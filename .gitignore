@@ -1,3 +1,4 @@
 *.iml
 assets/
 build/
+!cmd/gui/build
