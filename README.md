@@ -5,6 +5,24 @@
 <br/>
 <strong>MediaSim</strong> is a CLI tool and Go library to calculate the similarity of images & videos.
 
+## ⬇️ Installation
+
+This app has versions for Windows, macOS, and Linux. Download the [latest release](https://github.com/vegidio/mediasim/releases) that matches your computer architecture and operating system.
+
+However, the recommended (and easiest) way to install **MediaSim** is using one of the following scripts; copy and paste the command below in the terminal, and the script will automatically detect and install the correct version of the app:
+
+### macOS & Linux
+
+```bash
+curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://vegidio.github.io/mediasim/install.ps1 | iex
+```
+
 ## 🖼️ Usage
 
 You can use **mediasim** in two ways: as a command-line interface (CLI) tool or a Go library.

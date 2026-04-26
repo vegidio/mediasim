@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MediaSim — Install</title>
+    <meta name="description" content="Install MediaSim, a CLI/GUI tool to calculate the similarity of images and videos.">
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.55;
+            min-height: 100vh;
+        }
+        main {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 64px 24px 96px;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 8px;
+        }
+        header img { width: 72px; height: 72px; border-radius: 12px; }
+        h1 { font-size: 2.25rem; margin: 0; }
+        .tagline { color: var(--muted); margin: 0 0 40px; font-size: 1.1rem; }
+        h2 {
+            font-size: 1.05rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            margin: 36px 0 12px;
+            font-weight: 600;
+        }
+        pre {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            overflow-x: auto;
+            margin: 0 0 16px;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 0.92rem;
+        }
+        code { font-family: inherit; }
+        p { margin: 0 0 12px; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+        ul { padding-left: 22px; margin: 0 0 16px; }
+        li { margin-bottom: 4px; }
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <img src="images/icon.avif" alt="MediaSim icon">
+        <h1>MediaSim</h1>
+    </header>
+    <p class="tagline">A CLI tool and GUI app to calculate the similarity of images and videos.</p>
+
+    <h2>Install on macOS / Linux</h2>
+    <pre><code>curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh</code></pre>
+
+    <h2>Install on Windows</h2>
+    <pre><code>irm https://vegidio.github.io/mediasim/install.ps1 | iex</code></pre>
+
+    <h2>Options</h2>
+    <p>Both installers accept the same options. By default they install both the CLI and the GUI.</p>
+    <ul>
+        <li><strong>CLI only:</strong> set <code>MEDIASIM_INSTALL=cli</code> (or pass <code>--cli</code> to <code>install.sh</code>).</li>
+        <li><strong>GUI only:</strong> set <code>MEDIASIM_INSTALL=gui</code> (or pass <code>--gui</code> to <code>install.sh</code>).</li>
+        <li><strong>Pin a version:</strong> set <code>MEDIASIM_VERSION=&lt;tag&gt;</code> (default: <code>latest</code>).</li>
+    </ul>
+
+    <h2>Example — install only the CLI on macOS / Linux</h2>
+    <pre><code>curl -fsSL https://vegidio.github.io/mediasim/install.sh | MEDIASIM_INSTALL=cli sh</code></pre>
+
+    <h2>Example — install only the GUI on Windows</h2>
+    <pre><code>$env:MEDIASIM_INSTALL='gui'; irm https://vegidio.github.io/mediasim/install.ps1 | iex</code></pre>
+
+    <div class="links">
+        <a href="https://github.com/vegidio/mediasim">GitHub repository</a>
+        <a href="https://github.com/vegidio/mediasim/releases">Releases</a>
+        <a href="install.sh">install.sh</a>
+        <a href="install.ps1">install.ps1</a>
+    </div>
+</main>
+</body>
+</html>
