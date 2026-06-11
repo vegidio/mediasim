@@ -17,5 +17,5 @@ runs:
     - name: Install Wails and go-task
       shell: bash
       run: |
-        go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+        go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.55
         pnpm install -g @go-task/cli

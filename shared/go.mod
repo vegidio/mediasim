@@ -3,11 +3,13 @@ module shared
 go 1.26.1
 
 require (
+	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/vegidio/ffmpeg-downloader v0.0.0-20250914145524-f66ce646d79c
 	github.com/vegidio/go-sak v0.0.0-20260406074459-7a5587361c4f
 )
 
 require (
+	github.com/aws/aws-sdk-go v1.38.20 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
@@ -17,7 +19,9 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/samber/lo v1.53.0 // indirect
+	github.com/u2takey/go-utils v0.3.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.39.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.15.0 // indirect
