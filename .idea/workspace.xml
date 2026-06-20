@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/cli">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/mediasim">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/biome.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Run_CLI.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/cli/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/consts.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/src/core/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/mod.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="29" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "vegidio"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/vegidio/mediasim",
+    "accountId": "2e257563-a324-4441-892e-f2fa11f9b83e"
+  }
+}]]></component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="k1QbQtY5" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0000038412305834" />
+      <entry key="MS500" value="1.0825836503708608" />
+      <entry key="S2" value="1.5391624380555027" />
+      <entry key="S5" value="1.9278905516745504" />
+      <entry key="S10" value="2.4346438821762577" />
+      <entry key="S30" value="5.08128432677552" />
+      <entry key="S60" value="13.093335079495102" />
+      <entry key="M2" value="30.058133162373835" />
+      <entry key="M5" value="63.32208680750865" />
+      <entry key="M10" value="105.19665909246945" />
+      <entry key="M15" value="135.82799636523427" />
+      <entry key="M30" value="185.63423779809926" />
+      <entry key="H1" value="221.8636190886857" />
+      <entry key="H2" value="243.8685517922992" />
+      <entry key="H4" value="256.01519840364944" />
+      <entry key="D1" value="266.7750919248939" />
+      <entry key="W1" value="268.6806329181689" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="1.0337638067794185E-196" />
+      <entry key="MS500" value="6.3516164467371075E-40" />
+      <entry key="S2" value="1.587526801954502E-10" />
+      <entry key="S5" value="1.2030749371858625E-4" />
+      <entry key="S10" value="0.01100275458710746" />
+      <entry key="S30" value="0.2572824346292664" />
+      <entry key="S60" value="0.7314578404116991" />
+      <entry key="M2" value="1.589717035344153" />
+      <entry key="M5" value="3.343656189716594" />
+      <entry key="M10" value="5.571102168456586" />
+      <entry key="M15" value="7.173019061777552" />
+      <entry key="M30" value="9.74602452435408" />
+      <entry key="H1" value="11.601076785331982" />
+      <entry key="H2" value="12.722770136116555" />
+      <entry key="H4" value="13.340561919292815" />
+      <entry key="D1" value="13.887076123552983" />
+      <entry key="W1" value="13.983792425040567" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.030606928849570697" />
+      <entry key="MS500" value="0.5317913130151699" />
+      <entry key="S2" value="1.271206547623125" />
+      <entry key="S5" value="1.7756008009009712" />
+      <entry key="S10" value="2.336526213597396" />
+      <entry key="S30" value="5.270052595131079" />
+      <entry key="S60" value="13.769341180304856" />
+      <entry key="M2" value="31.602639502335492" />
+      <entry key="M5" value="66.63340272319964" />
+      <entry key="M10" value="110.74130598473671" />
+      <entry key="M15" value="142.97814826179533" />
+      <entry key="M30" value="195.36451490852755" />
+      <entry key="H1" value="233.45524234138034" />
+      <entry key="H2" value="256.5861142011301" />
+      <entry key="H4" value="269.35302358166376" />
+      <entry key="D1" value="280.6616922964074" />
+      <entry key="W1" value="282.6643568819088" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 1
+}]]></component>
+  <component name="ProjectId" id="3FOLjlfpe1geE8hY9HU3b8YI768" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="false" />
+    <option name="showLibraryContents" value="true" />
+    <option name="showScratchesAndConsoles" value="false" />
+    <option name="sortByType" value="true" />
+    <option name="sortKey" value="BY_TYPE" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Run cli.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "rust",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/vegidio/Development/Source/mediasim",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "to.speed.mode.migration.done": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Cargo.Run cli">
+    <configuration default="true" type="AppleRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" IS_LOCATION_SIMULATION_SUPPORTED="false" IS_LOCATION_SIMULATION_ALLOWED="true" APPLICATION_LANGUAGE="IDELaunchSchemeLanguageUseSystemLanguage" APPLICATION_REGION="" DEVELOPMENT_TEAM="" MAKE_ACTIVE="TRUE" SHOULD_DEBUG_EXTENSIONS="false">
+      <embedded_app_extension_list />
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Run cli" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="dev" />
+      <option name="command" value="run --package cli --bin cli" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test mediasim" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test --workspace" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="" />
+      <created>1781941305646</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1781941305646</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/mediasim.iml" filepath="$PROJECT_DIR$/mediasim.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/mediasim.iml" filepath="$PROJECT_DIR$/.idea/mediasim.iml" />
     </modules>
   </component>
 </project>
