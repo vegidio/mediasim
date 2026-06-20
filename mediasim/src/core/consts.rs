@@ -31,3 +31,6 @@ pub const ONE_255TH2: f64 = ONE_255TH * ONE_255TH;
 
 /// Maximum premultiplied channel value, i.e. `255 * 255`.
 pub const SQ255: f64 = 255.0 * 255.0;
+
+/// Maximum Euclidean distance between two icons.
+pub const MAX_EUC_DIFF: f64 = 2805.0000001658486;

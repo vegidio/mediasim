@@ -6,6 +6,7 @@
 mod consts;
 pub mod icon;
 pub mod metric;
+pub mod diff;
 
 pub use icon::{Icon, IconError};
 pub use metric::euc_metric;
