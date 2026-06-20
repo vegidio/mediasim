@@ -14,17 +14,13 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/biome.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/Run_CLI.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/cli/src/main.rs" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `calculate_diff` function and integrate icon similarity calculation">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/consts.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/diff.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/src/core/icon.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/icon.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/src/core/metric.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/metric.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/tests/euc_metric.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/tests/euc_metric.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,61 +63,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000038412305834" />
-      <entry key="MS500" value="1.0825836503708608" />
-      <entry key="S2" value="1.5391624380555027" />
-      <entry key="S5" value="1.9278905516745504" />
-      <entry key="S10" value="2.4346438821762577" />
-      <entry key="S30" value="5.08128432677552" />
-      <entry key="S60" value="13.093335079495102" />
-      <entry key="M2" value="30.058133162373835" />
-      <entry key="M5" value="63.32208680750865" />
-      <entry key="M10" value="105.19665909246945" />
-      <entry key="M15" value="135.82799636523427" />
-      <entry key="M30" value="185.63423779809926" />
-      <entry key="H1" value="221.8636190886857" />
-      <entry key="H2" value="243.8685517922992" />
-      <entry key="H4" value="256.01519840364944" />
-      <entry key="D1" value="266.7750919248939" />
-      <entry key="W1" value="268.6806329181689" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0" />
+      <entry key="S60" value="1.0" />
+      <entry key="M2" value="1.0000000007092804" />
+      <entry key="M5" value="1.003553837824676" />
+      <entry key="M10" value="1.788085143835031" />
+      <entry key="M15" value="6.200400082950231" />
+      <entry key="M30" value="37.323008328234664" />
+      <entry key="H1" value="99.14043046739637" />
+      <entry key="H2" value="163.19472735436923" />
+      <entry key="H4" value="209.78832705624652" />
+      <entry key="D1" value="258.8608179611788" />
+      <entry key="W1" value="268.37931254788134" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0337638067794185E-196" />
-      <entry key="MS500" value="6.3516164467371075E-40" />
-      <entry key="S2" value="1.587526801954502E-10" />
-      <entry key="S5" value="1.2030749371858625E-4" />
-      <entry key="S10" value="0.01100275458710746" />
-      <entry key="S30" value="0.2572824346292664" />
-      <entry key="S60" value="0.7314578404116991" />
-      <entry key="M2" value="1.589717035344153" />
-      <entry key="M5" value="3.343656189716594" />
-      <entry key="M10" value="5.571102168456586" />
-      <entry key="M15" value="7.173019061777552" />
-      <entry key="M30" value="9.74602452435408" />
-      <entry key="H1" value="11.601076785331982" />
-      <entry key="H2" value="12.722770136116555" />
-      <entry key="H4" value="13.340561919292815" />
-      <entry key="D1" value="13.887076123552983" />
-      <entry key="W1" value="13.983792425040567" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="1.068650947819103E-259" />
+      <entry key="S10" value="3.279238650684256E-130" />
+      <entry key="S30" value="7.976897337311902E-44" />
+      <entry key="S60" value="4.072876415903158E-22" />
+      <entry key="M2" value="3.751248153268086E-11" />
+      <entry key="M5" value="1.8765666829410337E-4" />
+      <entry key="M10" value="0.04173614344433166" />
+      <entry key="M15" value="0.2746309297206074" />
+      <entry key="M30" value="1.9070023620875247" />
+      <entry key="H1" value="5.13168708900711" />
+      <entry key="H2" value="8.461797219254649" />
+      <entry key="H4" value="10.879641609119842" />
+      <entry key="D1" value="13.423040293869263" />
+      <entry key="W1" value="13.916063710324755" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.030606928849570697" />
-      <entry key="MS500" value="0.5317913130151699" />
-      <entry key="S2" value="1.271206547623125" />
-      <entry key="S5" value="1.7756008009009712" />
-      <entry key="S10" value="2.336526213597396" />
-      <entry key="S30" value="5.270052595131079" />
-      <entry key="S60" value="13.769341180304856" />
-      <entry key="M2" value="31.602639502335492" />
-      <entry key="M5" value="66.63340272319964" />
-      <entry key="M10" value="110.74130598473671" />
-      <entry key="M15" value="142.97814826179533" />
-      <entry key="M30" value="195.36451490852755" />
-      <entry key="H1" value="233.45524234138034" />
-      <entry key="H2" value="256.5861142011301" />
-      <entry key="H4" value="269.35302358166376" />
-      <entry key="D1" value="280.6616922964074" />
-      <entry key="W1" value="282.6643568819088" />
+      <entry key="MS100" value="0.024180703024099838" />
+      <entry key="MS500" value="0.475000191437443" />
+      <entry key="S2" value="0.830182254982492" />
+      <entry key="S5" value="0.928259448456817" />
+      <entry key="S10" value="0.9634622195274795" />
+      <entry key="S30" value="0.9876693190931694" />
+      <entry key="S60" value="0.9938155357475397" />
+      <entry key="M2" value="0.9969029728285359" />
+      <entry key="M5" value="1.0024997153917776" />
+      <entry key="M10" value="1.8290029221392918" />
+      <entry key="M15" value="6.473742013023932" />
+      <entry key="M30" value="39.226722629955965" />
+      <entry key="H1" value="104.26783243724624" />
+      <entry key="H2" value="171.65300926628726" />
+      <entry key="H4" value="220.66571091977494" />
+      <entry key="D1" value="272.28339409214186" />
+      <entry key="W1" value="282.295307513046" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo"><![CDATA[{
@@ -226,9 +222,21 @@
       <option name="presentableId" value="Default" />
       <updated>1781941305646</updated>
     </task>
+    <task id="LOCAL−00001" summary="feat: Add `calculate_diff` function and integrate icon similarity calculation">
+      <option name="closed" value="true" />
+      <created>1781946210267</created>
+      <option name="number" value="LOCAL−00001" />
+      <option name="presentableId" value="LOCAL−00001" />
+      <updated>1781946210267</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat: Add `calculate_diff` function and integrate icon similarity calculation" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `calculate_diff` function and integrate icon similarity calculation" />
   </component>
 </project>
