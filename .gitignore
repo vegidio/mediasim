@@ -1,5 +1,15 @@
-*.iml
-CLAUDE.md
-assets/
-build/
-!cmd/gui/build
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# macOS
+.DS_Store
+
+# IDE
+# .idea contents are managed by .idea/.gitignore
+.vscode/
+
+# Environment
+.env
+.env.local
