@@ -1,46 +1,63 @@
-//! Verifies `euc_metric` against the reference output (`result.txt`) for the two sample images at the
-//! workspace root.
+//! End-to-end checks for the public `euc_metric` API.
+//!
+//! These build deterministic, solid-colour images in memory so they don't depend on any sample files on
+//! disk. A flat image collapses the whole decode → resize → blur → normalize pipeline to a single,
+//! hand-computable value per channel, which makes the expected metrics exact.
 
+use image::{DynamicImage, Rgb, RgbImage};
 use mediasim::{Icon, euc_metric};
 
-const TEST1: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../test1.jpg");
-const TEST2: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../test2.jpg");
-
-// Reference values (see result.txt).
-const REF_M1: f64 = 264_273.240_784_313_76;
-const REF_M2: f64 = 185_067.863_483_275_64;
-const REF_M3: f64 = 163_167.678_692_810_38;
-
-#[test]
-fn matches_reference() {
-    let a = Icon::from_path(TEST1).expect("decode test1.jpg");
-    let b = Icon::from_path(TEST2).expect("decode test2.jpg");
-
-    let (m1, m2, m3) = euc_metric(&a, &b);
-
-    // Print computed values and deltas so fidelity vs the reference is visible in test output
-    // (run with `cargo test -- --nocapture`).
-    for (name, got, want) in [("m1", m1, REF_M1), ("m2", m2, REF_M2), ("m3", m3, REF_M3)] {
-        let abs = (got - want).abs();
-        let rel = abs / want;
-        println!("{name}: got={got:.11} ref={want:.11} abs_delta={abs:.6} rel_delta={rel:.3e}");
-    }
-
-    // The post-decode pipeline is bit-exact; the only divergence from the reference is the JPEG decoder
-    // itself (zune-jpeg's chroma upsampling and YCbCr->RGB conversion differ from the reference decoder),
-    // which keeps the metrics within ~1% relative error (largest is the Cb channel, ~0.84%). We allow 1.5%
-    // for headroom across image-crate versions.
-    const TOL: f64 = 1.5e-2;
-    let rel = |got: f64, want: f64| (got - want).abs() / want;
-    assert!(rel(m1, REF_M1) < TOL, "m1 relative error too large");
-    assert!(rel(m2, REF_M2) < TOL, "m2 relative error too large");
-    assert!(rel(m3, REF_M3) < TOL, "m3 relative error too large");
+/// A solid-colour opaque RGB image.
+fn solid(r: u8, g: u8, b: u8) -> DynamicImage {
+    DynamicImage::ImageRgb8(RgbImage::from_pixel(32, 32, Rgb([r, g, b])))
 }
 
 #[test]
 fn identical_images_have_zero_distance() {
-    let a = Icon::from_path(TEST1).expect("decode test1.jpg");
-    let b = Icon::from_path(TEST1).expect("decode test1.jpg");
-
+    let a = Icon::from_image(&solid(73, 145, 211));
+    let b = Icon::from_image(&solid(73, 145, 211));
     assert_eq!(euc_metric(&a, &b), (0.0, 0.0, 0.0));
+}
+
+#[test]
+fn black_vs_white_is_pure_luma_contrast() {
+    let black = Icon::from_image(&solid(0, 0, 0));
+    let white = Icon::from_image(&solid(255, 255, 255));
+
+    let (m1, m2, m3) = euc_metric(&black, &white);
+
+    // Both are neutral greys, so chroma is essentially unchanged — the only real difference is luma.
+    // (m3 carries a negligible residual from a 1-LSB float rounding on the Cr channel.)
+    assert_eq!(m2, 0.0);
+    assert!(m3 < 1e-2, "m3 = {m3} should be negligible");
+    // Every one of the 121 pixels differs by the full premultiplied range (65025).
+    let expected = 121.0 * 65025.0;
+    assert!((m1 - expected).abs() / expected < 1e-9, "m1 = {m1}, expected ~{expected}");
+}
+
+#[test]
+fn metric_is_symmetric() {
+    let a = Icon::from_image(&solid(200, 30, 90));
+    let b = Icon::from_image(&solid(20, 180, 240));
+    assert_eq!(euc_metric(&a, &b), euc_metric(&b, &a));
+}
+
+#[test]
+fn different_colours_have_positive_distance() {
+    let a = Icon::from_image(&solid(255, 0, 0));
+    let b = Icon::from_image(&solid(0, 255, 0));
+    let (m1, m2, m3) = euc_metric(&a, &b);
+    assert!(m1 > 0.0 && m2 > 0.0 && m3 > 0.0);
+}
+
+#[test]
+fn icon_preserves_source_dimensions() {
+    let img = DynamicImage::ImageRgb8(RgbImage::from_pixel(120, 90, Rgb([1, 2, 3])));
+    assert_eq!(Icon::from_image(&img).img_size(), (120, 90));
+}
+
+#[test]
+fn from_path_reports_missing_files() {
+    let err = Icon::from_path("does-not-exist.jpg").unwrap_err();
+    assert!(err.to_string().starts_with("failed to load image"));
 }

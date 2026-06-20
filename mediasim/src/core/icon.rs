@@ -63,6 +63,16 @@ impl Icon {
     pub(crate) fn pixels(&self) -> &[u16] {
         &self.pixels
     }
+
+    /// Builds an [`Icon`] directly from a raw channel-major pixel buffer.
+    ///
+    /// Test-only: lets the metric/diff unit tests construct icons with exact, hand-picked pixel values
+    /// without going through the full decode pipeline.
+    #[cfg(test)]
+    pub(crate) fn from_raw(pixels: Vec<u16>, img_size: (u32, u32)) -> Self {
+        assert_eq!(pixels.len(), NUM_PIX * 3, "icon buffer must hold 3 channels of NUM_PIX values");
+        Self { pixels, img_size }
+    }
 }
 
 /// Error returned when an image cannot be loaded into an [`Icon`].
@@ -234,5 +244,154 @@ fn normalize(pixels: &mut [u16]) {
                 pixels[idx] = ((f64::from(pixels[idx]) - min) * scale) as u16;
             }
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::float_cmp)]
+mod tests {
+    use super::*;
+    use image::{DynamicImage, Rgb, RgbImage, Rgba, RgbaImage};
+
+    /// A solid-colour opaque RGB image. Every pixel is identical, so the whole icon pipeline collapses to a
+    /// single, hand-computable value per channel.
+    fn solid(r: u8, g: u8, b: u8) -> DynamicImage {
+        DynamicImage::ImageRgb8(RgbImage::from_pixel(32, 32, Rgb([r, g, b])))
+    }
+
+    #[test]
+    fn arr_index_is_channel_major() {
+        // Layout: size * (ch * size + y) + x.
+        assert_eq!(arr_index(0, 0, ICON_SIZE, 0), 0);
+        assert_eq!(arr_index(1, 0, ICON_SIZE, 0), 1);
+        assert_eq!(arr_index(0, 1, ICON_SIZE, 0), ICON_SIZE);
+        // Each channel is a NUM_PIX-sized block.
+        assert_eq!(arr_index(0, 0, ICON_SIZE, 1), NUM_PIX);
+        assert_eq!(arr_index(0, 0, ICON_SIZE, 2), 2 * NUM_PIX);
+        assert_eq!(arr_index(ICON_SIZE - 1, ICON_SIZE - 1, ICON_SIZE, 2), 3 * NUM_PIX - 1);
+    }
+
+    #[test]
+    fn rgba_8bit_is_identity_when_opaque() {
+        for c in [0u8, 1, 127, 200, 255] {
+            assert_eq!(rgba_8bit(c, 255), u32::from(c));
+        }
+    }
+
+    #[test]
+    fn rgba_8bit_zero_alpha_is_zero() {
+        assert_eq!(rgba_8bit(200, 0), 0);
+        assert_eq!(rgba_8bit(255, 0), 0);
+    }
+
+    #[test]
+    fn rgba_8bit_premultiplies() {
+        // ((255 | 255<<8) * 128) / 255 >> 8 == 128.
+        assert_eq!(rgba_8bit(255, 128), 128);
+    }
+
+    #[test]
+    fn y_cbcr_known_values() {
+        let approx = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        // Greyscale maps luma to the input and leaves both chroma channels centred at 128.
+        let (y, cb, cr) = y_cbcr(0.0, 0.0, 0.0);
+        assert!(approx(y, 0.0) && approx(cb, 128.0) && approx(cr, 128.0));
+        let (y, cb, cr) = y_cbcr(255.0, 255.0, 255.0);
+        assert!(approx(y, 255.0) && approx(cb, 128.0) && approx(cr, 128.0));
+        let (y, cb, cr) = y_cbcr(128.0, 128.0, 128.0);
+        assert!(approx(y, 128.0) && approx(cb, 128.0) && approx(cr, 128.0));
+    }
+
+    #[test]
+    fn set_get_roundtrip_truncates() {
+        let mut px = vec![0u16; NUM_PIX * 3];
+        set(&mut px, ICON_SIZE, 0, 0, 1.0, 0.5, 0.0);
+        // Stored as (c * 255) as u16: 255, 127 (0.5*255=127.5 truncated), 0.
+        assert_eq!(px[arr_index(0, 0, ICON_SIZE, 0)], 255);
+        assert_eq!(px[arr_index(0, 0, ICON_SIZE, 1)], 127);
+        assert_eq!(px[arr_index(0, 0, ICON_SIZE, 2)], 0);
+
+        let (c1, c2, c3) = get(&px, ICON_SIZE, 0, 0);
+        assert_eq!(c1, 1.0);
+        assert_eq!(c2, 127.0 * ONE_255TH);
+        assert_eq!(c3, 0.0);
+    }
+
+    #[test]
+    fn normalize_stretches_channel_to_full_range() {
+        let mut px = vec![0u16; NUM_PIX * 3];
+        // Y channel: a 0..1000 spread; min=0, max=1000 -> scale = 65025 / 1000.
+        px[0] = 1000;
+        px[5] = 500;
+        normalize(&mut px);
+        assert_eq!(px[0], 65025); // max -> full
+        assert_eq!(px[5], 32512); // 500 * 65.025 = 32512.5 -> 32512
+        // Cb/Cr channels were uniformly zero (max == min) and must be left untouched.
+        assert!(px[NUM_PIX..].iter().all(|&v| v == 0));
+    }
+
+    #[test]
+    fn normalize_leaves_flat_channel_untouched() {
+        let mut px = vec![7u16; NUM_PIX * 3];
+        normalize(&mut px);
+        assert!(px.iter().all(|&v| v == 7));
+    }
+
+    #[test]
+    fn from_image_solid_grey_is_uniform() {
+        let icon = Icon::from_image(&solid(128, 128, 128));
+        // A flat image leaves normalize a no-op, so every pixel within a channel is identical.
+        for ch in 0..3 {
+            let chan = &icon.pixels()[ch * NUM_PIX..(ch + 1) * NUM_PIX];
+            assert!(chan.iter().all(|&v| v == chan[0]), "channel {ch} not uniform");
+            // Neutral grey lands on the channel midpoint (~128 * 255), give or take a rounding LSB.
+            assert!(chan[0].abs_diff(32640) <= 1, "channel {ch} = {} not near-neutral", chan[0]);
+        }
+    }
+
+    #[test]
+    fn from_image_solid_black_and_white_luma() {
+        let black = Icon::from_image(&solid(0, 0, 0));
+        let white = Icon::from_image(&solid(255, 255, 255));
+
+        // Y channel: black -> 0, white -> 65025 (255 * 255), exactly.
+        assert!(black.pixels()[..NUM_PIX].iter().all(|&v| v == 0));
+        assert!(white.pixels()[..NUM_PIX].iter().all(|&v| v == 65025));
+        // Both are neutral greys, so chroma stays centred (~32640) for either — the residual ±1 LSB on
+        // Cr is the float RGB->YCbCr rounding, not a real colour difference.
+        for &v in &black.pixels()[NUM_PIX..] {
+            assert!(v.abs_diff(32640) <= 1);
+        }
+        for &v in &white.pixels()[NUM_PIX..] {
+            assert!(v.abs_diff(32640) <= 1);
+        }
+    }
+
+    #[test]
+    fn from_image_preserves_original_dimensions() {
+        let img = DynamicImage::ImageRgb8(RgbImage::from_pixel(64, 48, Rgb([10, 20, 30])));
+        assert_eq!(Icon::from_image(&img).img_size(), (64, 48));
+    }
+
+    #[test]
+    fn fully_transparent_pixels_collapse_to_black() {
+        // Alpha 0 premultiplies every channel to 0, regardless of the stored RGB.
+        let img = DynamicImage::ImageRgba8(RgbaImage::from_pixel(32, 32, Rgba([200, 100, 50, 0])));
+        let icon = Icon::from_image(&img);
+        let black = Icon::from_image(&solid(0, 0, 0));
+        assert_eq!(icon.pixels(), black.pixels());
+    }
+
+    #[test]
+    fn icon_clone_eq() {
+        let icon = Icon::from_image(&solid(12, 34, 56));
+        assert_eq!(icon, icon.clone());
+    }
+
+    #[test]
+    fn from_path_missing_file_errors() {
+        let err = Icon::from_path("definitely-not-a-real-file.jpg").unwrap_err();
+        assert!(err.to_string().starts_with("failed to load image"));
+        assert!(std::error::Error::source(&err).is_some());
     }
 }
