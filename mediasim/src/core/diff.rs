@@ -5,16 +5,16 @@ use crate::core::consts::MAX_EUC_DIST;
 ///
 /// Combines the three per-channel squared distances returned by [`euc_metric`] into a single scalar: the luma channel
 /// (`m1`) is weighted fully since it's the one with the greatest impact on visual perception, while the two chroma
-/// channels (`m2`, `m3`) are each halved before summation. The result is divided by the maximum possible weighted sum
-/// ([`MAX_EUC_DIST`]) and rooted, yielding a value in `[0, 1]`.
+/// channels (`m2`, `m3`) are each halved before summation. The root of that weighted sum is then divided by the
+/// maximum single-channel Euclidean distance ([`MAX_EUC_DIST`]) and clamped, yielding a value in `[0, 1]`.
 ///
-/// Smaller values indicate more similar images: `0.0` means identical, `1.0` means maximally different (every pixel
-/// differing by the full range on all three channels). Two purely tonal opposites such as solid black and solid white
-/// differ only in luma, so they land at `1/sqrt(2) ~= 0.707` rather than `1.0`.
+/// Smaller values indicate more similar images: `0.0` means identical. A single channel (or luma-only contrast such
+/// as solid black vs solid white) at full range maps to `1.0`; the rare all-three-channel extreme reaches `~sqrt(2)`
+/// and is clamped to `1.0`.
 pub fn calculate_diff(icon1: Icon, icon2: Icon) -> f64 {
     let (m1, m2, m3) = euc_metric(&icon1, &icon2);
-    // `.min(1.0)` only guards floating-point dust at the absolute extreme; the math already bounds this to [0, 1].
-    ((m1 + m2 / 2.0 + m3 / 2.0) / MAX_EUC_DIST).sqrt().min(1.0)
+    // `.min(1.0)` clamps the rare all-three-channel extreme (which reaches ~sqrt(2)) back into [0, 1].
+    ((m1 + m2 / 2.0 + m3 / 2.0).sqrt() / MAX_EUC_DIST).min(1.0)
 }
 
 #[cfg(test)]
@@ -42,15 +42,16 @@ mod tests {
 
     #[test]
     fn black_vs_white_is_luma_only_contrast() {
-        // Solid black vs solid white differ only in luma (shared, centred chroma). That's weight 1 out of the
-        // total weight 2, so the normalized diff is sqrt(1/2) = 1/sqrt(2), not 1.0.
+        // Solid black vs solid white differ only in luma (shared, centred chroma) at full range. A single channel
+        // at full contrast is the normalizer ([`MAX_EUC_DIST`]), so the diff lands at 1.0.
         let diff = calculate_diff(icon(0, 32_640, 32_640), icon(65_025, 32_640, 32_640));
-        assert!((diff - 0.5_f64.sqrt()).abs() < 1e-6, "expected ~0.707, got {diff}");
+        assert!((diff - 1.0).abs() < 1e-6, "expected ~1.0, got {diff}");
     }
 
     #[test]
     fn full_contrast_on_all_channels_is_one() {
-        // Every pixel differing by the full range on all three channels is the true maximum: diff == 1.0.
+        // Every pixel differing by the full range on all three channels reaches ~sqrt(2) before the clamp,
+        // so the reported diff saturates at 1.0.
         let diff = calculate_diff(icon(0, 0, 0), icon(65_025, 65_025, 65_025));
         assert!((diff - 1.0).abs() < 1e-6, "expected ~1.0, got {diff}");
     }

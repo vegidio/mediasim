@@ -32,14 +32,16 @@ pub const ONE_255TH2: f64 = ONE_255TH * ONE_255TH;
 /// Maximum premultiplied channel value, i.e. `255 * 255`.
 pub const SQ255: f64 = 255.0 * 255.0;
 
-/// Largest weighted squared Euclidean distance two icons can produce.
+/// Maximum Euclidean distance of a single icon channel, `sqrt(NUM_PIX * SQ255)` (= `11 * 255`).
 ///
 /// [`calculate_diff`](super::diff::calculate_diff) combines the three per-channel squared distances as
-/// `m1 + m2/2 + m3/2`. Each channel's squared distance peaks at `NUM_PIX * SQ255` (every pixel differing
-/// by the full premultiplied range), so the weighted sum peaks at `NUM_PIX * SQ255 * (1.0 + 0.5 + 0.5)`,
-/// i.e. `121 * 65025 * 2`. Dividing by this (then taking the root) normalizes `calculate_diff` into
-/// `[0, 1]`.
-pub const MAX_EUC_DIST: f64 = 15_736_050.0;
+/// `m1 + m2/2 + m3/2`, takes the root of that weighted sum, and divides by this single-channel maximum.
+/// A single channel (or luma-only contrast such as black vs white) at full range therefore maps to `1.0`;
+/// the rare all-three-channel extreme reaches `~sqrt(2)` and is clamped, keeping the result in `[0, 1]`.
+///
+/// The literal carries a few digits of floating-point dust from its original computation; the exact
+/// mathematical value is `2805.0`.
+pub const MAX_EUC_DIST: f64 = 2805.0000001658486;
 
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::cast_precision_loss)]
@@ -64,9 +66,9 @@ mod tests {
     }
 
     #[test]
-    fn max_euc_dist_sq_is_full_weighted_contrast() {
-        // Every one of NUM_PIX pixels differing by the full premultiplied range on all three channels,
-        // with the chroma channels at half-weight.
-        assert_eq!(MAX_EUC_DIST, NUM_PIX as f64 * SQ255 * (1.0 + 0.5 + 0.5));
+    fn max_euc_dist_is_single_channel_norm() {
+        // The Euclidean norm of one channel at full contrast: every one of NUM_PIX pixels differing by the
+        // full premultiplied range. The stored literal carries tiny float dust, so compare approximately.
+        assert!((MAX_EUC_DIST - (NUM_PIX as f64 * SQ255).sqrt()).abs() < 1e-3);
     }
 }

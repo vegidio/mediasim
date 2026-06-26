@@ -21,10 +21,10 @@ fn identical_images_have_zero_diff() {
 
 #[test]
 fn black_vs_white_is_luma_only_contrast() {
-    // Black and white differ only in luma (shared, centred chroma), which is weight 1 of the total weight 2,
-    // so the normalized diff is ~1/sqrt(2), not the full 1.0.
+    // Black and white differ only in luma (shared, centred chroma) at full range. A single channel at full
+    // contrast is the normalizer, so the diff lands at ~1.0.
     let diff = calculate_diff(Icon::from_image(&solid(0, 0, 0)), Icon::from_image(&solid(255, 255, 255)));
-    assert!((diff - 0.5_f64.sqrt()).abs() < 1e-3, "diff = {diff}, expected ~0.707");
+    assert!((diff - 1.0).abs() < 1e-3, "diff = {diff}, expected ~1.0");
 }
 
 #[test]
