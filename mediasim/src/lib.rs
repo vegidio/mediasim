@@ -17,5 +17,7 @@
 #![warn(clippy::pedantic)]
 
 pub mod core;
+pub mod media;
 
 pub use core::{Icon, IconError, euc_metric};
+pub use media::Media;
