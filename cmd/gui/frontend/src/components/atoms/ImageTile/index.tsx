@@ -3,7 +3,7 @@ import { useLazyThumbnail } from './useLazyThumbnail';
 import { useScrollIntoView } from './useScrollIntoView';
 import { Icon } from '@/components/atoms/Icon';
 import { Spinner } from '@/components/atoms/Spinner';
-import { useCheckedStore, usePreviewStore, useSelectionStore } from '@/stores';
+import { useCheckedStore, useImagesStore, usePreviewStore, useSelectionStore } from '@/stores';
 import { VIDEO_EXTENSIONS } from '@/utils/constants';
 import { formatDate, formatDuration, formatFileSize } from '@/utils/format';
 import { getExtension } from '@/utils/path';
@@ -11,7 +11,6 @@ import { getExtension } from '@/utils/path';
 type ImageTileProps = {
     path: string;
     filename: string;
-    status: 'idle' | 'loading' | 'loaded';
     size: number;
     modTime?: number;
     fileSize?: number;
@@ -19,8 +18,9 @@ type ImageTileProps = {
     scrollRef?: RefObject<HTMLDivElement | null>;
 };
 
-export const ImageTile = ({ path, filename, status, size, modTime, fileSize, length, scrollRef }: ImageTileProps) => {
+export const ImageTile = ({ path, filename, size, modTime, fileSize, length, scrollRef }: ImageTileProps) => {
     const ref = useRef<HTMLDivElement>(null);
+    const status = useImagesStore((s) => s.statusByPath[path] ?? 'idle');
     const isSelected = useSelectionStore((s) => s.selectedPath === path);
     const select = useSelectionStore((s) => s.select);
     const openPreview = usePreviewStore((s) => s.openPreview);
