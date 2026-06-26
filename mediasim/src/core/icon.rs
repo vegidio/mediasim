@@ -49,7 +49,7 @@ impl Icon {
     ///
     /// Returns an [`IconError`] if the file cannot be read or decoded.
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, IconError> {
-        let img = image::open(path)?;
+        let img = rust_sak::image::decode_file(path)?;
         Ok(Self::from_image(&img))
     }
 
@@ -77,7 +77,7 @@ impl Icon {
 
 /// Error returned when an image cannot be loaded into an [`Icon`].
 #[derive(Debug)]
-pub struct IconError(image::ImageError);
+pub struct IconError(rust_sak::image::ImageError);
 
 impl fmt::Display for IconError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -91,8 +91,8 @@ impl std::error::Error for IconError {
     }
 }
 
-impl From<image::ImageError> for IconError {
-    fn from(err: image::ImageError) -> Self {
+impl From<rust_sak::image::ImageError> for IconError {
+    fn from(err: rust_sak::image::ImageError) -> Self {
         Self(err)
     }
 }
