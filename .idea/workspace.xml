@@ -14,12 +14,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="refactor: Replace `image` crate with `rust-sak` for image decoding and errors">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="fix: Refine `calculate_diff` normalization and max-distance constants">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/cli/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/consts.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/core/diff.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/tests/calculate_diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/tests/calculate_diff.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/lib.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,7 +24,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="88" />
+    <option name="cachedIndexableFilesCount" value="27" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -36,6 +33,15 @@
       <list>
         <option value="Rust File" />
       </list>
+    </option>
+  </component>
+  <component name="FormatOnSaveOptions">
+    <option name="mySelectedFileTypes">
+      <set>
+        <option value="Go" />
+        <option value="Prisma" />
+        <option value="Rust" />
+      </set>
     </option>
   </component>
   <component name="Git.Settings">
@@ -62,62 +68,70 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0785633546817142" />
-      <entry key="MS500" value="1.6967725541715866" />
-      <entry key="S2" value="4.966566919083791" />
-      <entry key="S5" value="9.233072926930667" />
-      <entry key="S10" value="12.269377779305803" />
-      <entry key="S30" value="16.413160650423542" />
-      <entry key="S60" value="18.801815960342054" />
-      <entry key="M2" value="20.98912971904827" />
-      <entry key="M5" value="23.064223859774806" />
-      <entry key="M10" value="23.972722452095137" />
-      <entry key="M15" value="24.4831638254856" />
-      <entry key="M30" value="31.188883944988145" />
-      <entry key="H1" value="66.3531282191488" />
-      <entry key="H2" value="130.53989581713873" />
-      <entry key="H4" value="193.73582326933777" />
-      <entry key="D1" value="274.6378199852424" />
-      <entry key="W1" value="291.9920389883561" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0" />
+      <entry key="S60" value="1.00000000001881" />
+      <entry key="M2" value="1.0000389910598315" />
+      <entry key="M5" value="1.240637042803412" />
+      <entry key="M10" value="5.414735414419826" />
+      <entry key="M15" value="12.644035522299859" />
+      <entry key="M30" value="31.81241162473042" />
+      <entry key="H1" value="54.64638789122731" />
+      <entry key="H2" value="95.6563545301387" />
+      <entry key="H4" value="167.4206313512525" />
+      <entry key="D1" value="324.7935338476737" />
+      <entry key="W1" value="369.7693018748124" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="3.1678012095401325E-266" />
-      <entry key="S30" value="3.660122616330317E-89" />
-      <entry key="S60" value="8.724329275030007E-45" />
-      <entry key="M2" value="1.7361658226205667E-22" />
-      <entry key="M5" value="5.489466823372319E-9" />
-      <entry key="M10" value="2.25733179088072E-4" />
-      <entry key="M15" value="0.008461970394328102" />
-      <entry key="M30" value="0.33474358130268034" />
-      <entry key="H1" value="2.150010992988084" />
-      <entry key="H2" value="5.477127746522516" />
-      <entry key="H4" value="8.753056216236528" />
-      <entry key="D1" value="12.945189588669058" />
-      <entry key="W1" value="13.844187827645385" />
+      <entry key="S5" value="3.582082383115374E-153" />
+      <entry key="S10" value="5.985050027456212E-77" />
+      <entry key="S30" value="3.9116134277733055E-26" />
+      <entry key="S60" value="1.977779923998951E-13" />
+      <entry key="M2" value="4.447223767699293E-7" />
+      <entry key="M5" value="0.002878959747811873" />
+      <entry key="M10" value="0.05365593861393265" />
+      <entry key="M15" value="0.14225868214507442" />
+      <entry key="M30" value="0.37821365143798785" />
+      <entry key="H1" value="0.7340870890848036" />
+      <entry key="H2" value="2.0773372900561458" />
+      <entry key="H4" value="5.139219821917349" />
+      <entry key="D1" value="12.458276948087457" />
+      <entry key="W1" value="14.605481277226534" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.0274804350734703" />
-      <entry key="MS500" value="1.6800267916672278" />
-      <entry key="S2" value="4.950651010958723" />
-      <entry key="S5" value="9.218394917785188" />
-      <entry key="S10" value="12.251893138897477" />
-      <entry key="S30" value="16.396933944819065" />
-      <entry key="S60" value="18.790737259270294" />
-      <entry key="M2" value="20.982561136193272" />
-      <entry key="M5" value="23.06128865343161" />
-      <entry key="M10" value="23.97141788456475" />
-      <entry key="M15" value="24.49055525854472" />
-      <entry key="M30" value="31.522527998314924" />
-      <entry key="H1" value="68.5010809345286" />
-      <entry key="H2" value="136.0146162633215" />
-      <entry key="H4" value="202.4869969760768" />
-      <entry key="D1" value="287.5825509070181" />
-      <entry key="W1" value="305.8361568501157" />
+      <entry key="MS100" value="0.008257953441885782" />
+      <entry key="MS500" value="0.3831549900519458" />
+      <entry key="S2" value="0.786762445353566" />
+      <entry key="S5" value="0.9085261845796385" />
+      <entry key="S10" value="0.9531663992082592" />
+      <entry key="S30" value="0.9841385441259027" />
+      <entry key="S60" value="0.9920375719515876" />
+      <entry key="M2" value="0.9960502568254559" />
+      <entry key="M5" value="1.2418972533479045" />
+      <entry key="M10" value="5.467395033349086" />
+      <entry key="M15" value="12.785412827899101" />
+      <entry key="M30" value="32.18989336729572" />
+      <entry key="H1" value="55.379850715886995" />
+      <entry key="H2" value="97.7328165200301" />
+      <entry key="H4" value="172.5587673205677" />
+      <entry key="D1" value="337.25137351302294" />
+      <entry key="W1" value="384.37470994518304" />
     </decayedShown>
+  </component>
+  <component name="OptimizeOnSaveOptions">
+    <option name="mySelectedFileTypes">
+      <set>
+        <option value="Go" />
+        <option value="Rust" />
+      </set>
+    </option>
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 1
@@ -158,7 +172,7 @@
     "nodejs_package_manager_path": "npm",
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "settings.editor.selected.configurable": "actions.on.save",
     "to.speed.mode.migration.done": "true"
   }
 }]]></component>
@@ -236,7 +250,14 @@
       <option name="presentableId" value="LOCAL−00002" />
       <updated>1782490736187</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL−00003" summary="fix: Refine `calculate_diff` normalization and max-distance constants">
+      <option name="closed" value="true" />
+      <created>1782492037885</created>
+      <option name="number" value="LOCAL−00003" />
+      <option name="presentableId" value="LOCAL−00003" />
+      <updated>1782492037885</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -245,6 +266,11 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="feat: Add `calculate_diff` function and integrate icon similarity calculation" />
     <MESSAGE value="refactor: Replace `image` crate with `rust-sak` for image decoding and errors" />
-    <option name="LAST_COMMIT_MESSAGE" value="refactor: Replace `image` crate with `rust-sak` for image decoding and errors" />
+    <MESSAGE value="fix: Refine `calculate_diff` normalization and max-distance constants" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: Refine `calculate_diff` normalization and max-distance constants" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>
