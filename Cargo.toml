@@ -4,3 +4,4 @@ resolver = "2"
 
 [workspace.dependencies]
 image = "0.25.10"
+rust-sak = { git = "https://github.com/vegidio/rust-sak", features = ["image"] }

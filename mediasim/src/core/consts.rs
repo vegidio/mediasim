@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn max_euc_dist_sq_is_full_weighted_contrast() {
         // Every one of NUM_PIX pixels differing by the full premultiplied range on all three channels,
-        // with the chroma channels at half weight.
+        // with the chroma channels at half-weight.
         assert_eq!(MAX_EUC_DIST, NUM_PIX as f64 * SQ255 * (1.0 + 0.5 + 0.5));
     }
 }
