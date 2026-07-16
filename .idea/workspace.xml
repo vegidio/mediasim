@@ -14,11 +14,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `Media` struct for media management with icon-based frame signatures">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/Cargo.toml" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Enable parallel media decoding with `from_files` and Rayon integration">
       <change beforePath="$PROJECT_DIR$/mediasim/src/media.rs" beforeDir="false" afterPath="$PROJECT_DIR$/mediasim/src/media.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -185,6 +181,11 @@
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Run cli">
+    <configuration default="true" type="Application" factoryName="Application">
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run cli" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package cli --bin cli" />
@@ -225,6 +226,14 @@
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
   </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.26222.65" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.26222.65" />
+      </set>
+    </attachedChunks>
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="" />
@@ -261,7 +270,14 @@
       <option name="presentableId" value="LOCAL−00004" />
       <updated>1782506535295</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL−00005" summary="feat: Enable parallel media decoding with `from_files` and Rayon integration">
+      <option name="closed" value="true" />
+      <created>1784205790547</created>
+      <option name="number" value="LOCAL−00005" />
+      <option name="presentableId" value="LOCAL−00005" />
+      <updated>1784205790547</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -272,7 +288,8 @@
     <MESSAGE value="refactor: Replace `image` crate with `rust-sak` for image decoding and errors" />
     <MESSAGE value="fix: Refine `calculate_diff` normalization and max-distance constants" />
     <MESSAGE value="feat: Add `Media` struct for media management with icon-based frame signatures" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `Media` struct for media management with icon-based frame signatures" />
+    <MESSAGE value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
