@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 image.workspace = true
+rayon.workspace = true
 rust-sak.workspace = true
