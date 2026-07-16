@@ -2,8 +2,10 @@
 //! signatures for similarity comparison.
 
 use std::path::Path;
+use std::sync::mpsc;
 
 use image::DynamicImage;
+use rayon::prelude::*;
 
 use crate::core::Icon;
 use crate::IconError;
@@ -50,6 +52,33 @@ impl Media {
 
         Ok(Self::from_images(name, &[img]))
     }
+
+    /// Builds a [`Media`] for each path, decoding files in parallel across the available CPU cores.
+    ///
+    /// Files are processed on Rayon's global thread pool (sized to the number of logical CPUs), so
+    /// at most that many files are decoded at once. Each result is yielded by the returned iterator
+    /// as soon as its [`Media`] is ready, in completion order (not input order) — letting the
+    /// caller work with finished items while the rest are still processing.
+    ///
+    /// Each item is the per-file [`Result`]: a failure to read or decode one file does not stop the
+    /// others.
+    pub fn from_files<P>(paths: Vec<P>) -> impl Iterator<Item = Result<Self, IconError>>
+    where
+        P: AsRef<Path> + Send + 'static,
+    {
+        let (tx, rx) = mpsc::channel();
+
+        // Drive the work on the Rayon pool without blocking the caller, so it can consume `rx` as
+        // results stream in.
+        rayon::spawn(move || {
+            paths.into_par_iter().for_each_with(tx, |tx, path| {
+                // Receiver dropped early (caller stopped iterating) -> send fails; just stop.
+                let _ = tx.send(Self::from_file(path));
+            });
+        });
+
+        rx.into_iter()
+    }
 }
 
 #[cfg(test)]
@@ -81,5 +110,23 @@ mod tests {
     fn from_file_missing_file_errors() {
         let err = Media::from_file("definitely-not-a-real-file.jpg").unwrap_err();
         assert!(err.to_string().starts_with("failed to load image"));
+    }
+
+    #[test]
+    fn from_files_streams_ok_and_err_per_path() {
+        // Write a real image to a temp file so one path decodes successfully...
+        let path = std::env::temp_dir().join("mediasim_from_files_test.png");
+        DynamicImage::new_rgb8(8, 8).save(&path).expect("write temp image");
+
+        // ...alongside a missing path that must fail independently.
+        let paths = vec![path.clone(), std::path::PathBuf::from("definitely-not-a-real-file.jpg")];
+
+        let results: Vec<_> = Media::from_files(paths).collect();
+
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(results.len(), 2, "one result per input path");
+        assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 1);
+        assert_eq!(results.iter().filter(|r| r.is_err()).count(), 1);
     }
 }

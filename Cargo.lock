@@ -625,6 +625,7 @@ name = "mediasim"
 version = "0.1.0"
 dependencies = [
  "image",
+ "rayon",
  "rust-sak",
 ]
 
