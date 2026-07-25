@@ -106,7 +106,7 @@ func (s *StreamerService) StartStream(videoPath string) (string, error) {
 		"f":             "hls",
 		"hls_time":      1,
 		"hls_list_size": 0,
-	}).Silent(true)
+	})
 
 	if s.ffmpegPath != "" {
 		cmd = cmd.SetFfmpegPath(s.ffmpegPath)

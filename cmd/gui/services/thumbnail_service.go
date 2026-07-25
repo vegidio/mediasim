@@ -198,9 +198,12 @@ func (t *ThumbnailService) ensureVideoFrame(videoPath string) (string, error) {
 		return framePath, nil
 	}
 
-	cmd := ffmpeg.Input(videoPath).
-		Output(framePath, ffmpeg.KwArgs{"vframes": 1}).
-		Silent(true)
+	cmd := ffmpeg.Input(videoPath, ffmpeg.KwArgs{"hide_banner": "", "loglevel": "error"}).
+		// Some encoders tag videos with a transfer function that libswscale refuses to convert - e.g.
+		// "log100" - which makes the frame extraction fail. The color accuracy of a thumbnail is not
+		// worth failing over, so the tag is simply dropped.
+		Filter("setparams", nil, ffmpeg.KwArgs{"color_trc": "unknown"}).
+		Output(framePath, ffmpeg.KwArgs{"vframes": 1})
 
 	if t.ffmpegPath != "" {
 		cmd = cmd.SetFfmpegPath(t.ffmpegPath)
