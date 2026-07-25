@@ -12,8 +12,8 @@ import * as $models from "./models.js";
 /**
  * StartComparison loads media from a directory and groups them by similarity, emitting progress events.
  */
-export function StartComparison(directory: string, includeImages: boolean, includeVideos: boolean, frameFlip: boolean, frameRotate: boolean, threshold: number): $CancellablePromise<$models.ComparisonGroup[]> {
-    return $Call.ByID(4265235812, directory, includeImages, includeVideos, frameFlip, frameRotate, threshold).then(($result: any) => {
+export function StartComparison(directory: string, includeImages: boolean, includeVideos: boolean, frameFlip: boolean, frameRotate: boolean, threshold: number, ignoreErrors: boolean): $CancellablePromise<$models.ComparisonGroup[]> {
+    return $Call.ByID(4265235812, directory, includeImages, includeVideos, frameFlip, frameRotate, threshold, ignoreErrors).then(($result: any) => {
         return $$createType1($result);
     });
 }

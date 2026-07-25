@@ -16,6 +16,7 @@ export const ProgressDialog = ({ open, onClose }: ProgressDialogProps) => {
     const mediaType = useSettingsStore((s) => s.mediaType);
     const frameFlip = useSettingsStore((s) => s.frameFlip);
     const frameRotate = useSettingsStore((s) => s.frameRotate);
+    const ignoreErrors = useSettingsStore((s) => s.ignoreErrors);
     const setGroups = useComparisonStore((s) => s.setGroups);
 
     const [current, setCurrent] = useState(0);
@@ -40,7 +41,15 @@ export const ProgressDialog = ({ open, onClose }: ProgressDialogProps) => {
         const includeImages = mediaType === 'all' || mediaType === 'images';
         const includeVideos = mediaType === 'all' || mediaType === 'videos';
 
-        const promise = StartComparison(directory, includeImages, includeVideos, frameFlip, frameRotate, threshold);
+        const promise = StartComparison(
+            directory,
+            includeImages,
+            includeVideos,
+            frameFlip,
+            frameRotate,
+            threshold,
+            ignoreErrors,
+        );
         promiseRef.current = promise;
 
         promise

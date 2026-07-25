@@ -1,4 +1,5 @@
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material';
+import { ErrorHandlingSection } from './ErrorHandlingSection';
 import { ExtraComparisonsSection } from './ExtraComparisonsSection';
 import { MediaTypeSection } from './MediaTypeSection';
 import { ThresholdSection } from './ThresholdSection';
@@ -26,6 +27,7 @@ export const CompareDialog = ({ open, onClose, onStart }: CompareDialogProps) =>
             <DialogContent className='flex flex-col gap-5 pt-2!'>
                 <MediaTypeSection />
                 <ExtraComparisonsSection />
+                <ErrorHandlingSection />
                 <ThresholdSection />
             </DialogContent>
 

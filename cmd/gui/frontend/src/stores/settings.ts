@@ -9,10 +9,12 @@ type SettingsStore = {
     frameFlip: boolean;
     frameRotate: boolean;
     threshold: number;
+    ignoreErrors: boolean;
     setMediaType: (mediaType: MediaType) => void;
     setFrameFlip: (frameFlip: boolean) => void;
     setFrameRotate: (frameRotate: boolean) => void;
     setThreshold: (threshold: number) => void;
+    setIgnoreErrors: (ignoreErrors: boolean) => void;
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -22,6 +24,7 @@ export const useSettingsStore = create<SettingsStore>()(
             frameFlip: false,
             frameRotate: false,
             threshold: 0.8,
+            ignoreErrors: false,
 
             setMediaType: (mediaType: MediaType) => {
                 set((state) => {
@@ -46,6 +49,12 @@ export const useSettingsStore = create<SettingsStore>()(
                     state.threshold = threshold;
                 });
             },
+
+            setIgnoreErrors: (ignoreErrors: boolean) => {
+                set((state) => {
+                    state.ignoreErrors = ignoreErrors;
+                });
+            },
         })),
         {
             name: 'settings-store',
@@ -54,6 +63,7 @@ export const useSettingsStore = create<SettingsStore>()(
                 frameFlip: state.frameFlip,
                 frameRotate: state.frameRotate,
                 threshold: state.threshold,
+                ignoreErrors: state.ignoreErrors,
             }),
         },
     ),

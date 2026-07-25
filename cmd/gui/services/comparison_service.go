@@ -34,6 +34,7 @@ func (c *ComparisonService) StartComparison(
 	frameFlip bool,
 	frameRotate bool,
 	threshold float64,
+	ignoreErrors bool,
 ) ([]ComparisonGroup, error) {
 	mediaCh, total := mediasim.LoadMediaFromDirectory(directory, mediasim.DirectoryOptions{
 		IncludeImages: includeImages,
@@ -49,7 +50,7 @@ func (c *ComparisonService) StartComparison(
 	app := application.Get()
 	app.Event.Emit("comparison:progress", map[string]int{"current": 0, "total": total})
 
-	resultCh := mediasim.LoadAndGroupMedia(mediaCh, total, threshold, false)
+	resultCh := mediasim.LoadAndGroupMedia(mediaCh, total, threshold, ignoreErrors)
 
 	for result := range resultCh {
 		select {
