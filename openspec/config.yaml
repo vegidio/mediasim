@@ -1,0 +1,127 @@
+schema: spec-driven
+
+context: |
+    # Project
+
+    MediaSim is a project to calculate the similarity between media files (images and videos). This project is built in
+    Rust + Tauri.
+
+    # Architecture
+
+    The three crates live under `crates/`:
+    project:
+
+    - `mediasim` - the core library crate. ALL logic to load and compare media files lives here.
+    - `gui` - the Tauri 2 application. Depends on `mediasim` and contains only code that concerns the GUI:
+      Tauri commands and events, window and app state plumbing, and the React frontend.
+    - `cli` - the terminal application. Depends on `mediasim` and contains only code that concerns the CLI:
+      argument parsing, terminal output and progress rendering.
+
+    The test for where something belongs: if both `gui` and `cli` would need it, it probably belongs in `mediasim`.
+
+    Organise each crate the way an idiomatic, current (2026) Rust + Tauri 2 project is organised, and solve each
+    problem the way Rust would solve it.
+
+    # rust-sak comes first
+
+    `rust-sak` (https://github.com/vegidio/rust-sak, cloned locally at ../rust-sak) is a first-party crate. Before
+    writing any infrastructure code - media loading, temp files, config directories, image codecs, caching, telemetry -
+    CHECK `rust-sak` FIRST. Read ../rust-sak/README.md and the per-module READMEs under ../rust-sak/src/. Do not
+    reinvent something it already provides, and do not reach for a third-party crate that duplicates one of its modules.
+
+    What it already covers, and what that replaces here:
+
+    - `crypto`  - SHA-256 and XXH3-64 hashing of bytes, strings and files -> the pinned-hash
+                  verification of downloaded dependencies.
+    - `fetch`   - a reusable reqwest client with Fibonacci-backoff retries and RESUMABLE streaming
+                  downloads with live progress -> the whole dependency/model download path.
+    - `fs`      - filesystem helpers, RAII temp handles, config dirs, and a hardened ZIP/7z/TAR.XZ
+                  extractor that treats every entry as hostile -> extracting the .7z release archives.
+    - `image`   - encode and decode bmp, gif, jpeg, png, tiff, avif, heif and webp behind one uniform
+                  API -> image IO. NOTE: this module already wraps avif-rs, heif-rs and webp-rs, so
+                  depend on rust-sak's `image` feature rather than on those crates directly.
+    - `image-raw` - camera RAW/DNG decoding on top of `image`, through zenraw over rawler/rawloader ->
+                  the RAW half of image loading. It covers 29 of the 47 RAW extensions this app
+                  recognises, and is a separate feature because it links zenraw (AGPL-3.0-only) and
+                  rawler/rawloader (LGPL-2.1), whose terms a binary built with it must ship under.
+    - `memo`    - memoization with pluggable storage (memory, disk, or memory-over-disk) and concurrent
+                  calls coalesced -> the per-operation run cache, including its disk/memory/none
+                  fallback modes, which line up with what `memo` already offers.
+    - `o11y`    - logs, metrics and traces to an OpenTelemetry collector over OTLP, exported on a
+                  background thread -> telemetry.
+
+    # media-rs for video loading
+
+    `media-rs` (https://github.com/vegidio/media-rs, cloned locally at ../media-rs) is a first-party crate. Before
+    writing any video code - video loading, frame extracting, video information, etc - CHECK `media-rs` FIRST. Read
+    the documentation at https://vegidio.github.io/media-rs - Do not reinvent something it already provides, and do not
+    reach for a third-party crate that duplicate it.
+
+    What it already covers (non-exhaustive):
+
+    - video loading
+    - seeking
+    - frame extraction
+
+    It has NO default features; enable exactly the ones needed. MSRV 1.95.
+
+    If a `rust-sak` or `media-rs` feature is close but incomplete - it does not cover a format, an option or an edge
+    case this project needs - do not work around it locally and do not fork the behaviour into `mediasim`. Judge whether
+    the missing piece belongs in `rust-sak` or `media-rs`: if it is general-purpose and another project could want it,
+    extend them, and only then consume it here. Treat that as explicit work - say so in the design, give it its own
+    tasks, and get the go-ahead before pushing to one of them, since consumers pin it by git tag and a push there is a
+    release. They are NOT published to crates.io - Only when the need is genuinely specific to this app does the
+    code belong in `mediasim` instead.
+
+    # Change size and slicing
+
+    No change may carry more than 15 tasks. When a feature would need more, do not create one oversized
+    change: divide it into slices of at most 15 tasks each, and make EACH SLICE ITS OWN CHANGE, so it
+    can be proposed, implemented, verified and archived on its own.
+
+    Divide by what a slice delivers, not by task count alone - each one should leave the project in a
+    working, testable state rather than half-wired. Order them so a slice only depends on slices before
+    it. Name them so the series is obvious (for example `add-dep-installer-1-download`,
+    `add-dep-installer-2-extract`).
+
+    Every slice's design.md must contain a section listing the WHOLE series: each slice in order, what
+    it delivers, what it depends on, and which ones are already done. Repeat that list in every slice,
+    not only the first - a change gets archived, and the plan has to stay visible to whoever picks up
+    the next one. Propose only the current slice's change; the remaining slices are proposed when they
+    are reached.
+
+    # Conventions
+
+    - Errors: `thiserror`, matching rust-sak and the other first-party crates.
+    - macOS, Windows and Linux are all shipping targets; never assume one of them.
+    - Tests live beside the code they cover.
+
+rules:
+    proposal:
+        - Say which crates the change touches (`mediasim`, `gui`, `cli`), and if it puts logic in a front end, justify why it is not shared logic belonging in `mediasim`.
+        - If the change needs infrastructure, state what you found in `rust-sak` or `media-rs` for it - including "nothing" - before proposing anything else. A proposal that rebuilds a `rust-sak`/`media-rs` module is wrong.
+        - 'Estimate the task count before writing anything else. If the feature needs more than 15 tasks, do not propose it as one change: divide it into slices, propose only the current slice as this change, and name it as part of the series.'
+    design:
+        - When the feature is sliced across several changes, include a "Slices" section listing the whole series in order - each slice's name, what it delivers, what it depends on, and whether it is done, current or pending. Include this list in EVERY slice's design.md, not only the first, and mark which slice this change is.
+        - State how the work divides across `mediasim`, `gui` and `cli`, and keep every piece of logic both front ends would need in `mediasim`.
+        - Name the `rust-sak`/`media-rs` features the design uses and, for anything it does not cover, say whether the gap should be filled by extending `rust-sak`/`media-rs` or by code local to this project - and why. Never introduce a third-party crate that duplicates a `rust-sak`/`media-rs` module.
+        - Name every other crate the change introduces and why it was chosen over the alternatives.
+    tasks:
+        - 'Never write more than 15 tasks. This is a hard limit: if the work does not fit, the change is too big and belongs in slices, each its own change - go back and re-scope rather than compressing several steps into one task.'
+        - Cover only this change's own slice. Do not add tasks for work a later slice will do.
+        - When the design calls for extending `rust-sak`/`media-rs`, give that its own tasks - change, test, release, then adopt here - rather than hiding it inside a task about this project.
+        - When a change is user-visible, give the frontend its own tasks (components, i18n keys, Tauri command bindings) rather than folding them into backend tasks.
+        - Include a task for `cargo fmt`, `cargo clippy` and the test suite whenever Rust code changes.
+
+operations:
+    apply:
+        guidance:
+            - Implement only this change's tasks. If the design lists later slices, leave them alone - they are separate changes.
+            - Before writing any infrastructure code, re-check ../rust-sak and ../media-rs for it. If you find yourself writing a downloader, a retry loop, an archive extractor, a hasher, an image codec wrapper, a cache, a hardware probe or a code to load videos, stop - that is a rust-sak/media-rs module.
+            - Work on `rust-sak` happens in its own repository at ../rust-sak; do not vendor or copy its code into this project, and confirm before pushing anything to it.
+            - Run `cargo fmt --check`, `cargo clippy` and `cargo test` before calling Rust work complete; run the frontend lint, typecheck and test scripts when the frontend changed.
+    archive:
+        guidance:
+            - If this change was one slice of a series, say which slices remain and name the next one to propose, so the series is not dropped half-finished.
+            - Record any parity gap the change knowingly left open, so a later change can pick it up instead of it being forgotten.
+            - If the change added anything to `rust-sak`/`media-rs`, note the version it landed in, so this project's dependency on it is traceable.

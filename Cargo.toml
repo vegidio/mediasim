@@ -1,5 +1,5 @@
 [workspace]
-members = ["mediasim", "cli"]
+members = ["crates/mediasim", "crates/cli"]
 resolver = "2"
 
 [workspace.dependencies]
