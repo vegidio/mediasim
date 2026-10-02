@@ -14,22 +14,9 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `from_dir` method for recursive image loading and tests">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`">
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/icon.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/metric.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/metric.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/core/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/src/media.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/tests/calculate_diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/tests/calculate_diff.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mediasim/tests/euc_metric.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/tests/euc_metric.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rustfmt.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rustfmt.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -85,61 +72,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0073910753650437" />
-      <entry key="MS500" value="1.374749900438887" />
-      <entry key="S2" value="1.782422637598714" />
-      <entry key="S5" value="1.9352977895882577" />
-      <entry key="S10" value="2.4591344504683215" />
-      <entry key="S30" value="6.772310596211184" />
-      <entry key="S60" value="12.333865159372449" />
-      <entry key="M2" value="20.525927161820647" />
-      <entry key="M5" value="41.09839878772206" />
-      <entry key="M10" value="65.94082938296053" />
-      <entry key="M15" value="83.35468353648504" />
-      <entry key="M30" value="117.36791886049205" />
-      <entry key="H1" value="153.02949937065335" />
-      <entry key="H2" value="201.92953208141273" />
-      <entry key="H4" value="278.5372370815526" />
-      <entry key="D1" value="445.8256094272436" />
-      <entry key="W1" value="494.1345085264182" />
+      <entry key="MS100" value="1.0000710896964407" />
+      <entry key="MS500" value="1.1490365779911962" />
+      <entry key="S2" value="1.7982282417229216" />
+      <entry key="S5" value="2.3274253941945204" />
+      <entry key="S10" value="2.6169427484869" />
+      <entry key="S30" value="2.8599528524215625" />
+      <entry key="S60" value="2.9283005014601176" />
+      <entry key="M2" value="2.9841473819403017" />
+      <entry key="M5" value="5.574005352248361" />
+      <entry key="M10" value="19.541858834487225" />
+      <entry key="M15" value="36.15997159427065" />
+      <entry key="M30" value="77.03023679501582" />
+      <entry key="H1" value="124.53680863444954" />
+      <entry key="H2" value="182.95622898251995" />
+      <entry key="H4" value="265.946272614076" />
+      <entry key="D1" value="444.5660467699626" />
+      <entry key="W1" value="496.45728533716374" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
-      <entry key="S5" value="7.994799339285979E-230" />
-      <entry key="S10" value="2.827507619668944E-115" />
-      <entry key="S30" value="6.563486474941522E-39" />
-      <entry key="S60" value="8.101534715682897E-20" />
-      <entry key="M2" value="2.846319503443499E-10" />
-      <entry key="M5" value="1.519544627741101E-4" />
-      <entry key="M10" value="0.01232698109078832" />
-      <entry key="M15" value="0.053362733731070734" />
-      <entry key="M30" value="0.2316417540595045" />
-      <entry key="H1" value="0.574496527681885" />
-      <entry key="H2" value="1.8377097870914747" />
-      <entry key="H4" value="4.833727348130057" />
-      <entry key="D1" value="12.331676983988126" />
-      <entry key="W1" value="14.584185540987875" />
+      <entry key="S5" value="7.202434602941188E-302" />
+      <entry key="S10" value="2.6837351961289225E-151" />
+      <entry key="S30" value="6.450299604398468E-51" />
+      <entry key="S60" value="8.031375725489664E-26" />
+      <entry key="M2" value="2.833968194156316E-13" />
+      <entry key="M5" value="9.571014820544147E-6" />
+      <entry key="M10" value="0.0030937056781426054" />
+      <entry key="M15" value="0.02123177222707796" />
+      <entry key="M30" value="0.1461136982060102" />
+      <entry key="H1" value="0.45627266601348454" />
+      <entry key="H2" value="1.637741862862076" />
+      <entry key="H4" value="4.563167502327404" />
+      <entry key="D1" value="12.21385754836534" />
+      <entry key="W1" value="14.564197780193052" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9797449408132008" />
-      <entry key="MS500" value="1.3661159147809683" />
-      <entry key="S2" value="1.7794119963912869" />
-      <entry key="S5" value="1.933969806318773" />
-      <entry key="S10" value="2.458285401473916" />
-      <entry key="S30" value="6.771529047426653" />
-      <entry key="S60" value="12.333149089241093" />
-      <entry key="M2" value="20.525308839457463" />
-      <entry key="M5" value="41.097892478299336" />
-      <entry key="M10" value="65.95240178970182" />
-      <entry key="M15" value="83.40726071447669" />
-      <entry key="M30" value="117.59880803151198" />
-      <entry key="H1" value="153.6033294293139" />
-      <entry key="H2" value="203.76637108933386" />
-      <entry key="H4" value="283.3698947606577" />
-      <entry key="D1" value="458.1568449039575" />
-      <entry key="W1" value="508.71861972159536" />
+      <entry key="MS100" value="0.9727245741039289" />
+      <entry key="MS500" value="1.1428799375103489" />
+      <entry key="S2" value="1.7956441478433682" />
+      <entry key="S5" value="2.325902445744044" />
+      <entry key="S10" value="2.6160349866564716" />
+      <entry key="S30" value="2.859607977539519" />
+      <entry key="S60" value="2.9281220295767123" />
+      <entry key="M2" value="2.984055960186715" />
+      <entry key="M5" value="5.5739367542126175" />
+      <entry key="M10" value="19.544744745757942" />
+      <entry key="M15" value="36.180878518815604" />
+      <entry key="M30" value="77.17586962902853" />
+      <entry key="H1" value="124.99254890320023" />
+      <entry key="H2" value="184.5931932790056" />
+      <entry key="H4" value="270.50842955027235" />
+      <entry key="D1" value="456.7794669009496" />
+      <entry key="W1" value="511.0214088551005" />
     </decayedShown>
   </component>
   <component name="OptimizeOnSaveOptions">
@@ -186,7 +173,9 @@
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/vegidio/Development/Source/mediasim",
     "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
     "nodejs_package_manager_path": "npm",
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "org.rust.first.attach.projects": "true",
@@ -197,6 +186,9 @@
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/fixtures" />
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Run cli">
@@ -298,20 +290,29 @@
       <option name="presentableId" value="LOCAL−00006" />
       <updated>1784210229265</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL−00007" summary="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`">
+      <option name="closed" value="true" />
+      <created>1790970141719</created>
+      <option name="number" value="LOCAL−00007" />
+      <option name="presentableId" value="LOCAL−00007" />
+      <updated>1790970141719</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <MESSAGE value="feat: Add `calculate_diff` function and integrate icon similarity calculation" />
     <MESSAGE value="refactor: Replace `image` crate with `rust-sak` for image decoding and errors" />
     <MESSAGE value="fix: Refine `calculate_diff` normalization and max-distance constants" />
     <MESSAGE value="feat: Add `Media` struct for media management with icon-based frame signatures" />
     <MESSAGE value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
     <MESSAGE value="feat: Add `from_dir` method for recursive image loading and tests" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `from_dir` method for recursive image loading and tests" />
+    <MESSAGE value="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

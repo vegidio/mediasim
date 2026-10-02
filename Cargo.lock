@@ -55,7 +55,7 @@ checksum = "0ae92a5119aa49cdbcf6b9f893fe4e1d98b04ccbf82ee0584ad948a44a734dea"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -115,9 +115,9 @@ dependencies = [
 
 [[package]]
 name = "avif-rs"
-version = "26.6.1"
+version = "26.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06339938dbb460f9af3228ea8a5f6273618cfa7f201ad29a6c65e153b7dfd2e8"
+checksum = "d03e6c65a29471c6d843e2eb6c36230e8291fb9e5570383304cf4695446a6e0d"
 dependencies = [
  "bindgen",
  "image",
@@ -158,7 +158,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex 1.3.0",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -327,7 +327,7 @@ checksum = "44f23cf4b44bfce11a86ace86f8a73ffdec849c9fd00a386a53d278bd9e81fb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -441,9 +441,9 @@ checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
 name = "heif-rs"
-version = "26.6.1"
+version = "26.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d499e82ab20429be471d265bd0e4e3d8b8f9fd60d28ca432163327e996736e7"
+checksum = "1864e5d0f2f9e82db410c2be5bdfd419909d9018ed82702481603a879a33a6d4"
 dependencies = [
  "bindgen",
  "image",
@@ -526,7 +526,7 @@ checksum = "c34819042dc3d3971c46c2190835914dfbe0c3c13f61449b2997f4e9722dfa60"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -719,7 +719,7 @@ checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -804,7 +804,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
 dependencies = [
  "proc-macro2",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -832,7 +832,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4488a4a36b9a4ba6b9334a32a39971f77c1436ec82c38707bce707699cc3bbcb"
 dependencies = [
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1021,12 +1021,13 @@ dependencies = [
 
 [[package]]
 name = "rust-sak"
-version = "1.0.0"
-source = "git+https://github.com/vegidio/rust-sak#16a08c7cf2350e9a330660b858410d77f035853f"
+version = "26.10.1"
+source = "git+https://github.com/vegidio/rust-sak?tag=26.10.1#c96ec993070aff3ff59cf3bdc82b6a7786499985"
 dependencies = [
  "avif-rs",
  "heif-rs",
  "image",
+ "thiserror",
  "webp-rs",
 ]
 
@@ -1134,23 +1135,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "thiserror"
-version = "2.0.18"
+name = "syn"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.18"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebc4ee7f67670e9b64d05fa4253e753e016c6c95ff35b89b7941d6b856dec1d5"
+checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -1278,7 +1290,7 @@ dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "wasm-bindgen-shared",
 ]
 
@@ -1293,9 +1305,9 @@ dependencies = [
 
 [[package]]
 name = "webp-rs"
-version = "26.6.1"
+version = "26.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "542c365fd6cc5c6627360ac8b240476193eb3224e85974b09c1c433f1af9212b"
+checksum = "bfc275210242b7fafedcc21100a97ba21f8c9a4e5000a52c7293f390073d4624"
 dependencies = [
  "bindgen",
  "image",
@@ -1427,7 +1439,7 @@ checksum = "1ae7f38b72ec2a254e2b87ef277cf2cd4fb97cbebf944faa6f33354da0867930"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
