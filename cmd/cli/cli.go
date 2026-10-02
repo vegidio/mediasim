@@ -19,6 +19,7 @@ type cmdContext struct {
 	frameRotate  bool
 	mediaType    string
 	ignoreErrors bool
+	noCache      bool
 	otel         *o11y.Telemetry
 }
 
@@ -162,6 +163,8 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						IsRecursive:   c.recursive,
 						Parallel:      numWorkers,
 						FrameOptions:  mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
+						UseCache:      !c.noCache,
+						Context:       ctx,
 					})
 
 					groups, err := c.loadAndGroup(mediaCh, total)
@@ -208,6 +211,8 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 						IsRecursive:   c.recursive,
 						Parallel:      numWorkers,
 						FrameOptions:  mediasim.FrameOptions{FrameFlip: c.frameFlip, FrameRotate: c.frameRotate},
+						UseCache:      !c.noCache,
+						Context:       ctx,
 					})
 
 					groups, err := c.loadAndGroup(mediaCh, total)
@@ -272,6 +277,14 @@ func buildCliCommands(otel *o11y.Telemetry) *cli.Command {
 				Value:       false,
 				DefaultText: "false",
 				Destination: &c.ignoreErrors,
+			},
+			&cli.BoolFlag{
+				Name:        "no-cache",
+				Aliases:     []string{"nc"},
+				Usage:       "don't use the cache file (" + mediasim.CacheFileName + ") when comparing files in a directory",
+				Value:       false,
+				DefaultText: "false",
+				Destination: &c.noCache,
 			},
 		},
 		Action: func(ctx context.Context, command *cli.Command) error {

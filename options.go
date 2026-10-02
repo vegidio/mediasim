@@ -1,6 +1,9 @@
 package mediasim
 
-import "runtime"
+import (
+	"context"
+	"runtime"
+)
 
 // FrameOptions represents the configuration options for loading media frames.
 //
@@ -36,12 +39,17 @@ func (o *FilesOptions) SetDefaults() {
 //   - IsRecursive: A flag indicating whether to search subdirectories recursively.
 //   - Parallel: The number of files to process in parallel.
 //   - FrameOptions: Frame transformation options (flip, rotate).
+//   - UseCache: A flag indicating whether to keep a cache file (CacheFileName) in the directory, so files that haven't
+//     changed since a previous (complete or interrupted) run are not processed again.
+//   - Context: An optional context; once cancelled, the remaining files are skipped and returned as errors.
 type DirectoryOptions struct {
 	IncludeImages bool
 	IncludeVideos bool
 	IsRecursive   bool
 	Parallel      int
 	FrameOptions
+	UseCache bool
+	Context  context.Context
 }
 
 func (o *DirectoryOptions) SetDefaults() {
@@ -54,5 +62,9 @@ func (o *DirectoryOptions) SetDefaults() {
 
 	if o.Parallel == 0 {
 		o.Parallel = runtime.NumCPU()
+	}
+
+	if o.Context == nil {
+		o.Context = context.Background()
 	}
 }

@@ -53,6 +53,12 @@ func LoadAndGroupMedia(
 					continue
 				}
 
+				// Drain the remaining items so the producer isn't blocked forever.
+				go func() {
+					for range channel {
+					}
+				}()
+
 				out <- LoadAndGroupResult{Err: r.Err, Done: true}
 				return
 			}

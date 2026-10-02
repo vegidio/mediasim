@@ -148,13 +148,7 @@ func LoadMediaFromFiles(filePaths []string, options FilesOptions) <-chan Result[
 	options.SetDefaults()
 
 	return async.SliceToChannel(filePaths, options.Parallel, func(filePath string) Result[Media] {
-		media, err := LoadMediaFromFile(filePath, options.FrameOptions)
-
-		if err == nil {
-			return Result[Media]{Data: *media}
-		} else {
-			return Result[Media]{Err: err}
-		}
+		return loadMediaResult(filePath, options.FrameOptions)
 	})
 }
 
@@ -193,8 +187,45 @@ func LoadMediaFromDirectory(directory string, options DirectoryOptions) (<-chan 
 		return result, 0
 	}
 
-	return LoadMediaFromFiles(filePaths, FilesOptions{
-		Parallel:     options.Parallel,
-		FrameOptions: options.FrameOptions,
-	}), len(filePaths)
+	ctx := options.Context
+
+	var cache *mediaCache
+	if options.UseCache {
+		// If the cache can't be used (e.g. read-only directory), the files are simply processed without it.
+		cache, _ = openCache(directory)
+	}
+
+	resultCh := async.SliceToChannel(filePaths, options.Parallel, func(filePath string) Result[Media] {
+		if err := ctx.Err(); err != nil {
+			return Result[Media]{Err: err}
+		}
+
+		if cache != nil {
+			return loadMediaWithCache(cache, directory, filePath, options.FrameOptions)
+		}
+
+		return loadMediaResult(filePath, options.FrameOptions)
+	})
+
+	if cache == nil {
+		return resultCh, len(filePaths)
+	}
+
+	out := make(chan Result[Media])
+
+	go func() {
+		defer close(out)
+		defer cache.close()
+
+		for r := range resultCh {
+			out <- r
+		}
+
+		// Only drop stale entries after a complete run; an interrupted run must keep everything for the next one.
+		if ctx.Err() == nil {
+			_ = cache.compact()
+		}
+	}()
+
+	return out, len(filePaths)
 }

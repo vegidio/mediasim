@@ -45,6 +45,8 @@ func (c *ComparisonService) StartComparison(
 			FrameFlip:   frameFlip,
 			FrameRotate: frameRotate,
 		},
+		UseCache: true,
+		Context:  ctx,
 	})
 
 	app := application.Get()
