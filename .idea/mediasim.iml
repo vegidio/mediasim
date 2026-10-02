@@ -7,6 +7,7 @@
       <sourceFolder url="file://$MODULE_DIR$/mediasim/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/mediasim/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/cli/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/mediasim/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/mediasim/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
