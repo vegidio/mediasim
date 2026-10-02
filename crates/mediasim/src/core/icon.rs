@@ -6,16 +6,13 @@
 
 // The pipeline relies on intentional truncating/lossy casts to reproduce the reference's fixed-point
 // arithmetic exactly.
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_precision_loss)]
 
-use std::fmt;
 use std::path::Path;
 
 use image::DynamicImage;
+
+use crate::MediaError;
 
 use super::consts::{
     ICON_SIZE, INV_SAMPLE_PIXELS2, LARGE_ICON_SIZE, NUM_PIX, ONE_255TH, ONE_NINTH, RESIZED_IMG_SIZE, SAMPLES, SQ255,
@@ -47,9 +44,10 @@ impl Icon {
     ///
     /// # Errors
     ///
-    /// Returns an [`IconError`] if the file cannot be read or decoded.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, IconError> {
-        let img = rust_sak::image::decode_file(path)?;
+    /// Returns [`MediaError::Image`] if the file cannot be read or decoded.
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, MediaError> {
+        let path = path.as_ref();
+        let img = rust_sak::image::decode_file(path).map_err(|e| MediaError::image(path, e))?;
         Ok(Self::from_image(&img))
     }
 
@@ -72,28 +70,6 @@ impl Icon {
     pub(crate) fn from_raw(pixels: Vec<u16>, img_size: (u32, u32)) -> Self {
         assert_eq!(pixels.len(), NUM_PIX * 3, "icon buffer must hold 3 channels of NUM_PIX values");
         Self { pixels, img_size }
-    }
-}
-
-/// Error returned when an image cannot be loaded into an [`Icon`].
-#[derive(Debug)]
-pub struct IconError(rust_sak::image::ImageError);
-
-impl fmt::Display for IconError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "failed to load image: {}", self.0)
-    }
-}
-
-impl std::error::Error for IconError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
-impl From<rust_sak::image::ImageError> for IconError {
-    fn from(err: rust_sak::image::ImageError) -> Self {
-        Self(err)
     }
 }
 
@@ -155,11 +131,8 @@ fn icon_nn(img: &DynamicImage) -> Icon {
             let sx = (x as f64 * x_scale) as u32;
             let px = rgba.get_pixel(sx, sy).0;
             let a = px[3];
-            resized[y * RESIZED_IMG_SIZE + x] = [
-                rgba_8bit(px[0], a) as u8,
-                rgba_8bit(px[1], a) as u8,
-                rgba_8bit(px[2], a) as u8,
-            ];
+            resized[y * RESIZED_IMG_SIZE + x] =
+                [rgba_8bit(px[0], a) as u8, rgba_8bit(px[1], a) as u8, rgba_8bit(px[2], a) as u8];
         }
     }
 
@@ -212,10 +185,7 @@ fn icon_nn(img: &DynamicImage) -> Icon {
         }
     }
 
-    Icon {
-        pixels,
-        img_size: (width, height),
-    }
+    Icon { pixels, img_size: (width, height) }
 }
 
 /// Stretches each channel's histogram so its min/max map to `0` / `65025`.
@@ -391,7 +361,8 @@ mod tests {
     #[test]
     fn from_path_missing_file_errors() {
         let err = Icon::from_path("definitely-not-a-real-file.jpg").unwrap_err();
-        assert!(err.to_string().starts_with("failed to load image"));
+        assert!(matches!(err, MediaError::Image { .. }));
+        assert!(err.to_string().contains("definitely-not-a-real-file.jpg"));
         assert!(std::error::Error::source(&err).is_some());
     }
 }

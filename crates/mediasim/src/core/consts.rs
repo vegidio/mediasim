@@ -41,7 +41,7 @@ pub const SQ255: f64 = 255.0 * 255.0;
 ///
 /// The literal carries a few digits of floating-point dust from its original computation; the exact
 /// mathematical value is `2805.0`.
-pub const MAX_EUC_DIST: f64 = 2805.0000001658486;
+pub const MAX_EUC_DIST: f64 = 2_805.000_000_165_848_6;
 
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::cast_precision_loss)]

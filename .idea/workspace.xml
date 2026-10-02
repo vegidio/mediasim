@@ -14,9 +14,22 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata">
+      <change afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/calculate_diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/tests/calculate_diff.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-media-loading/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-media-loading/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-media-loading/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-media-loading/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -59,10 +72,10 @@
     &quot;accountId&quot;: &quot;2e257563-a324-4441-892e-f2fa11f9b83e&quot;
   }
 }</component>
-  <component name="KmpPackageLockUpdaterState"><![CDATA[{
-  "jsModulesKotlinGradlePluginVersion": {},
-  "wasmModulesKotlinGradlePluginVersion": {}
-}]]></component>
+  <component name="KmpPackageLockUpdaterState">{
+  &quot;jsModulesKotlinGradlePluginVersion&quot;: {},
+  &quot;wasmModulesKotlinGradlePluginVersion&quot;: {}
+}</component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="k1QbQtY5" />
   </component>
@@ -72,61 +85,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000710896964407" />
-      <entry key="MS500" value="1.1490365779911962" />
-      <entry key="S2" value="1.7982282417229216" />
-      <entry key="S5" value="2.3274253941945204" />
-      <entry key="S10" value="2.6169427484869" />
-      <entry key="S30" value="2.8599528524215625" />
-      <entry key="S60" value="2.9283005014601176" />
-      <entry key="M2" value="2.9841473819403017" />
-      <entry key="M5" value="5.574005352248361" />
-      <entry key="M10" value="19.541858834487225" />
-      <entry key="M15" value="36.15997159427065" />
-      <entry key="M30" value="77.03023679501582" />
-      <entry key="H1" value="124.53680863444954" />
-      <entry key="H2" value="182.95622898251995" />
-      <entry key="H4" value="265.946272614076" />
-      <entry key="D1" value="444.5660467699626" />
-      <entry key="W1" value="496.45728533716374" />
+      <entry key="MS100" value="1.0059207678379312" />
+      <entry key="MS500" value="1.3584888120039569" />
+      <entry key="S2" value="1.773782496771195" />
+      <entry key="S5" value="1.9025007274624302" />
+      <entry key="S10" value="1.950000382874886" />
+      <entry key="S30" value="1.9830477045566721" />
+      <entry key="S60" value="1.9914889389220016" />
+      <entry key="M2" value="1.9981100008089667" />
+      <entry key="M5" value="2.2279372684015923" />
+      <entry key="M10" value="3.195734723557675" />
+      <entry key="M15" value="4.938525377317454" />
+      <entry key="M30" value="18.39226555285208" />
+      <entry key="H1" value="57.797172190251565" />
+      <entry key="H2" value="124.79383461841914" />
+      <entry key="H4" value="221.01917044526894" />
+      <entry key="D1" value="437.1869728952132" />
+      <entry key="W1" value="502.80428891245805" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="7.202434602941188E-302" />
-      <entry key="S10" value="2.6837351961289225E-151" />
-      <entry key="S30" value="6.450299604398468E-51" />
-      <entry key="S60" value="8.031375725489664E-26" />
-      <entry key="M2" value="2.833968194156316E-13" />
-      <entry key="M5" value="9.571014820544147E-6" />
-      <entry key="M10" value="0.0030937056781426054" />
-      <entry key="M15" value="0.02123177222707796" />
-      <entry key="M30" value="0.1461136982060102" />
-      <entry key="H1" value="0.45627266601348454" />
-      <entry key="H2" value="1.637741862862076" />
-      <entry key="H4" value="4.563167502327404" />
-      <entry key="D1" value="12.21385754836534" />
-      <entry key="W1" value="14.564197780193052" />
+      <entry key="MS100" value="1.1846629459140631E-49" />
+      <entry key="MS500" value="1.6395284641907546E-10" />
+      <entry key="S2" value="0.0035783246505148372" />
+      <entry key="S5" value="0.10506834612225344" />
+      <entry key="S10" value="0.32414247812073854" />
+      <entry key="S30" value="0.6869292077744606" />
+      <entry key="S60" value="0.8288119657322622" />
+      <entry key="M2" value="0.9105917787077833" />
+      <entry key="M5" value="0.9963345016101184" />
+      <entry key="M10" value="1.163596134759494" />
+      <entry key="M15" value="1.3095221842530769" />
+      <entry key="M30" value="1.5850536500091477" />
+      <entry key="H1" value="1.9362473416266373" />
+      <entry key="H2" value="2.913064291290247" />
+      <entry key="H4" value="5.579104245133019" />
+      <entry key="D1" value="13.754914693751973" />
+      <entry key="W1" value="16.485113811986196" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9727245741039289" />
-      <entry key="MS500" value="1.1428799375103489" />
-      <entry key="S2" value="1.7956441478433682" />
-      <entry key="S5" value="2.325902445744044" />
-      <entry key="S10" value="2.6160349866564716" />
-      <entry key="S30" value="2.859607977539519" />
-      <entry key="S60" value="2.9281220295767123" />
-      <entry key="M2" value="2.984055960186715" />
-      <entry key="M5" value="5.5739367542126175" />
-      <entry key="M10" value="19.544744745757942" />
-      <entry key="M15" value="36.180878518815604" />
-      <entry key="M30" value="77.17586962902853" />
-      <entry key="H1" value="124.99254890320023" />
-      <entry key="H2" value="184.5931932790056" />
-      <entry key="H4" value="270.50842955027235" />
-      <entry key="D1" value="456.7794669009496" />
-      <entry key="W1" value="511.0214088551005" />
+      <entry key="MS100" value="0.9919915686234025" />
+      <entry key="MS500" value="1.3537376807603394" />
+      <entry key="S2" value="1.774881151929825" />
+      <entry key="S5" value="1.9978311707205345" />
+      <entry key="S10" value="2.2596112704116584" />
+      <entry key="S30" value="2.659709955827152" />
+      <entry key="S60" value="2.8140981902929796" />
+      <entry key="M2" value="2.905290442516108" />
+      <entry key="M5" value="3.222716060647592" />
+      <entry key="M10" value="4.358289231128614" />
+      <entry key="M15" value="6.247186696811329" />
+      <entry key="M30" value="19.976674309151537" />
+      <entry key="H1" value="59.732867016842974" />
+      <entry key="H2" value="127.70621806896652" />
+      <entry key="H4" value="226.59737027875812" />
+      <entry key="D1" value="450.9414494346612" />
+      <entry key="W1" value="519.2893264471126" />
     </decayedShown>
   </component>
   <component name="OptimizeOnSaveOptions">
@@ -152,39 +165,40 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Cargo.Run cli.executor": "Run",
-    "CidrDebugProfileConversion": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.go.formatter.settings.were.checked": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "cidr.known.project.marker": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "rust",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/vegidio/Development/Source/mediasim",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.jshint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.jshint": "",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "actions.on.save",
-    "to.speed.mode.migration.done": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Cargo.Run cli.executor&quot;: &quot;Run&quot;,
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;rust&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/vegidio/Development/Source/mediasim/fixtures&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;actions.on.save&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/fixtures" />
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -192,6 +206,12 @@
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Run cli">
+    <configuration default="true" type="AppleRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" IS_LOCATION_SIMULATION_SUPPORTED="false" IS_LOCATION_SIMULATION_ALLOWED="true" APPLICATION_LANGUAGE="IDELaunchSchemeLanguageUseSystemLanguage" APPLICATION_REGION="" DEVELOPMENT_TEAM="" MAKE_ACTIVE="TRUE" SHOULD_DEBUG_EXTENSIONS="false">
+      <embedded_app_extension_list />
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run cli" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package cli --bin cli" />
@@ -297,7 +317,21 @@
       <option name="presentableId" value="LOCAL−00007" />
       <updated>1790970141719</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL−00008" summary="build: Update dependencies in `Cargo.lock` and pin `rust-sak` to version `26.10.1`">
+      <option name="closed" value="true" />
+      <created>1790971676149</created>
+      <option name="number" value="LOCAL−00008" />
+      <option name="presentableId" value="LOCAL−00008" />
+      <updated>1790971676149</updated>
+    </task>
+    <task id="LOCAL−00009" summary="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata">
+      <option name="closed" value="true" />
+      <created>1790975043379</created>
+      <option name="number" value="LOCAL−00009" />
+      <option name="presentableId" value="LOCAL−00009" />
+      <updated>1790975043379</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -312,7 +346,9 @@
     <MESSAGE value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
     <MESSAGE value="feat: Add `from_dir` method for recursive image loading and tests" />
     <MESSAGE value="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`" />
-    <option name="LAST_COMMIT_MESSAGE" value="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`" />
+    <MESSAGE value="build: Update dependencies in `Cargo.lock` and pin `rust-sak` to version `26.10.1`" />
+    <MESSAGE value="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

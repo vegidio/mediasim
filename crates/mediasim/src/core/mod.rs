@@ -4,9 +4,9 @@
 //! icon → per-channel histogram normalization → squared Euclidean distance.
 
 mod consts;
+pub mod diff;
 pub mod icon;
 pub mod metric;
-pub mod diff;
 
-pub use icon::{Icon, IconError};
+pub use icon::Icon;
 pub use metric::euc_metric;
