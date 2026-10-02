@@ -1,6 +1,8 @@
-//! The error type for loading media.
+//! The error types for loading and comparing media.
 
 use std::path::{Path, PathBuf};
+
+use crate::MediaType;
 
 /// An error raised while loading a media file or scanning a directory.
 ///
@@ -86,6 +88,26 @@ impl MediaError {
     }
 }
 
+/// An error raised while comparing two loaded media files.
+///
+/// Kept apart from [`MediaError`] because a comparison involves two files and no I/O.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum CompareError {
+    /// An image was compared with a video.
+    #[error("cannot compare {left_type} {} with {right_type} {}", left.display(), right.display())]
+    MediaTypeMismatch {
+        /// The media the comparison was called on.
+        left: PathBuf,
+        /// The type of `left`.
+        left_type: MediaType,
+        /// The media it was compared with.
+        right: PathBuf,
+        /// The type of `right`.
+        right_type: MediaType,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use std::error::Error;
@@ -130,5 +152,17 @@ mod tests {
         let MediaError::Io { path, source } = err else { panic!("expected Io") };
         assert_eq!(path, Path::new("dir"));
         assert_eq!(source.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn type_mismatch_names_both_paths_and_types() {
+        let err = CompareError::MediaTypeMismatch {
+            left: "a.png".into(),
+            left_type: MediaType::Image,
+            right: "b.mp4".into(),
+            right_type: MediaType::Video,
+        };
+
+        assert_eq!(err.to_string(), "cannot compare image a.png with video b.mp4");
     }
 }
