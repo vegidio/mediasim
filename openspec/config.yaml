@@ -73,6 +73,14 @@ context: |
     release. They are NOT published to crates.io - Only when the need is genuinely specific to this app does the
     code belong in `mediasim` instead.
 
+    # The Go version is a behavioural reference, not a template
+
+    The original Go implementation lives on the `main` branch. It works, but it is not always the best
+    implementation. Use it only as inspiration for how the app should behave in the end - what it does and what the
+    user sees - never as code to translate line by line into Rust. Where there is a better way to implement something,
+    take it: write the most idiomatic, performant and clean code for modern (2026) Rust, even when that means
+    diverging from how the Go code is structured or how it solves a problem.
+
     # Change size and slicing
 
     No change may carry more than 15 tasks. When a feature would need more, do not create one oversized

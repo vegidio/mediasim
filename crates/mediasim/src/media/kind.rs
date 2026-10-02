@@ -1,5 +1,6 @@
 //! Classifies a path as an image or a video from its extension.
 
+use std::fmt;
 use std::path::Path;
 
 use super::MediaType;
@@ -27,6 +28,16 @@ impl MediaType {
     }
 }
 
+impl fmt::Display for MediaType {
+    /// Writes the lowercase name of the type: `image` or `video`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Image => "image",
+            Self::Video => "video",
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,5 +62,11 @@ mod tests {
     fn unknown_or_missing_extension_is_unsupported() {
         assert_eq!(MediaType::from_path("notes.txt"), None);
         assert_eq!(MediaType::from_path("README"), None);
+    }
+
+    #[test]
+    fn displays_as_lowercase_name() {
+        assert_eq!(MediaType::Image.to_string(), "image");
+        assert_eq!(MediaType::Video.to_string(), "video");
     }
 }
