@@ -1,9 +1,9 @@
-use mediasim::core::diff::calculate_diff;
 use mediasim::Icon;
+use mediasim::core::diff::calculate_diff;
 
 fn main() {
     let a = Icon::from_path("test1.jpg").unwrap();
     let b = Icon::from_path("test2.jpg").unwrap();
 
-    println!("{:?}", 1.0 - calculate_diff(a, b));
+    println!("{:?}", 1.0 - calculate_diff(&a, &b));
 }

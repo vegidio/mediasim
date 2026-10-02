@@ -10,14 +10,16 @@
 //! let b = Icon::from_path("b.jpg")?;
 //! let (m1, m2, m3) = euc_metric(&a, &b);
 //! println!("m1 = {m1}, m2 = {m2}, m3 = {m3}");
-//! # Ok::<(), mediasim::IconError>(())
+//! # Ok::<(), mediasim::MediaError>(())
 //! ```
 
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 
 pub mod core;
+mod error;
 pub mod media;
 
-pub use core::{Icon, IconError, euc_metric};
-pub use media::Media;
+pub use core::{Icon, euc_metric};
+pub use error::MediaError;
+pub use media::{LoadOptions, Media, MediaStream, MediaType};
