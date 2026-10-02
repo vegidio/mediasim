@@ -6,6 +6,8 @@ import { Icon, ToolbarButton } from '@/components/atoms';
 import { TileSlider } from '@/components/molecules';
 import { useCheckedStore, useComparisonStore, useSelectionStore } from '@/stores';
 
+const DELETE_BATCH_SIZE = 200;
+
 type BottomBarProps = TailwindProps & {
     onClose?: () => void;
     onCompare?: () => void;
@@ -16,7 +18,7 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
     const removeFiles = useComparisonStore((s) => s.removeFiles);
     const autoMark = useCheckedStore((s) => s.autoMark);
     const checkedPaths = useCheckedStore((s) => s.checkedPaths);
-    const clearChecked = useCheckedStore((s) => s.clear);
+    const uncheck = useCheckedStore((s) => s.uncheck);
     const toggle = useCheckedStore((s) => s.toggle);
     const selectedPath = useSelectionStore((s) => s.selectedPath);
     const isMarked = selectedPath !== undefined && checkedPaths.has(selectedPath);
@@ -34,9 +36,34 @@ export const BottomBar = ({ onClose, onCompare }: BottomBarProps) => {
         if (result !== 'Continue') return;
 
         const paths = [...checkedPaths];
-        await DeleteFiles(paths);
-        removeFiles(checkedPaths);
-        clearChecked();
+        const deleted: string[] = [];
+        let error: unknown;
+
+        // Delete in batches to keep each runtime request small; large bodies are chunked by the JS runtime, which the
+        // Go side doesn't support.
+        try {
+            for (let i = 0; i < paths.length; i += DELETE_BATCH_SIZE) {
+                deleted.push(...(await DeleteFiles(paths.slice(i, i + DELETE_BATCH_SIZE))));
+            }
+        } catch (e) {
+            error = e;
+        }
+
+        const deletedSet = new Set(deleted);
+        removeFiles(deletedSet);
+        uncheck(deletedSet);
+
+        if (error) {
+            await Dialogs.Error({
+                Title: 'Delete Marked',
+                Message: `An error occurred while deleting files: ${error instanceof Error ? error.message : String(error)}`,
+            });
+        } else if (deleted.length < paths.length) {
+            await Dialogs.Warning({
+                Title: 'Delete Marked',
+                Message: `${paths.length - deleted.length} of ${paths.length} files could not be deleted.`,
+            });
+        }
     };
 
     return (

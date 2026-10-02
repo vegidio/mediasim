@@ -24,7 +24,7 @@ importers:
         specifier: ^3.14.3
         version: 3.14.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@wailsio/runtime':
-        specifier: latest
+        specifier: 3.0.0-alpha.94
         version: 3.0.0-alpha.94
       immer:
         specifier: ^11.1.4

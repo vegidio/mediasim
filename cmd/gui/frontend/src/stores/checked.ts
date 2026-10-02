@@ -6,6 +6,7 @@ type CheckedStore = {
     checkedPaths: Set<string>;
     toggle: (path: string) => void;
     autoMark: (groups: ComparisonGroup[]) => void;
+    uncheck: (paths: Set<string>) => void;
     clear: () => void;
 };
 
@@ -30,6 +31,13 @@ export const useCheckedStore = create<CheckedStore>()(
                     for (const media of rest) {
                         state.checkedPaths.add(media.path);
                     }
+                }
+            }),
+
+        uncheck: (paths) =>
+            set((state) => {
+                for (const path of paths) {
+                    state.checkedPaths.delete(path);
                 }
             }),
 

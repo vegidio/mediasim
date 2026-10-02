@@ -17,7 +17,7 @@
         "@fontsource/roboto": "^5.2.10",
         "@mui/material": "^7.3.9",
         "@tanstack/react-virtual": "^3.14.3",
-        "@wailsio/runtime": "latest",
+        "@wailsio/runtime": "3.0.0-alpha.94",
         "immer": "^11.1.4",
         "lru-cache": "^10.4.3",
         "pathe": "^2.0.3",
