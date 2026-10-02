@@ -3,9 +3,11 @@ members = ["crates/mediasim", "crates/cli"]
 resolver = "2"
 
 [workspace.dependencies]
+clap = { version = "4.6", features = ["derive"] }
 image = "0.25.10"
 # No tags published yet; switch to a tag once one exists.
 media = { package = "media-rs", git = "https://github.com/vegidio/media-rs", rev = "6e268e08b29b55f3a2427f23de5b2d50d4c6bf51" }
+ratatui = "0.30"
 rayon = "1"
 rust-sak = { git = "https://github.com/vegidio/rust-sak", tag = "26.10.1", features = ["fs", "image"] }
 thiserror = "2"

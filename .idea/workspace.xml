@@ -14,12 +14,12 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `Media`-level similarity API with DTW and error handling for mixed types">
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/error.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/error.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/kind.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/kind.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-score-1-similarity/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-score-1-similarity/tasks.md" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs">
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-score-2-cli/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-score-2-cli/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -328,7 +328,14 @@
       <option name="presentableId" value="LOCAL−00010" />
       <updated>1790977190333</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL−00011" summary="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs">
+      <option name="closed" value="true" />
+      <created>1790977865952</created>
+      <option name="number" value="LOCAL−00011" />
+      <option name="presentableId" value="LOCAL−00011" />
+      <updated>1790977865952</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -346,7 +353,8 @@
     <MESSAGE value="build: Update dependencies in `Cargo.lock` and pin `rust-sak` to version `26.10.1`" />
     <MESSAGE value="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata" />
     <MESSAGE value="feat: Add `Media`-level similarity API with DTW and error handling for mixed types" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `Media`-level similarity API with DTW and error handling for mixed types" />
+    <MESSAGE value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
