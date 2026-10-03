@@ -2,6 +2,8 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
+use std::sync::OnceLock;
 
 use rayon::prelude::*;
 
@@ -49,19 +51,23 @@ impl Grouper {
 
     /// Adds `media`, comparing it in parallel with every earlier media of the same type and merging it into the
     /// group of each one it matches.
+    ///
+    /// The comparisons run on their own pool, not on rayon's global pool, so a push does not wait for a batch load
+    /// such as [`Media::from_files`] that is still decoding files.
     pub fn push(&mut self, media: Media) {
-        let matches: Vec<usize> = self
-            .media
-            .par_iter()
-            .enumerate()
-            .filter(|(_, earlier)| earlier.media_type == media.media_type)
-            .filter_map(|(i, earlier)| match earlier.similarity(&media) {
-                Ok(score) => (score >= self.threshold).then_some(i),
-                Err(err @ CompareError::MediaTypeMismatch { .. }) => {
-                    unreachable!("only media of the same type are compared: {err}")
-                }
-            })
-            .collect();
+        let matches: Vec<usize> = compare_pool().install(|| {
+            self.media
+                .par_iter()
+                .enumerate()
+                .filter(|(_, earlier)| earlier.media_type == media.media_type)
+                .filter_map(|(i, earlier)| match earlier.similarity(&media) {
+                    Ok(score) => (score >= self.threshold).then_some(i),
+                    Err(err @ CompareError::MediaTypeMismatch { .. }) => {
+                        unreachable!("only media of the same type are compared: {err}")
+                    }
+                })
+                .collect()
+        });
 
         let index = self.dsu.push();
         for earlier in matches {
@@ -111,6 +117,19 @@ impl Extend<Media> for Grouper {
             self.push(media);
         }
     }
+}
+
+/// The process-wide pool that runs `Grouper` comparisons, created on first use.
+fn compare_pool() -> &'static rayon::ThreadPool {
+    static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
+
+    POOL.get_or_init(|| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(std::thread::available_parallelism().map_or(1, NonZeroUsize::get))
+            .thread_name(|i| format!("mediasim-compare-{i}"))
+            .build()
+            .expect("failed to spawn the comparison threads")
+    })
 }
 
 /// Orders media best first: longer duration, then more pixels, then larger file, with the path as the tie-break.
