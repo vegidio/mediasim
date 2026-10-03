@@ -1,33 +1,14 @@
 //! Runs the `mediasim` binary on the sample files in `fixtures`, with its output piped.
 
-use std::path::{Path, PathBuf};
+mod common;
+
+use std::path::Path;
 use std::process::{Command, Output};
 
-fn fixture(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
-}
+use common::{assert_fails, assert_usage_error, fixture, stderr, stdout};
 
 fn mediasim(args: &[&Path]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_mediasim")).arg("score").args(args).output().unwrap()
-}
-
-fn stdout(output: &Output) -> String {
-    String::from_utf8(output.stdout.clone()).unwrap()
-}
-
-fn stderr(output: &Output) -> String {
-    String::from_utf8(output.stderr.clone()).unwrap()
-}
-
-/// Asserts a failed run: the exit code, nothing on stdout, and a `🧨` line without escapes on stderr.
-fn assert_fails(output: &Output) -> String {
-    let stderr = stderr(output);
-
-    assert_eq!(output.status.code(), Some(1), "{stderr}");
-    assert!(output.stdout.is_empty(), "stdout: {}", stdout(output));
-    assert!(stderr.starts_with("🧨 "), "{stderr}");
-    assert!(!stderr.contains('\x1b'), "{stderr:?}");
-    stderr
 }
 
 #[test]
@@ -77,16 +58,14 @@ fn missing_file_is_named() {
 fn one_path_is_a_usage_error() {
     let output = mediasim(&[&fixture("test1.png")]);
 
-    assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty(), "stdout: {}", stdout(&output));
+    assert_usage_error(&output);
 }
 
 #[test]
 fn three_paths_is_a_usage_error() {
     let output = mediasim(&[&fixture("test1.png"), &fixture("test2.png"), &fixture("test1.png")]);
 
-    assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty(), "stdout: {}", stdout(&output));
+    assert_usage_error(&output);
 }
 
 #[test]

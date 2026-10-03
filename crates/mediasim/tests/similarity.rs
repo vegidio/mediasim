@@ -1,13 +1,9 @@
 //! End-to-end checks for `Media::similarity` over the sample files in `fixtures`.
 
-use std::path::{Path, PathBuf};
+mod common;
 
+use common::load;
 use mediasim::{CompareError, Media, MediaType};
-
-fn load(name: &str) -> Media {
-    let path: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name);
-    Media::from_file(&path).unwrap_or_else(|e| panic!("{e}"))
-}
 
 /// Asserts that `a` and `b` score in `[0, 1]`, identically in either order, and returns the score.
 fn assert_in_range_and_symmetric(a: &Media, b: &Media) -> f64 {

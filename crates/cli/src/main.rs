@@ -9,6 +9,8 @@ mod group;
 mod output;
 mod progress;
 mod score;
+#[cfg(test)]
+mod test_support;
 
 use std::io::IsTerminal;
 use std::process::ExitCode;
@@ -34,10 +36,11 @@ fn main() -> ExitCode {
         // The shell's convention for a process ended by SIGINT.
         Err(CliError::Interrupted) => ExitCode::from(130),
         Err(err) => {
-            if std::io::stderr().is_terminal() {
+            let stderr = std::io::stderr();
+            if stderr.is_terminal() {
                 eprintln!();
             }
-            eprintln!("{}", output::error(&err, output::stderr_color()));
+            eprintln!("{}", output::error(&err, output::color_for(&stderr)));
             ExitCode::FAILURE
         }
     }

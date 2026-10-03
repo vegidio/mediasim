@@ -19,15 +19,16 @@
 //! ```
 //!
 //! The building blocks are public too: [`Icon`] is the compact 11×11 visual signature of one frame, and
-//! [`euc_metric`] the per-channel distance between two of them.
+//! [`euc_metric`] the per-channel distance between two of them, which [`calculate_diff`] folds into one number.
 
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 
-pub mod core;
+mod core;
 mod error;
-pub mod media;
+mod media;
+mod pool;
 
-pub use core::{Grouper, Icon, euc_metric};
+pub use core::{Grouper, Icon, calculate_diff, euc_metric};
 pub use error::{CompareError, MediaError};
 pub use media::{LoadOptions, Media, MediaStream, MediaType};

@@ -8,11 +8,7 @@
 // arithmetic exactly.
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_precision_loss)]
 
-use std::path::Path;
-
-use image::DynamicImage;
-
-use crate::MediaError;
+use image::{GenericImageView, Pixel};
 
 use super::consts::{
     ICON_SIZE, INV_SAMPLE_PIXELS2, LARGE_ICON_SIZE, NUM_PIX, ONE_255TH, ONE_NINTH, RESIZED_IMG_SIZE, SAMPLES, SQ255,
@@ -26,35 +22,22 @@ use super::consts::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Icon {
     pixels: Vec<u16>,
-    img_size: (u32, u32),
 }
 
 impl Icon {
-    /// Generates a normalized icon from an already-decoded image.
+    /// Generates a normalized icon from an already-decoded image, such as a
+    /// [`DynamicImage`](image::DynamicImage) or a borrowed RGB frame buffer.
     ///
     /// Builds the non-normalized icon, then stretches each channel's histogram for maximum contrast.
     #[must_use]
-    pub fn from_image(img: &DynamicImage) -> Self {
-        let mut icon = icon_nn(img);
-        normalize(&mut icon.pixels);
-        icon
-    }
-
-    /// Opens, decodes, and converts an image file into an [`Icon`].
-    ///
-    /// # Errors
-    ///
-    /// Returns [`MediaError::Image`] if the file cannot be read or decoded.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, MediaError> {
-        let path = path.as_ref();
-        let img = rust_sak::image::decode_file(path).map_err(|e| MediaError::image(path, e))?;
-        Ok(Self::from_image(&img))
-    }
-
-    /// The original (pre-resize) image dimensions as `(width, height)`.
-    #[must_use]
-    pub fn img_size(&self) -> (u32, u32) {
-        self.img_size
+    pub fn from_image<I>(img: &I) -> Self
+    where
+        I: GenericImageView,
+        I::Pixel: Pixel<Subpixel = u8>,
+    {
+        let mut pixels = icon_nn(img);
+        normalize(&mut pixels);
+        Self { pixels }
     }
 
     /// The raw channel-major pixel buffer (`3 * ICON_SIZE * ICON_SIZE` values).
@@ -67,11 +50,24 @@ impl Icon {
     /// Test-only: lets the metric/diff unit tests construct icons with exact, hand-picked pixel values
     /// without going through the full decode pipeline.
     #[cfg(test)]
-    pub(crate) fn from_raw(pixels: Vec<u16>, img_size: (u32, u32)) -> Self {
+    pub(crate) fn from_raw(pixels: Vec<u16>) -> Self {
         assert_eq!(pixels.len(), NUM_PIX * 3, "icon buffer must hold 3 channels of NUM_PIX values");
-        Self { pixels, img_size }
+        Self { pixels }
+    }
+
+    /// Test-only: an icon whose three channels are filled with the constants `y`, `cb` and `cr`.
+    #[cfg(test)]
+    pub(crate) fn solid(y: u16, cb: u16, cr: u16) -> Self {
+        let mut pixels = vec![y; NUM_PIX * 3];
+        pixels[NUM_PIX..2 * NUM_PIX].fill(cb);
+        pixels[2 * NUM_PIX..].fill(cr);
+        Self::from_raw(pixels)
     }
 }
+
+/// Neutral chroma: the midpoint of the premultiplied range.
+#[cfg(test)]
+pub(crate) const GREY: u16 = 32_640;
 
 /// Maps a 2D point and channel to a 1D index in the channel-major pixel buffer.
 const fn arr_index(x: usize, y: usize, size: usize, ch: usize) -> usize {
@@ -114,10 +110,13 @@ const fn rgba_8bit(c: u8, a: u8) -> u32 {
     v >> 8
 }
 
-/// Builds the non-normalized icon.
-fn icon_nn(img: &DynamicImage) -> Icon {
-    let rgba = img.to_rgba8();
-    let (width, height) = rgba.dimensions();
+/// Builds the non-normalized icon's pixels, sampling `img` in place rather than converting all of it first.
+fn icon_nn<I>(img: &I) -> Vec<u16>
+where
+    I: GenericImageView,
+    I::Pixel: Pixel<Subpixel = u8>,
+{
+    let (width, height) = img.dimensions();
 
     // --- Nearest-neighbour resize to RESIZED_IMG_SIZE². ---
     // Stored row-major as 8-bit (premultiplied) RGB; a second premultiplied read would be the identity on
@@ -129,7 +128,7 @@ fn icon_nn(img: &DynamicImage) -> Icon {
         let sy = (y as f64 * y_scale) as u32;
         for x in 0..RESIZED_IMG_SIZE {
             let sx = (x as f64 * x_scale) as u32;
-            let px = rgba.get_pixel(sx, sy).0;
+            let px = img.get_pixel(sx, sy).to_rgba().0;
             let a = px[3];
             resized[y * RESIZED_IMG_SIZE + x] =
                 [rgba_8bit(px[0], a) as u8, rgba_8bit(px[1], a) as u8, rgba_8bit(px[2], a) as u8];
@@ -185,33 +184,18 @@ fn icon_nn(img: &DynamicImage) -> Icon {
         }
     }
 
-    Icon { pixels, img_size: (width, height) }
+    pixels
 }
 
 /// Stretches each channel's histogram so its min/max map to `0` / `65025`.
 fn normalize(pixels: &mut [u16]) {
-    let mut mins = [u16::MAX; 3];
-    let mut maxs = [0u16; 3];
-
-    for n in 0..NUM_PIX {
-        for ch in 0..3 {
-            let v = pixels[n + ch * NUM_PIX];
-            if v > maxs[ch] {
-                maxs[ch] = v;
-            }
-            if v < mins[ch] {
-                mins[ch] = v;
-            }
-        }
-    }
-
-    for ch in 0..3 {
-        if maxs[ch] != mins[ch] {
-            let scale = SQ255 / (f64::from(maxs[ch]) - f64::from(mins[ch]));
-            let min = f64::from(mins[ch]);
-            for n in 0..NUM_PIX {
-                let idx = n + ch * NUM_PIX;
-                pixels[idx] = ((f64::from(pixels[idx]) - min) * scale) as u16;
+    for chan in pixels.as_chunks_mut::<NUM_PIX>().0 {
+        let (min, max) = (*chan.iter().min().unwrap(), *chan.iter().max().unwrap());
+        if max != min {
+            let scale = SQ255 / (f64::from(max) - f64::from(min));
+            let min = f64::from(min);
+            for v in chan {
+                *v = ((f64::from(*v) - min) * scale) as u16;
             }
         }
     }
@@ -338,12 +322,6 @@ mod tests {
     }
 
     #[test]
-    fn from_image_preserves_original_dimensions() {
-        let img = DynamicImage::ImageRgb8(RgbImage::from_pixel(64, 48, Rgb([10, 20, 30])));
-        assert_eq!(Icon::from_image(&img).img_size(), (64, 48));
-    }
-
-    #[test]
     fn fully_transparent_pixels_collapse_to_black() {
         // Alpha 0 premultiplies every channel to 0, regardless of the stored RGB.
         let img = DynamicImage::ImageRgba8(RgbaImage::from_pixel(32, 32, Rgba([200, 100, 50, 0])));
@@ -356,13 +334,5 @@ mod tests {
     fn icon_clone_eq() {
         let icon = Icon::from_image(&solid(12, 34, 56));
         assert_eq!(icon, icon.clone());
-    }
-
-    #[test]
-    fn from_path_missing_file_errors() {
-        let err = Icon::from_path("definitely-not-a-real-file.jpg").unwrap_err();
-        assert!(matches!(err, MediaError::Image { .. }));
-        assert!(err.to_string().contains("definitely-not-a-real-file.jpg"));
-        assert!(std::error::Error::source(&err).is_some());
     }
 }

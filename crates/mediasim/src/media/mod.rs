@@ -6,14 +6,14 @@ mod kind;
 mod options;
 mod video;
 
-use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::sync::{OnceLock, mpsc};
+use std::sync::mpsc;
 use std::time::{Duration, SystemTime};
 
 use rayon::prelude::*;
 use rust_sak::fs::ListOptions;
 
+use crate::pool::{image_pool, video_pool};
 use crate::{Icon, MediaError};
 
 pub use options::LoadOptions;
@@ -76,25 +76,13 @@ impl FileInfo {
     }
 }
 
-/// Videos are decoded on their own pool with this fraction of the logical CPUs, because each video decoder is
-/// already multithreaded; one video per core would oversubscribe the CPU and hold many decoders in memory.
-const VIDEO_WORKER_DIVISOR: usize = 4;
-
-/// The process-wide pool that decodes videos, created on first use.
-fn video_pool() -> &'static rayon::ThreadPool {
-    static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
-
-    POOL.get_or_init(|| {
-        let cpus = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
-        rayon::ThreadPoolBuilder::new()
-            .num_threads((cpus / VIDEO_WORKER_DIVISOR).max(1))
-            .thread_name(|i| format!("mediasim-video-{i}"))
-            .build()
-            .expect("failed to spawn the video decoding threads")
-    })
-}
-
 impl Media {
+    /// The number of pixels in one frame, `width * height`.
+    #[must_use]
+    pub fn pixels(&self) -> u64 {
+        u64::from(self.width) * u64::from(self.height)
+    }
+
     /// Loads one image or video file.
     ///
     /// An image yields one frame; a video yields one frame per second of playback, starting at the beginning.
@@ -130,8 +118,9 @@ impl Media {
 
     /// Loads every path in parallel, yielding each result as soon as it is ready.
     ///
-    /// Images are decoded on Rayon's global pool, one per logical CPU. Videos are decoded on a smaller dedicated
-    /// pool, since each video decoder already spreads across several threads. Results arrive in completion order, not
+    /// Images are decoded on a dedicated pool, one per logical CPU. Videos are decoded on a smaller one, since each
+    /// video decoder already spreads across several threads. Neither is Rayon's global pool, which stays free for the
+    /// caller, for example to group the media as they arrive. Results arrive in completion order, not
     /// input order, with exactly one per path; a failure in one file does not stop the others, and each error names
     /// its file. Dropping the iterator stops any file that has not started loading yet.
     #[must_use = "dropping the stream stops the batch"]
@@ -152,7 +141,7 @@ impl Media {
             });
         }
 
-        rayon::spawn(move || {
+        image_pool().spawn(move || {
             let _ = others.into_par_iter().try_for_each_with(tx, |tx, path| tx.send(Self::from_file(path)));
         });
 
@@ -223,6 +212,21 @@ pub(crate) mod tests {
     /// The path of a file in the workspace's `fixtures` directory.
     pub(crate) fn fixture(name: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
+    }
+
+    /// A 1×1, zero-byte media built from its frames, without a file behind it.
+    pub(crate) fn media(path: &str, media_type: MediaType, frames: Vec<Icon>) -> Media {
+        Media {
+            path: path.into(),
+            size: 0,
+            created: None,
+            modified: None,
+            media_type,
+            width: 1,
+            height: 1,
+            duration: None,
+            frames,
+        }
     }
 
     #[test]

@@ -22,22 +22,10 @@ pub fn calculate_diff(icon1: &Icon, icon2: &Icon) -> f64 {
 #[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
-    use crate::core::consts::NUM_PIX;
-
-    /// Icon whose three channels are filled with the given constant values.
-    fn icon(y: u16, cb: u16, cr: u16) -> Icon {
-        let mut px = vec![0u16; NUM_PIX * 3];
-        for i in 0..NUM_PIX {
-            px[i] = y;
-            px[i + NUM_PIX] = cb;
-            px[i + 2 * NUM_PIX] = cr;
-        }
-        Icon::from_raw(px, (1, 1))
-    }
 
     #[test]
     fn identical_icons_have_zero_diff() {
-        let a = icon(40_000, 20_000, 10_000);
+        let a = Icon::solid(40_000, 20_000, 10_000);
         assert_eq!(calculate_diff(&a, &a), 0.0);
     }
 
@@ -45,7 +33,7 @@ mod tests {
     fn black_vs_white_is_luma_only_contrast() {
         // Solid black vs solid white differ only in luma (shared, centred chroma) at full range. A single channel
         // at full contrast is the normalizer ([`MAX_EUC_DIST`]), so the diff lands at 1.0.
-        let diff = calculate_diff(&icon(0, 32_640, 32_640), &icon(65_025, 32_640, 32_640));
+        let diff = calculate_diff(&Icon::solid(0, 32_640, 32_640), &Icon::solid(65_025, 32_640, 32_640));
         assert!((diff - 1.0).abs() < 1e-6, "expected ~1.0, got {diff}");
     }
 
@@ -53,7 +41,7 @@ mod tests {
     fn full_contrast_on_all_channels_is_one() {
         // Every pixel differing by the full range on all three channels reaches ~sqrt(2) before the clamp,
         // so the reported diff saturates at 1.0.
-        let diff = calculate_diff(&icon(0, 0, 0), &icon(65_025, 65_025, 65_025));
+        let diff = calculate_diff(&Icon::solid(0, 0, 0), &Icon::solid(65_025, 65_025, 65_025));
         assert!((diff - 1.0).abs() < 1e-6, "expected ~1.0, got {diff}");
     }
 
@@ -61,9 +49,9 @@ mod tests {
     fn never_exceeds_one() {
         // Arbitrary extreme icons must stay within [0, 1].
         for (a, b) in [
-            (icon(0, 0, 0), icon(65_025, 65_025, 65_025)),
-            (icon(10_000, 5_000, 50_000), icon(55_000, 60_000, 2_000)),
-            (icon(65_025, 0, 65_025), icon(0, 65_025, 0)),
+            (Icon::solid(0, 0, 0), Icon::solid(65_025, 65_025, 65_025)),
+            (Icon::solid(10_000, 5_000, 50_000), Icon::solid(55_000, 60_000, 2_000)),
+            (Icon::solid(65_025, 0, 65_025), Icon::solid(0, 65_025, 0)),
         ] {
             let diff = calculate_diff(&a, &b);
             assert!((0.0..=1.0).contains(&diff), "diff {diff} out of range");
@@ -72,25 +60,25 @@ mod tests {
 
     #[test]
     fn diff_is_symmetric() {
-        let a = icon(5_000, 12_000, 40_000);
-        let b = icon(60_000, 1_000, 25_000);
+        let a = Icon::solid(5_000, 12_000, 40_000);
+        let b = Icon::solid(60_000, 1_000, 25_000);
         assert_eq!(calculate_diff(&a, &b), calculate_diff(&b, &a));
     }
 
     #[test]
     fn larger_difference_yields_larger_diff() {
-        let base = icon(0, 0, 0);
-        let near = calculate_diff(&base, &icon(10_000, 0, 0));
-        let far = calculate_diff(&base, &icon(40_000, 0, 0));
+        let base = Icon::solid(0, 0, 0);
+        let near = calculate_diff(&base, &Icon::solid(10_000, 0, 0));
+        let far = calculate_diff(&base, &Icon::solid(40_000, 0, 0));
         assert!(far > near && near > 0.0);
     }
 
     #[test]
     fn chroma_is_down_weighted_relative_to_luma() {
         // The same raw channel delta counts double in luma vs. either chroma channel.
-        let base = icon(0, 0, 0);
-        let luma = calculate_diff(&base, &icon(20_000, 0, 0));
-        let chroma = calculate_diff(&base, &icon(0, 20_000, 0));
+        let base = Icon::solid(0, 0, 0);
+        let luma = calculate_diff(&base, &Icon::solid(20_000, 0, 0));
+        let chroma = calculate_diff(&base, &Icon::solid(0, 20_000, 0));
         // diff ∝ sqrt(weight): luma weight 1, chroma weight 1/2 -> ratio sqrt(2).
         assert!((luma / chroma - 2.0_f64.sqrt()).abs() < 1e-9);
     }

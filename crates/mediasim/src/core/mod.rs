@@ -6,14 +6,15 @@
 //! frame with Dynamic Time Warping, and [`Grouper`] merges media that score above a threshold into groups.
 
 mod consts;
-pub mod diff;
+mod diff;
 mod dsu;
 mod dtw;
 mod group;
-pub mod icon;
-pub mod metric;
+mod icon;
+mod metric;
 mod similarity;
 
+pub use diff::calculate_diff;
 pub use group::Grouper;
 pub use icon::Icon;
 pub use metric::euc_metric;
