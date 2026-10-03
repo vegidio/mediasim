@@ -6,7 +6,8 @@
 //! Comparing an image with a video is a [`CompareError`].
 //!
 //! To find duplicates among many files, feed them to a [`Grouper`]: it groups the media whose similarity reaches a
-//! threshold, with the best copy of each group first.
+//! threshold, with the best copy of each group first. [`Media::list_dir`] tells up front which files a directory load
+//! will yield, for a progress total or a stable display order.
 //!
 //! ```no_run
 //! use mediasim::Media;

@@ -3,6 +3,7 @@
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::io::IsTerminal;
+use std::path::Path;
 
 use mediasim::{Media, MediaType};
 use ratatui::crossterm::style::{Color, Stylize};
@@ -35,6 +36,11 @@ pub fn stderr_color() -> bool {
 /// `⏳ Calculating similarity in <files> files`, with the count in green.
 pub fn header(files: usize, color: bool) -> String {
     format!("⏳ Calculating similarity in {} files", paint(files, GREEN, color))
+}
+
+/// `⏳ Calculating similarity in the directory <dir>`, with the directory in green.
+pub fn dir_header(dir: &Path, color: bool) -> String {
+    format!("⏳ Calculating similarity in the directory {}", paint(dir.display(), GREEN, color))
 }
 
 /// `🧮 Similarity score between the files is <score>`, with the score in magenta.
@@ -110,7 +116,6 @@ fn bold(text: impl Display, color: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use std::time::Duration;
 
     use super::*;
@@ -212,6 +217,7 @@ mod tests {
     fn lines_without_color_have_no_escapes() {
         for line in [
             header(2, false),
+            dir_header(Path::new("photos"), false),
             report("0.5", false),
             error("boom", false),
             threshold(0.8, false),
@@ -223,7 +229,13 @@ mod tests {
 
     #[test]
     fn lines_with_color_are_styled() {
-        for line in [header(2, true), report("0.5", true), error("boom", true), threshold(0.8, true)] {
+        for line in [
+            header(2, true),
+            dir_header(Path::new("photos"), true),
+            report("0.5", true),
+            error("boom", true),
+            threshold(0.8, true),
+        ] {
             assert!(line.contains('\x1b'), "{line:?}");
         }
     }
@@ -231,6 +243,7 @@ mod tests {
     #[test]
     fn lines_carry_their_values() {
         assert_eq!(header(2, false), "⏳ Calculating similarity in 2 files");
+        assert_eq!(dir_header(Path::new("photos"), false), "⏳ Calculating similarity in the directory photos");
         assert_eq!(report("0.5", false), "🧮 Similarity score between the files is 0.5");
         assert_eq!(error("boom", false), "🧨 boom");
     }

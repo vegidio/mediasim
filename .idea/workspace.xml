@@ -14,17 +14,20 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering">
+      <change beforePath="$PROJECT_DIR$/.idea/mediasim.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/mediasim.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/cli/src/args.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/args.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/files.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/files.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/cli/src/output.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/output.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/cli/src/progress/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/progress/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/cli/src/score.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/score.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-files/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-files/tasks.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-dir/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-dir/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-dir/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-dir/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -347,7 +350,14 @@
       <option name="presentableId" value="LOCAL−00012" />
       <updated>1791008662548</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL−00013" summary="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering">
+      <option name="closed" value="true" />
+      <created>1791010390298</created>
+      <option name="number" value="LOCAL−00013" />
+      <option name="presentableId" value="LOCAL−00013" />
+      <updated>1791010390298</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -367,7 +377,8 @@
     <MESSAGE value="feat: Add `Media`-level similarity API with DTW and error handling for mixed types" />
     <MESSAGE value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
     <MESSAGE value="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs" />
+    <MESSAGE value="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
