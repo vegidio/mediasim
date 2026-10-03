@@ -39,33 +39,8 @@ impl Media {
 mod tests {
     use super::*;
     use crate::Icon;
-    use crate::core::consts::NUM_PIX;
-
-    /// Neutral chroma: the midpoint of the premultiplied range.
-    const GREY: u16 = 32_640;
-
-    /// Icon whose three channels are filled with the given constant values.
-    fn icon(y: u16, cb: u16, cr: u16) -> Icon {
-        let mut px = vec![0u16; NUM_PIX * 3];
-        px[..NUM_PIX].fill(y);
-        px[NUM_PIX..2 * NUM_PIX].fill(cb);
-        px[2 * NUM_PIX..].fill(cr);
-        Icon::from_raw(px, (1, 1))
-    }
-
-    fn media(path: &str, media_type: MediaType, frames: Vec<Icon>) -> Media {
-        Media {
-            path: path.into(),
-            size: 0,
-            created: None,
-            modified: None,
-            media_type,
-            width: 1,
-            height: 1,
-            duration: None,
-            frames,
-        }
-    }
+    use crate::core::icon::GREY;
+    use crate::media::tests::media;
 
     fn image(path: &str, frame: Icon) -> Media {
         media(path, MediaType::Image, vec![frame])
@@ -77,12 +52,12 @@ mod tests {
 
     /// A video that fades from black to white over five frames.
     fn fade() -> Vec<Icon> {
-        [0, 16_000, 32_000, 48_000, 65_025].into_iter().map(|y| icon(y, GREY, GREY)).collect()
+        [0, 16_000, 32_000, 48_000, 65_025].into_iter().map(|y| Icon::solid(y, GREY, GREY)).collect()
     }
 
     #[test]
     fn self_comparison_is_one() {
-        let img = image("a.png", icon(12_000, 40_000, 9_000));
+        let img = image("a.png", Icon::solid(12_000, 40_000, 9_000));
         let vid = video("a.mp4", fade());
 
         assert_eq!(img.similarity(&img).unwrap(), 1.0);
@@ -91,8 +66,8 @@ mod tests {
 
     #[test]
     fn black_vs_white_rounds_to_zero() {
-        let black = image("black.png", icon(0, GREY, GREY));
-        let white = image("white.png", icon(65_025, GREY, GREY));
+        let black = image("black.png", Icon::solid(0, GREY, GREY));
+        let white = image("white.png", Icon::solid(65_025, GREY, GREY));
 
         let score = black.similarity(&white).unwrap();
 
@@ -102,27 +77,34 @@ mod tests {
 
     #[test]
     fn similar_images_score_higher_than_different_ones() {
-        let base = image("a.png", icon(30_000, GREY, GREY));
-        let near = image("b.png", icon(31_000, GREY, GREY));
-        let far = image("c.png", icon(60_000, 5_000, 60_000));
+        let base = image("a.png", Icon::solid(30_000, GREY, GREY));
+        let near = image("b.png", Icon::solid(31_000, GREY, GREY));
+        let far = image("c.png", Icon::solid(60_000, 5_000, 60_000));
 
         assert!(base.similarity(&near).unwrap() > base.similarity(&far).unwrap());
     }
 
     #[test]
     fn results_are_symmetric() {
-        let a = image("a.png", icon(5_000, 12_000, 40_000));
-        let b = image("b.png", icon(60_000, 1_000, 25_000));
+        let a = image("a.png", Icon::solid(5_000, 12_000, 40_000));
+        let b = image("b.png", Icon::solid(60_000, 1_000, 25_000));
         assert_eq!(a.similarity(&b).unwrap().to_bits(), b.similarity(&a).unwrap().to_bits());
 
         let a = video("a.mp4", fade());
-        let b = video("b.mp4", vec![icon(9_000, 30_000, 2_000), icon(50_000, GREY, 60_000), icon(20_000, 0, GREY)]);
+        let b = video(
+            "b.mp4",
+            vec![
+                Icon::solid(9_000, 30_000, 2_000),
+                Icon::solid(50_000, GREY, 60_000),
+                Icon::solid(20_000, 0, GREY),
+            ],
+        );
         assert_eq!(a.similarity(&b).unwrap().to_bits(), b.similarity(&a).unwrap().to_bits());
     }
 
     #[test]
     fn image_vs_video_is_a_type_mismatch() {
-        let img = image("a.png", icon(0, GREY, GREY));
+        let img = image("a.png", Icon::solid(0, GREY, GREY));
         let vid = video("b.mp4", fade());
 
         let err = img.similarity(&vid).unwrap_err();
@@ -133,7 +115,7 @@ mod tests {
 
     #[test]
     fn video_vs_image_is_a_type_mismatch() {
-        let img = image("a.png", icon(0, GREY, GREY));
+        let img = image("a.png", Icon::solid(0, GREY, GREY));
         let vid = video("b.mp4", fade());
 
         let err = vid.similarity(&img).unwrap_err();
@@ -143,7 +125,7 @@ mod tests {
 
     #[test]
     fn single_frame_videos_equal_their_frame_similarity() {
-        let (f1, f2) = (icon(10_000, 20_000, 30_000), icon(40_000, 25_000, 5_000));
+        let (f1, f2) = (Icon::solid(10_000, 20_000, 30_000), Icon::solid(40_000, 25_000, 5_000));
         let frames = image("a.png", f1.clone()).similarity(&image("b.png", f2.clone())).unwrap();
 
         let videos = video("a.mp4", vec![f1]).similarity(&video("b.mp4", vec![f2])).unwrap();
@@ -155,7 +137,8 @@ mod tests {
     fn truncated_video_scores_higher_than_unrelated_one() {
         let original = video("a.mp4", fade());
         let truncated = video("b.mp4", fade().into_iter().take(3).collect());
-        let unrelated = video("c.mp4", [65_025, 50_000, 20_000].into_iter().map(|y| icon(y, 0, 65_025)).collect());
+        let unrelated =
+            video("c.mp4", [65_025, 50_000, 20_000].into_iter().map(|y| Icon::solid(y, 0, 65_025)).collect());
 
         let trimmed = original.similarity(&truncated).unwrap();
         let other = original.similarity(&unrelated).unwrap();

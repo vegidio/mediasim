@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 
-use image::{DynamicImage, RgbImage};
+use image::{ImageBuffer, Rgb};
 use media::{FrameExtractor, Interval};
 
 use super::Decoded;
@@ -32,9 +32,9 @@ pub(super) fn load(path: &Path) -> Result<Decoded, MediaError> {
         .interval(Interval::EverySeconds(1.0))
         .to_callback(move |frame| {
             let (w, h) = frame.dimensions();
-            let img = RgbImage::from_raw(w, h, frame.to_rgb_bytes().to_vec())
+            let img = ImageBuffer::<Rgb<u8>, _>::from_raw(w, h, frame.to_rgb_bytes())
                 .ok_or_else(|| media::Error::ImageEncode("RGB buffer does not match frame dimensions".to_owned()))?;
-            sink.borrow_mut().push(Icon::from_image(&DynamicImage::ImageRgb8(img)));
+            sink.borrow_mut().push(Icon::from_image(&img));
             Ok(())
         })
         .build()
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn frames_pass_through() {
-        let icon = Icon::from_image(&DynamicImage::ImageRgb8(RgbImage::new(16, 16)));
+        let icon = Icon::from_image(&image::RgbImage::new(16, 16));
 
         assert_eq!(require_frames(Path::new("clip.mp4"), vec![icon.clone()]).unwrap(), [icon]);
     }

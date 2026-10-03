@@ -14,9 +14,18 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads">
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/group.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/group.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/metric.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/metric.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/similarity.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/similarity.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/calculate_diff.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/euc_metric.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/grouper_pool.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/similarity.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/tests/similarity.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -346,7 +355,14 @@
       <option name="presentableId" value="LOCAL−00013" />
       <updated>1791010390298</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL−00014" summary="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads">
+      <option name="closed" value="true" />
+      <created>1791013327252</created>
+      <option name="number" value="LOCAL−00014" />
+      <option name="presentableId" value="LOCAL−00014" />
+      <updated>1791013327252</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -367,7 +383,8 @@
     <MESSAGE value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
     <MESSAGE value="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs" />
     <MESSAGE value="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering" />
+    <MESSAGE value="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use mediasim::Media;
 
 use crate::error::CliError;
-use crate::{output, progress};
+use crate::{group, output, progress};
 
 /// Loads both files, compares them and prints the score.
 ///
@@ -14,24 +14,21 @@ use crate::{output, progress};
 /// so the output can be used in scripts.
 pub fn run(file1: PathBuf, file2: PathBuf) -> Result<(), CliError> {
     let paths = [file1, file2];
-    let stream = Media::from_files(paths.to_vec());
-    let interactive = std::io::stdout().is_terminal();
+    let stdout = std::io::stdout();
+    let (interactive, color) = (stdout.is_terminal(), output::color_for(&stdout));
 
-    let loaded = if interactive {
-        let color = output::stdout_color();
+    if interactive {
         println!();
         println!("{}", output::header(paths.len(), color));
-        progress::run(stream, paths.len(), "Loading", Vec::with_capacity(2), color)?
-    } else {
-        stream.collect::<Result<Vec<_>, _>>()?
-    };
+    }
+    let loaded = progress::load(&paths, "Loading", Vec::with_capacity(2), interactive, color)?;
 
     let [a, b] = in_argument_order(loaded, &paths);
     let score = output::format_score(a.similarity(&b)?);
 
     if interactive {
         println!();
-        println!("{}", output::report(&score, output::stdout_color()));
+        println!("{}", output::report(&score, color));
     } else {
         println!("{score}");
     }
@@ -42,6 +39,7 @@ pub fn run(file1: PathBuf, file2: PathBuf) -> Result<(), CliError> {
 /// Puts the media back in the order their paths were given, since they load in completion order. The score is the
 /// same either way, but an error comparing them then names the files in the order the user typed them.
 fn in_argument_order(mut loaded: Vec<Media>, paths: &[PathBuf; 2]) -> [Media; 2] {
-    loaded.sort_by_key(|media| paths.iter().position(|path| *path == media.path));
+    let positions = group::positions(paths);
+    loaded.sort_by_key(|media| positions[media.path.as_path()]);
     loaded.try_into().expect("`Media::from_files` yields one result per path")
 }

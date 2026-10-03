@@ -4,14 +4,13 @@
 //! The fixtures score `test1.png`/`test2.png` ≈ 0.955 and `test3.mp4`/`test4.mp4` ≈ 0.507. The two images have the
 //! same resolution and `test1.png` is the larger file, so it is best; `test4.mp4` is the longer video, so it is best.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use common::{assert_fails, assert_usage_error, fixture, groups, stdout};
 use rust_sak::fs::{TempDir, mk_temp_dir};
-
-fn fixture(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
-}
 
 /// A temporary directory holding a copy of each `(fixture, path inside the directory)` pair.
 fn directory(files: &[(&str, &str)]) -> TempDir {
@@ -40,46 +39,12 @@ fn mediasim(args: &[&str], dir: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_mediasim")).arg("dir").args(args).arg(dir).output().unwrap()
 }
 
-fn stdout(output: &Output) -> String {
-    String::from_utf8(output.stdout.clone()).unwrap()
-}
-
-fn stderr(output: &Output) -> String {
-    String::from_utf8(output.stderr.clone()).unwrap()
-}
-
 /// The paths `names` inside `dir`.
 fn paths(dir: &Path, names: &[&str]) -> Vec<PathBuf> {
     names
         .iter()
         .map(|name| name.split('/').fold(dir.to_path_buf(), |path, part| path.join(part)))
         .collect()
-}
-
-/// The printed groups, each as its list of paths.
-fn groups(output: &Output) -> Vec<Vec<PathBuf>> {
-    assert!(output.status.success(), "{}", stderr(output));
-    let stdout = stdout(output);
-    assert!(!stdout.contains('\x1b'), "{stdout:?}");
-
-    stdout
-        .strip_suffix('\n')
-        .unwrap_or(&stdout)
-        .split("\n\n")
-        .filter(|group| !group.is_empty())
-        .map(|group| group.lines().map(PathBuf::from).collect())
-        .collect()
-}
-
-/// Asserts a failed run naming `path`: exit code 1, nothing on stdout, and a `🧨` line without escapes on stderr.
-fn assert_fails_naming(output: &Output, path: &Path) {
-    let stderr = stderr(output);
-
-    assert_eq!(output.status.code(), Some(1), "{stderr}");
-    assert!(output.stdout.is_empty(), "stdout: {}", stdout(output));
-    assert!(stderr.starts_with("🧨 "), "{stderr}");
-    assert!(stderr.contains(&*path.to_string_lossy()), "{stderr}");
-    assert!(!stderr.contains('\x1b'), "{stderr:?}");
 }
 
 #[test]
@@ -175,7 +140,8 @@ fn a_missing_directory_is_named() {
     let dir = directory(&[]);
     let missing = dir.path().join("missing");
 
-    assert_fails_naming(&mediasim(&[], &missing), &missing);
+    let stderr = assert_fails(&mediasim(&[], &missing));
+    assert!(stderr.contains(&*missing.to_string_lossy()), "{stderr}");
 }
 
 #[test]
@@ -183,7 +149,8 @@ fn a_regular_file_is_named() {
     let dir = all_fixtures();
     let file = dir.path().join("test1.png");
 
-    assert_fails_naming(&mediasim(&[], &file), &file);
+    let stderr = assert_fails(&mediasim(&[], &file));
+    assert!(stderr.contains(&*file.to_string_lossy()), "{stderr}");
 }
 
 #[test]
@@ -192,7 +159,8 @@ fn an_undecodable_media_file_is_named() {
     let bad = dir.path().join("bad.png");
     std::fs::write(&bad, b"not a png").unwrap();
 
-    assert_fails_naming(&mediasim(&[], dir.path()), &bad);
+    let stderr = assert_fails(&mediasim(&[], dir.path()));
+    assert!(stderr.contains(&*bad.to_string_lossy()), "{stderr}");
 }
 
 #[test]
@@ -201,6 +169,5 @@ fn an_invalid_media_type_is_a_usage_error() {
 
     let output = mediasim(&["-m", "image"], dir.path());
 
-    assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty(), "stdout: {}", stdout(&output));
+    assert_usage_error(&output);
 }

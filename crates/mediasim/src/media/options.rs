@@ -5,7 +5,7 @@
 /// The default loads **images and videos, one level deep**. Methods consume and return `self`:
 ///
 /// ```
-/// use mediasim::media::LoadOptions;
+/// use mediasim::LoadOptions;
 ///
 /// let videos_everywhere = LoadOptions::new().recursive(true).images(false);
 /// ```

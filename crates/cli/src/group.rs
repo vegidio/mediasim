@@ -14,30 +14,23 @@ use crate::{output, progress};
 /// On a terminal it prints `header` (called with the colour flag), the threshold, the progress display and a report
 /// of the groups. Otherwise it prints only the grouped paths, so the output can be used in scripts.
 pub fn run(paths: &[PathBuf], threshold: f64, header: impl FnOnce(bool) -> String) -> Result<(), CliError> {
-    let stream = Media::from_files(paths.to_vec());
-    let interactive = std::io::stdout().is_terminal();
+    let stdout = std::io::stdout();
+    let (interactive, color) = (stdout.is_terminal(), output::color_for(&stdout));
 
-    let mut groups = if interactive {
-        let color = output::stdout_color();
+    if interactive {
         println!();
         println!("{}", header(color));
         println!("{}", output::threshold(threshold, color));
-        progress::run(stream, paths.len(), "Processing", Grouper::new(threshold), color)?.finish()
-    } else {
-        let mut grouper = Grouper::new(threshold);
-        for result in stream {
-            grouper.push(result?);
-        }
-        grouper.finish()
-    };
+    }
+    let mut groups = progress::load(paths, "Processing", Grouper::new(threshold), interactive, color)?.finish();
     in_path_order(&mut groups, paths);
 
     if interactive {
         if groups.is_empty() {
             println!();
-            println!("{}", output::no_matches());
+            println!("{}", output::NO_MATCHES);
         } else {
-            println!("{}", output::groups(&groups, output::stdout_color()));
+            println!("{}", output::groups(&groups, color));
         }
     } else if !groups.is_empty() {
         println!("{}", output::plain_groups(&groups));
@@ -46,10 +39,15 @@ pub fn run(paths: &[PathBuf], threshold: f64, header: impl FnOnce(bool) -> Strin
     Ok(())
 }
 
+/// Each path's position in `paths`, for putting media that loaded in completion order back in input order.
+pub fn positions(paths: &[PathBuf]) -> HashMap<&Path, usize> {
+    paths.iter().enumerate().map(|(i, path)| (path.as_path(), i)).collect()
+}
+
 /// Orders the groups by the earliest position in `paths` among their members, so the output does not depend on the
 /// order the files finished loading in.
 fn in_path_order(groups: &mut [Vec<Media>], paths: &[PathBuf]) {
-    let positions: HashMap<&Path, usize> = paths.iter().enumerate().map(|(i, path)| (path.as_path(), i)).collect();
+    let positions = positions(paths);
 
     groups.sort_by_cached_key(|group| {
         group
@@ -63,17 +61,14 @@ fn in_path_order(groups: &mut [Vec<Media>], paths: &[PathBuf]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support;
 
     fn paths(names: &[&str]) -> Vec<PathBuf> {
         names.iter().map(PathBuf::from).collect()
     }
 
-    /// A loaded fixture image with its path replaced, since `Media` cannot be built from parts outside `mediasim`.
     fn media(path: &str) -> Media {
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/test1.png");
-        let mut media = Media::from_file(fixture).unwrap();
-        media.path = path.into();
-        media
+        test_support::media(path, 1, 1, None)
     }
 
     fn names(groups: &[Vec<Media>]) -> Vec<Vec<PathBuf>> {

@@ -63,9 +63,10 @@ order is the same on every run.
 
 ### Requirement: Incremental grouping
 The system SHALL accept media one at a time, in any order, and SHALL produce the same groups as when all media are
-given at once. Each media added SHALL be compared with every media added before it, so grouping can run while files
-are still loading. Adding a media SHALL NOT wait for a batch load that is still in progress: its comparisons SHALL
-complete while other files of the batch are still loading, however many files the batch holds.
+given at once. Each media added SHALL be compared with the media of the same type added before it, so grouping can run
+while files are still loading; since grouping is transitive, comparisons against a group MAY stop at its first match.
+Adding a media SHALL NOT wait for a batch load that is still in progress: its comparisons SHALL complete while other
+files of the batch are still loading, however many files the batch holds.
 
 #### Scenario: Order of arrival
 - **WHEN** the same media are added in two different orders

@@ -60,7 +60,7 @@ Every loaded `Media` SHALL carry the file path, the file size in bytes, the file
 - **THEN** the file still loads and its creation time is absent
 
 ### Requirement: Load multiple media files
-The system SHALL load a batch of files in parallel and return a stream of results with exactly one result per input file. Each result SHALL be delivered as soon as it is ready, in completion order. One file failing SHALL NOT stop the others from loading. The caller SHALL be able to stop consuming results early.
+The system SHALL load a batch of files in parallel and return a stream of results with exactly one result per input file. Each result SHALL be delivered as soon as it is ready, in completion order. One file failing SHALL NOT stop the others from loading. The caller SHALL be able to stop consuming results early. Decoding SHALL run on thread pools the library owns, never on Rayon's global pool, so a batch load does not hold up the caller's own parallel work.
 
 #### Scenario: Mixed success and failure
 - **WHEN** a batch of one valid image, one valid video and one missing path is loaded
@@ -69,6 +69,10 @@ The system SHALL load a batch of files in parallel and return a stream of result
 #### Scenario: Results stream before the batch completes
 - **WHEN** a batch is loading
 - **THEN** results already finished can be consumed while the rest are still loading
+
+#### Scenario: The global pool is busy
+- **WHEN** every worker of Rayon's global pool is busy with the caller's own work and a batch is loaded
+- **THEN** the batch still loads every file
 
 ### Requirement: Load a directory
 The system SHALL load every supported media file in a directory and SHALL let the caller choose whether subdirectories are included. By default only the directory's direct entries are loaded. Symbolic links SHALL NOT be followed into directories.

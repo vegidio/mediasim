@@ -9,6 +9,7 @@ mod spring;
 
 use std::io::{Write, stdout};
 use std::iter::once;
+use std::path::PathBuf;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::{Duration, Instant};
 
@@ -37,6 +38,23 @@ const SETTLE_CAP: Duration = Duration::from_secs(1);
 const MAX_BAR_WIDTH: u16 = 50;
 const MIN_BAR_WIDTH: u16 = 10;
 
+/// Loads `paths` into `sink` and returns it: through the progress display, labelled `label`, when `interactive`,
+/// otherwise silently. The first error ends the load.
+pub fn load<C>(paths: &[PathBuf], label: &str, mut sink: C, interactive: bool, color: bool) -> Result<C, CliError>
+where
+    C: Extend<Media> + Send + 'static,
+{
+    let stream = Media::from_files(paths.to_vec());
+    if interactive {
+        return run(stream, paths.len(), label, sink, color);
+    }
+
+    for result in stream {
+        sink.extend(once(result?));
+    }
+    Ok(sink)
+}
+
 /// Shows the progress display, labelled `label`, while `stream` yields `total` results, feeds each loaded media to
 /// `sink`, and returns the sink.
 ///
@@ -44,7 +62,7 @@ const MIN_BAR_WIDTH: u16 = 10;
 /// or Ctrl+C; progress advances once the sink has taken each media. The first error ends the run at once, and Ctrl+C
 /// ends it with [`CliError::Interrupted`]. The terminal is restored on every way out, with the display left on
 /// screen and the cursor on the line below it.
-pub fn run<C>(stream: MediaStream, total: usize, label: &str, mut sink: C, color: bool) -> Result<C, CliError>
+fn run<C>(stream: MediaStream, total: usize, label: &str, mut sink: C, color: bool) -> Result<C, CliError>
 where
     C: Extend<Media> + Send + 'static,
 {
@@ -90,9 +108,10 @@ where
         }
 
         let finished = disconnected || completed >= total;
+        let shown = if finished { total } else { completed };
         spring.target = if finished { 1.0 } else { fraction(completed, total) };
         spring.step();
-        eta.update(if finished { total } else { completed }, total, started.elapsed());
+        eta.update(shown, total, started.elapsed());
 
         let finished_at = finished.then(|| *finished_at.get_or_insert_with(Instant::now));
         let done = finished_at.is_some_and(|at| spring.is_settled() || at.elapsed() >= SETTLE_CAP);
@@ -100,14 +119,7 @@ where
             spring.snap();
         }
 
-        let line = ProgressLine {
-            label,
-            completed: if finished { total } else { completed },
-            total,
-            position: spring.position,
-            eta: eta.value(),
-            color,
-        };
+        let line = ProgressLine { label, completed: shown, total, position: spring.position, eta: eta.value(), color };
         session.draw(line)?;
 
         if done {

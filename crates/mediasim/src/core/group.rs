@@ -2,8 +2,6 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::num::NonZeroUsize;
-use std::sync::OnceLock;
 
 use rayon::prelude::*;
 
@@ -49,43 +47,36 @@ impl Grouper {
         Self { threshold, media: Vec::new(), dsu: Dsu::default() }
     }
 
-    /// Adds `media`, comparing it in parallel with every earlier media of the same type and merging it into the
+    /// Adds `media`, comparing it in parallel with the earlier media of the same type and merging it into the
     /// group of each one it matches.
     ///
-    /// The comparisons run on their own pool, not on rayon's global pool, so a push does not wait for a batch load
-    /// such as [`Media::from_files`] that is still decoding files.
+    /// Since grouping is transitive, the comparisons against an existing group stop at its first match.
     pub fn push(&mut self, media: Media) {
-        let matches: Vec<usize> = compare_pool().install(|| {
-            self.media
-                .par_iter()
-                .enumerate()
-                .filter(|(_, earlier)| earlier.media_type == media.media_type)
-                .filter_map(|(i, earlier)| match earlier.similarity(&media) {
-                    Ok(score) => (score >= self.threshold).then_some(i),
-                    Err(err @ CompareError::MediaTypeMismatch { .. }) => {
-                        unreachable!("only media of the same type are compared: {err}")
-                    }
-                })
-                .collect()
-        });
+        let mut groups: HashMap<usize, Vec<&Media>> = HashMap::new();
+        for (i, earlier) in self.media.iter().enumerate() {
+            if earlier.media_type == media.media_type {
+                groups.entry(self.dsu.find(i)).or_default().push(earlier);
+            }
+        }
+
+        let threshold = self.threshold;
+        let is_match = |earlier: &&Media| match earlier.similarity(&media) {
+            Ok(score) => score >= threshold,
+            Err(err @ CompareError::MediaTypeMismatch { .. }) => {
+                unreachable!("only media of the same type are compared: {err}")
+            }
+        };
+        let matched: Vec<usize> = groups
+            .into_par_iter()
+            .filter(|(_, members)| members.par_iter().any(is_match))
+            .map(|(root, _)| root)
+            .collect();
 
         let index = self.dsu.push();
-        for earlier in matches {
-            self.dsu.union(earlier, index);
+        for root in matched {
+            self.dsu.union(root, index);
         }
         self.media.push(media);
-    }
-
-    /// The number of media added so far.
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.media.len()
-    }
-
-    /// Whether no media has been added yet.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.media.is_empty()
     }
 
     /// Returns the groups of two or more media, leaving out media that matched nothing.
@@ -119,27 +110,12 @@ impl Extend<Media> for Grouper {
     }
 }
 
-/// The process-wide pool that runs `Grouper` comparisons, created on first use.
-fn compare_pool() -> &'static rayon::ThreadPool {
-    static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
-
-    POOL.get_or_init(|| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(std::thread::available_parallelism().map_or(1, NonZeroUsize::get))
-            .thread_name(|i| format!("mediasim-compare-{i}"))
-            .build()
-            .expect("failed to spawn the comparison threads")
-    })
-}
-
 /// Orders media best first: longer duration, then more pixels, then larger file, with the path as the tie-break.
 fn best_first(a: &Media, b: &Media) -> Ordering {
-    let pixels = |m: &Media| u64::from(m.width) * u64::from(m.height);
-
     b.duration
         .unwrap_or_default()
         .cmp(&a.duration.unwrap_or_default())
-        .then_with(|| pixels(b).cmp(&pixels(a)))
+        .then_with(|| b.pixels().cmp(&a.pixels()))
         .then_with(|| b.size.cmp(&a.size))
         .then_with(|| a.path.cmp(&b.path))
 }
@@ -150,40 +126,21 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::core::consts::NUM_PIX;
+    use crate::core::icon::GREY;
+    use crate::media::tests::media;
     use crate::{Icon, MediaType};
-
-    /// Neutral chroma: the midpoint of the premultiplied range.
-    const GREY: u16 = 32_640;
 
     /// An icon with constant luma `y` and neutral chroma. Two such icons score `1 - |y1 - y2| / 65025`.
     fn icon(y: u16) -> Icon {
-        let mut px = vec![GREY; NUM_PIX * 3];
-        px[..NUM_PIX].fill(y);
-        Icon::from_raw(px, (1, 1))
+        Icon::solid(y, GREY, GREY)
     }
 
     fn image(path: &str, y: u16) -> Media {
-        Media {
-            path: path.into(),
-            size: 100,
-            created: None,
-            modified: None,
-            media_type: MediaType::Image,
-            width: 10,
-            height: 10,
-            duration: None,
-            frames: vec![icon(y)],
-        }
+        media(path, MediaType::Image, vec![icon(y)])
     }
 
     fn video(path: &str, y: u16, secs: u64) -> Media {
-        Media {
-            media_type: MediaType::Video,
-            duration: Some(Duration::from_secs(secs)),
-            frames: vec![icon(y); 3],
-            ..image(path, y)
-        }
+        Media { duration: Some(Duration::from_secs(secs)), ..media(path, MediaType::Video, vec![icon(y); 3]) }
     }
 
     fn group(threshold: f64, media: impl IntoIterator<Item = Media>) -> Vec<Vec<Media>> {
@@ -238,18 +195,6 @@ mod tests {
         let groups = group(0.0, [image("a.png", 5_000), video("v.mp4", 5_000, 3), image("b.png", 5_000)]);
 
         assert_eq!(paths(&groups), [[PathBuf::from("a.png"), PathBuf::from("b.png")]]);
-    }
-
-    #[test]
-    fn len_counts_pushed_media() {
-        let mut grouper = Grouper::new(0.5);
-        assert!(grouper.is_empty());
-
-        grouper.push(image("a.png", 0));
-        grouper.push(video("v.mp4", 0, 1));
-
-        assert_eq!(grouper.len(), 2);
-        assert!(!grouper.is_empty());
     }
 
     #[test]

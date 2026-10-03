@@ -25,12 +25,9 @@ pub fn use_color(is_terminal: bool, no_color: Option<&OsStr>) -> bool {
     is_terminal && no_color.is_none_or(OsStr::is_empty)
 }
 
-pub fn stdout_color() -> bool {
-    use_color(std::io::stdout().is_terminal(), std::env::var_os("NO_COLOR").as_deref())
-}
-
-pub fn stderr_color() -> bool {
-    use_color(std::io::stderr().is_terminal(), std::env::var_os("NO_COLOR").as_deref())
+/// Whether `stream` may be coloured, per [`use_color`] and the process's `NO_COLOR`.
+pub fn color_for(stream: &impl IsTerminal) -> bool {
+    use_color(stream.is_terminal(), std::env::var_os("NO_COLOR").as_deref())
 }
 
 /// `⏳ Calculating similarity in <files> files`, with the count in green.
@@ -60,7 +57,7 @@ pub fn threshold(threshold: f64, color: bool) -> String {
 /// `(X.X MP)` for an image, or `(N sec, X.X MP)` for a video, with the duration in whole seconds.
 pub fn media_info(media: &Media) -> String {
     #[allow(clippy::cast_precision_loss)]
-    let megapixels = (u64::from(media.width) * u64::from(media.height)) as f64 / 1_000_000.0;
+    let megapixels = media.pixels() as f64 / 1_000_000.0;
 
     match media.media_type {
         MediaType::Image => format!("({megapixels:.1} MP)"),
@@ -87,10 +84,7 @@ pub fn groups(groups: &[Vec<Media>], color: bool) -> String {
     lines.join("\n")
 }
 
-/// `✅ No similar media found`.
-pub fn no_matches() -> &'static str {
-    "✅ No similar media found"
-}
+pub const NO_MATCHES: &str = "✅ No similar media found";
 
 /// The grouped paths alone: one per line, with an empty line between groups, and nothing when there are no groups.
 pub fn plain_groups(groups: &[Vec<Media>]) -> String {
@@ -116,21 +110,8 @@ fn bold(text: impl Display, color: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
-
-    /// A loaded fixture image with its path, size and type replaced, since `Media` cannot be built from parts outside
-    /// `mediasim`.
-    fn media(path: &str, width: u32, height: u32, seconds: Option<u64>) -> Media {
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/test1.png");
-        let mut media = Media::from_file(fixture).unwrap();
-        media.path = path.into();
-        (media.width, media.height) = (width, height);
-        media.duration = seconds.map(Duration::from_secs);
-        media.media_type = if seconds.is_some() { MediaType::Video } else { MediaType::Image };
-        media
-    }
+    use crate::test_support::media;
 
     fn two_groups() -> Vec<Vec<Media>> {
         vec![
