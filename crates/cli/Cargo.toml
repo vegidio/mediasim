@@ -13,3 +13,6 @@ clap.workspace = true
 mediasim = { path = "../mediasim" }
 ratatui.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+rust-sak.workspace = true

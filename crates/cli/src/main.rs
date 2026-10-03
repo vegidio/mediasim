@@ -2,8 +2,10 @@
 #![warn(clippy::pedantic)]
 
 mod args;
+mod dir;
 mod error;
 mod files;
+mod group;
 mod output;
 mod progress;
 mod score;
@@ -21,7 +23,10 @@ fn main() -> ExitCode {
 
     let result = match cli.command {
         Command::Score { file1, file2 } => score::run(file1, file2),
-        Command::Files { files, threshold } => files::run(files, threshold),
+        Command::Files { files, group } => files::run(files, group.threshold),
+        Command::Dir { directory, recursive, media_type, group } => {
+            dir::run(&directory, recursive, media_type, group.threshold)
+        }
     };
 
     match result {

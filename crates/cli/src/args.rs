@@ -2,7 +2,8 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use mediasim::LoadOptions;
 
 #[derive(Debug, Parser)]
 #[command(name = "mediasim", version, about, arg_required_else_help = true)]
@@ -26,10 +27,49 @@ pub enum Command {
         /// The images and videos to group.
         #[arg(required = true, num_args = 2..)]
         files: Vec<PathBuf>,
-        /// The minimum similarity, from 0 to 1, for two files to be grouped.
-        #[arg(short, long, default_value_t = 0.8, value_parser = parse_threshold, allow_negative_numbers = true)]
-        threshold: f64,
+        #[command(flatten)]
+        group: GroupArgs,
     },
+
+    /// Group the images and videos in a directory by similarity, listing the best file of each group first.
+    Dir {
+        /// The directory to scan.
+        directory: PathBuf,
+        /// Scan the subdirectories too.
+        #[arg(short, long)]
+        recursive: bool,
+        /// Which media to load.
+        #[arg(short = 'm', long, value_enum, default_value_t = MediaKind::All)]
+        media_type: MediaKind,
+        #[command(flatten)]
+        group: GroupArgs,
+    },
+}
+
+/// The options shared by the commands that group media.
+#[derive(Debug, Args)]
+pub struct GroupArgs {
+    /// The minimum similarity, from 0 to 1, for two files to be grouped.
+    #[arg(short, long, default_value_t = 0.8, value_parser = parse_threshold, allow_negative_numbers = true)]
+    pub threshold: f64,
+}
+
+/// The media a directory scan loads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum MediaKind {
+    Images,
+    Videos,
+    All,
+}
+
+impl MediaKind {
+    /// The [`LoadOptions`] that load this kind of media, scanning subdirectories if `recursive`.
+    pub fn load_options(self, recursive: bool) -> LoadOptions {
+        LoadOptions::new()
+            .recursive(recursive)
+            .images(self != Self::Videos)
+            .videos(self != Self::Images)
+    }
 }
 
 /// Accepts a number from 0 to 1, inclusive.
@@ -80,8 +120,8 @@ mod tests {
 
     fn parse_files(args: &[&str]) -> Result<(Vec<PathBuf>, f64), clap::Error> {
         let cli = Cli::try_parse_from(["mediasim", "files"].iter().chain(args))?;
-        let Command::Files { files, threshold } = cli.command else { panic!("expected `files`") };
-        Ok((files, threshold))
+        let Command::Files { files, group } = cli.command else { panic!("expected `files`") };
+        Ok((files, group.threshold))
     }
 
     #[test]
@@ -116,5 +156,50 @@ mod tests {
             assert_eq!(err.kind(), ErrorKind::ValueValidation, "{value}");
             assert_eq!(err.exit_code(), 2, "{value}");
         }
+    }
+
+    fn parse_dir(args: &[&str]) -> Result<(PathBuf, bool, MediaKind, f64), clap::Error> {
+        let cli = Cli::try_parse_from(["mediasim", "dir"].iter().chain(args))?;
+        let Command::Dir { directory, recursive, media_type, group } = cli.command else {
+            panic!("expected `dir`")
+        };
+        Ok((directory, recursive, media_type, group.threshold))
+    }
+
+    #[test]
+    fn dir_takes_a_directory_with_the_defaults() {
+        assert_eq!(parse_dir(&["photos"]).unwrap(), (PathBuf::from("photos"), false, MediaKind::All, 0.8));
+    }
+
+    #[test]
+    fn dir_takes_its_options() {
+        assert_eq!(
+            parse_dir(&["-r", "-m", "videos", "-t", "0.9", "photos"]).unwrap(),
+            (PathBuf::from("photos"), true, MediaKind::Videos, 0.9)
+        );
+        assert_eq!(parse_dir(&["--media-type", "images", "photos"]).unwrap().2, MediaKind::Images);
+    }
+
+    #[test]
+    fn dir_usage_errors() {
+        for (args, kind) in [
+            (&[][..], ErrorKind::MissingRequiredArgument),
+            (&["a", "b"][..], ErrorKind::UnknownArgument),
+            (&["-m", "image", "photos"][..], ErrorKind::InvalidValue),
+            (&["-m", "audio", "photos"][..], ErrorKind::InvalidValue),
+            (&["-t", "1.5", "photos"][..], ErrorKind::ValueValidation),
+        ] {
+            let err = parse_dir(args).unwrap_err();
+
+            assert_eq!(err.kind(), kind, "{args:?}");
+            assert_eq!(err.exit_code(), 2, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn media_kind_maps_to_load_options() {
+        assert_eq!(MediaKind::All.load_options(false), LoadOptions::new());
+        assert_eq!(MediaKind::Images.load_options(false), LoadOptions::new().videos(false));
+        assert_eq!(MediaKind::Videos.load_options(true), LoadOptions::new().recursive(true).images(false));
     }
 }

@@ -159,18 +159,39 @@ impl Media {
         MediaStream(rx.into_iter())
     }
 
-    /// Loads every supported media file in `dir` in parallel, as [`from_files`](Self::from_files) does.
+    /// Lists the media files that [`from_dir`](Self::from_dir) would load, without loading them.
     ///
-    /// [`LoadOptions`] chooses whether subdirectories are scanned and whether images, videos or both are loaded.
-    /// Files of any other type are skipped without producing a result. Symbolic links are not followed into
-    /// directories.
+    /// [`LoadOptions`] chooses whether subdirectories are scanned and whether images, videos or both are listed.
+    /// Files of any other type are skipped. Symbolic links are not followed into directories. The listing is sorted by
+    /// name within each directory, and every path keeps `dir`, as given, as its prefix.
     ///
     /// # Errors
     ///
-    /// Returns [`MediaError::Io`] naming `dir` before anything is loaded if `dir`, or any subdirectory scanned, cannot
-    /// be read, so a partial listing is never mistaken for a complete one.
+    /// Returns [`MediaError::Io`] naming `dir` if `dir` does not exist, is not a directory, or cannot be read, or if
+    /// any subdirectory scanned cannot be read, so a partial listing is never mistaken for a complete one.
+    pub fn list_dir(dir: impl AsRef<Path>, options: &LoadOptions) -> Result<Vec<PathBuf>, MediaError> {
+        let dir = dir.as_ref();
+        let listing = ListOptions::new().recursive(options.recursive);
+        let paths = rust_sak::fs::list_path(dir, &listing).map_err(|e| MediaError::fs(dir, e))?;
+
+        Ok(paths
+            .into_iter()
+            .filter(|path| match MediaType::from_path(path) {
+                Some(MediaType::Image) => options.images,
+                Some(MediaType::Video) => options.videos,
+                None => false,
+            })
+            .collect())
+    }
+
+    /// Loads every file that [`list_dir`](Self::list_dir) lists, in parallel, as [`from_files`](Self::from_files)
+    /// does.
+    ///
+    /// # Errors
+    ///
+    /// Fails before anything is loaded in the same cases as [`list_dir`](Self::list_dir).
     pub fn from_dir(dir: impl AsRef<Path>, options: &LoadOptions) -> Result<MediaStream, MediaError> {
-        Ok(Self::from_files(list_media(dir.as_ref(), options)?))
+        Ok(Self::from_files(Self::list_dir(dir, options)?))
     }
 }
 
@@ -188,21 +209,6 @@ impl Iterator for MediaStream {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
-}
-
-/// Lists the media files in `dir` that `options` selects, sorted by name within each directory.
-fn list_media(dir: &Path, options: &LoadOptions) -> Result<Vec<PathBuf>, MediaError> {
-    let listing = ListOptions::new().recursive(options.recursive);
-    let paths = rust_sak::fs::list_path(dir, &listing).map_err(|e| MediaError::fs(dir, e))?;
-
-    Ok(paths
-        .into_iter()
-        .filter(|path| match MediaType::from_path(path) {
-            Some(MediaType::Image) => options.images,
-            Some(MediaType::Video) => options.videos,
-            None => false,
-        })
-        .collect())
 }
 
 #[cfg(test)]
@@ -394,7 +400,7 @@ pub(crate) mod tests {
     }
 
     /// Builds `a.png`, `notes.txt` and `clip.mp4` at the root, and `sub/b.png` and `sub/c.mp4` below it. The media
-    /// files are empty: [`list_media`] classifies by name and never opens them.
+    /// files are empty: [`Media::list_dir`] classifies by name and never opens them.
     fn make_tree() -> rust_sak::fs::TempDir {
         let dir = mk_temp_dir("mediasim").unwrap();
         let sub = dir.path().join("sub");
@@ -425,39 +431,54 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn list_media_root_only_by_default() {
+    fn list_dir_root_only_by_default() {
         let dir = make_tree();
 
-        let paths = list_media(dir.path(), &LoadOptions::new()).unwrap();
+        let paths = Media::list_dir(dir.path(), &LoadOptions::new()).unwrap();
 
         assert_eq!(relative(dir.path(), &paths), ["a.png", "clip.mp4"]);
     }
 
     #[test]
-    fn list_media_recursive_includes_subdirectories() {
+    fn list_dir_recursive_includes_subdirectories() {
         let dir = make_tree();
 
-        let paths = list_media(dir.path(), &LoadOptions::new().recursive(true)).unwrap();
+        let paths = Media::list_dir(dir.path(), &LoadOptions::new().recursive(true)).unwrap();
 
         assert_eq!(relative(dir.path(), &paths), ["a.png", "clip.mp4", "sub/b.png", "sub/c.mp4"]);
     }
 
     #[test]
-    fn list_media_images_only() {
+    fn list_dir_images_only() {
         let dir = make_tree();
 
-        let paths = list_media(dir.path(), &LoadOptions::new().recursive(true).videos(false)).unwrap();
+        let paths = Media::list_dir(dir.path(), &LoadOptions::new().recursive(true).videos(false)).unwrap();
 
         assert_eq!(relative(dir.path(), &paths), ["a.png", "sub/b.png"]);
     }
 
     #[test]
-    fn list_media_videos_only() {
+    fn list_dir_videos_only() {
         let dir = make_tree();
 
-        let paths = list_media(dir.path(), &LoadOptions::new().recursive(true).images(false)).unwrap();
+        let paths = Media::list_dir(dir.path(), &LoadOptions::new().recursive(true).images(false)).unwrap();
 
         assert_eq!(relative(dir.path(), &paths), ["clip.mp4", "sub/c.mp4"]);
+    }
+
+    #[test]
+    fn list_dir_sorts_by_name_and_keeps_the_given_prefix() {
+        let dir = mk_temp_dir("mediasim").unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        for name in ["b.png", "a.mp4", "notes.txt", "sub/c.png"] {
+            std::fs::write(dir.path().join(name), b"").unwrap();
+        }
+
+        let flat = Media::list_dir(dir.path(), &LoadOptions::new()).unwrap();
+        let images = Media::list_dir(dir.path(), &LoadOptions::new().recursive(true).videos(false)).unwrap();
+
+        assert_eq!(flat, [dir.path().join("a.mp4"), dir.path().join("b.png")]);
+        assert_eq!(images, [dir.path().join("b.png"), dir.path().join("sub").join("c.png")]);
     }
 
     #[test]
@@ -480,6 +501,20 @@ pub(crate) mod tests {
 
         assert!(matches!(err, MediaError::Io { .. }));
         assert_eq!(err.path(), Path::new("definitely-not-a-real-dir"));
+    }
+
+    #[test]
+    fn from_dir_regular_file_is_io_error() {
+        let dir = mk_temp_dir("mediasim").unwrap();
+        let file = dir.path().join("a.png");
+        std::fs::copy(fixture("test1.png"), &file).unwrap();
+
+        let Err(err) = Media::from_dir(&file, &LoadOptions::new()) else {
+            panic!("expected an error for a regular file");
+        };
+
+        assert!(matches!(err, MediaError::Io { .. }));
+        assert_eq!(err.path(), file);
     }
 
     #[cfg(unix)]

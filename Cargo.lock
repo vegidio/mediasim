@@ -516,6 +516,7 @@ dependencies = [
  "clap",
  "mediasim",
  "ratatui",
+ "rust-sak",
  "thiserror 2.0.21",
 ]
 
@@ -1548,7 +1549,7 @@ dependencies = [
 [[package]]
 name = "media-rs"
 version = "26.6.0"
-source = "git+https://github.com/vegidio/media-rs?rev=6e268e08b29b55f3a2427f23de5b2d50d4c6bf51#6e268e08b29b55f3a2427f23de5b2d50d4c6bf51"
+source = "git+https://github.com/vegidio/media-rs?rev=a0a579152b8421c183f215c67cf97d7e90fcea49#a0a579152b8421c183f215c67cf97d7e90fcea49"
 dependencies = [
  "image",
  "rust-sak",
@@ -2379,8 +2380,8 @@ dependencies = [
 
 [[package]]
 name = "rust-sak"
-version = "26.10.1"
-source = "git+https://github.com/vegidio/rust-sak?tag=26.10.1#c96ec993070aff3ff59cf3bdc82b6a7786499985"
+version = "26.10.2"
+source = "git+https://github.com/vegidio/rust-sak?tag=26.10.2#cbc8d76b29fd81631c826712a9949447dd13c6bd"
 dependencies = [
  "avif-rs",
  "cap-std",
