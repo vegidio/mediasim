@@ -1,4 +1,4 @@
-//! The one-line loading display: `Loading   [1/2]  ██████░░░░░░  50.0%   ETA 4.2s`.
+//! The one-line progress display: `Loading   [1/2]  ██████░░░░░░  50.0%   ETA 4.2s`, with a caller-chosen label.
 //!
 //! It is drawn with ratatui in an inline viewport, so it stays in the normal scrollback instead of taking over the
 //! screen, and remains visible after loading ends.
@@ -8,6 +8,7 @@ mod eta;
 mod spring;
 
 use std::io::{Write, stdout};
+use std::iter::once;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::{Duration, Instant};
 
@@ -36,26 +37,36 @@ const SETTLE_CAP: Duration = Duration::from_secs(1);
 const MAX_BAR_WIDTH: u16 = 50;
 const MIN_BAR_WIDTH: u16 = 10;
 
-/// Shows the loading display while `stream` yields `total` results, and returns the loaded media.
+/// Shows the progress display, labelled `label`, while `stream` yields `total` results, feeds each loaded media to
+/// `sink`, and returns the sink.
 ///
-/// The first error ends loading at once, and Ctrl+C ends it with [`CliError::Interrupted`]. The terminal is
-/// restored on every way out, with the display left on screen and the cursor on the line below it.
-pub fn run(stream: MediaStream, total: usize, color: bool) -> Result<Vec<Media>, CliError> {
-    // `MediaStream` blocks, so a thread forwards it to a channel the frame loop can poll. Once the receiver is dropped,
-    // the forwarder's next send fails, which drops the stream and stops any file that has not started loading.
-    let (tx, rx) = mpsc::channel::<Result<Media, MediaError>>();
-    std::thread::spawn(move || {
+/// The sink is fed on a background thread, so slow work it does (such as comparing media) never stalls the display
+/// or Ctrl+C; progress advances once the sink has taken each media. The first error ends the run at once, and Ctrl+C
+/// ends it with [`CliError::Interrupted`]. The terminal is restored on every way out, with the display left on
+/// screen and the cursor on the line below it.
+pub fn run<C>(stream: MediaStream, total: usize, label: &str, mut sink: C, color: bool) -> Result<C, CliError>
+where
+    C: Extend<Media> + Send + 'static,
+{
+    // `MediaStream` blocks, so a thread drains it into the sink and ticks a channel the frame loop can poll. Once the
+    // receiver is dropped, the forwarder's next send fails, which drops the stream and stops any file that has not
+    // started loading.
+    let (tx, rx) = mpsc::channel::<Result<(), MediaError>>();
+    let forwarder = std::thread::spawn(move || {
         for result in stream {
-            if tx.send(result).is_err() {
+            let tick = result.map(|media| sink.extend(once(media)));
+            let failed = tick.is_err();
+            if tx.send(tick).is_err() || failed {
                 break;
             }
         }
+        sink
     });
 
     println!();
     let mut session = Session::start()?;
     let started = Instant::now();
-    let mut media = Vec::with_capacity(total);
+    let mut completed = 0;
     let mut spring = Spring::default();
     let mut eta = Eta::default();
     let mut finished_at = None;
@@ -66,7 +77,10 @@ pub fn run(stream: MediaStream, total: usize, color: bool) -> Result<Vec<Media>,
         let mut disconnected = false;
         loop {
             match rx.try_recv() {
-                Ok(result) => media.push(result?),
+                Ok(tick) => {
+                    tick?;
+                    completed += 1;
+                }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
                     disconnected = true;
@@ -75,7 +89,6 @@ pub fn run(stream: MediaStream, total: usize, color: bool) -> Result<Vec<Media>,
             }
         }
 
-        let completed = media.len();
         let finished = disconnected || completed >= total;
         spring.target = if finished { 1.0 } else { fraction(completed, total) };
         spring.step();
@@ -88,6 +101,7 @@ pub fn run(stream: MediaStream, total: usize, color: bool) -> Result<Vec<Media>,
         }
 
         let line = ProgressLine {
+            label,
             completed: if finished { total } else { completed },
             total,
             position: spring.position,
@@ -97,7 +111,7 @@ pub fn run(stream: MediaStream, total: usize, color: bool) -> Result<Vec<Media>,
         session.draw(line)?;
 
         if done {
-            return Ok(media);
+            return Ok(forwarder.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)));
         }
 
         if event::poll(FRAME.saturating_sub(frame_started.elapsed()))? && is_ctrl_c(&event::read()?) {
@@ -132,7 +146,7 @@ impl Session {
         Ok(Self { terminal, row: None })
     }
 
-    fn draw(&mut self, line: ProgressLine) -> std::io::Result<()> {
+    fn draw(&mut self, line: ProgressLine<'_>) -> std::io::Result<()> {
         // `CompletedFrame::area` is the whole terminal; the frame's own area is the inline viewport.
         self.terminal.draw(|frame| {
             self.row = Some(frame.area().y);
@@ -156,8 +170,9 @@ impl Drop for Session {
     }
 }
 
-/// `Loading   [n/total]  <bar>  xx.x%   ETA …`, with the bar as wide as fits, between 10 and 50 cells.
-struct ProgressLine {
+/// `<label>   [n/total]  <bar>  xx.x%   ETA …`, with the bar as wide as fits, between 10 and 50 cells.
+struct ProgressLine<'a> {
+    label: &'a str,
     completed: usize,
     total: usize,
     position: f64,
@@ -165,19 +180,19 @@ struct ProgressLine {
     color: bool,
 }
 
-impl ProgressLine {
+impl ProgressLine<'_> {
     fn style(&self, (r, g, b): (u8, u8, u8)) -> Style {
         if self.color { Style::new().fg(Color::Rgb(r, g, b)) } else { Style::new() }
     }
 }
 
-impl Widget for ProgressLine {
+impl Widget for ProgressLine<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let digits = self.total.to_string().len();
         let gray = self.style(GRAY);
 
         let left = Line::from(vec![
-            Span::raw("Loading   "),
+            Span::raw(format!("{}   ", self.label)),
             Span::styled("[", gray),
             Span::raw(format!("{:0digits$}", self.completed)).bold(),
             Span::styled("/", gray),
@@ -217,14 +232,21 @@ mod tests {
 
     use super::*;
 
-    fn draw(width: u16, line: ProgressLine) -> String {
+    fn draw(width: u16, line: ProgressLine<'_>) -> String {
         let mut terminal = Terminal::new(TestBackend::new(width, 1)).unwrap();
         terminal.draw(|frame| frame.render_widget(line, frame.area())).unwrap();
         terminal.backend().buffer().content().iter().map(ratatui::buffer::Cell::symbol).collect()
     }
 
-    fn half_loaded() -> ProgressLine {
-        ProgressLine { completed: 1, total: 2, position: 0.5, eta: Some(Duration::from_millis(4200)), color: true }
+    fn half_loaded() -> ProgressLine<'static> {
+        ProgressLine {
+            label: "Loading",
+            completed: 1,
+            total: 2,
+            position: 0.5,
+            eta: Some(Duration::from_millis(4200)),
+            color: true,
+        }
     }
 
     fn bar_cells(text: &str) -> usize {
@@ -259,7 +281,7 @@ mod tests {
 
     #[test]
     fn nothing_loaded_shows_no_estimate() {
-        let line = ProgressLine { completed: 0, total: 2, position: 0.0, eta: None, color: false };
+        let line = ProgressLine { label: "Loading", completed: 0, total: 2, position: 0.0, eta: None, color: false };
 
         let text = draw(120, line);
 
@@ -269,9 +291,19 @@ mod tests {
 
     #[test]
     fn count_is_padded_to_the_width_of_the_total() {
-        let line = ProgressLine { completed: 3, total: 12, position: 0.25, eta: None, color: false };
+        let line = ProgressLine { label: "Loading", completed: 3, total: 12, position: 0.25, eta: None, color: false };
 
         assert!(draw(120, line).contains("[03/12]"));
+    }
+
+    #[test]
+    fn label_is_shown() {
+        let line = ProgressLine { label: "Processing", ..half_loaded() };
+
+        let text = draw(120, line);
+
+        assert!(text.starts_with("Processing   [1/2]  █"), "{text}");
+        assert!(text.trim_end().ends_with("░   50.0%   ETA 4.2s"), "{text}");
     }
 
     #[test]

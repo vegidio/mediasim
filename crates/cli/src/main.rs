@@ -3,6 +3,7 @@
 
 mod args;
 mod error;
+mod files;
 mod output;
 mod progress;
 mod score;
@@ -20,6 +21,7 @@ fn main() -> ExitCode {
 
     let result = match cli.command {
         Command::Score { file1, file2 } => score::run(file1, file2),
+        Command::Files { files, threshold } => files::run(files, threshold),
     };
 
     match result {
