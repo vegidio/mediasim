@@ -6,7 +6,7 @@ use crate::{Icon, euc_metric};
 /// Combines the three per-channel squared distances returned by [`euc_metric`] into a single scalar: the luma channel
 /// (`m1`) is weighted fully since it's the one with the greatest impact on visual perception, while the two chroma
 /// channels (`m2`, `m3`) are each halved before summation. The root of that weighted sum is then divided by the
-/// maximum single-channel Euclidean distance ([`MAX_EUC_DIST`]) and clamped, yielding a value in `[0, 1]`.
+/// maximum single-channel Euclidean distance (`MAX_EUC_DIST`) and clamped, yielding a value in `[0, 1]`.
 ///
 /// Smaller values indicate more similar images: `0.0` means identical. A single channel (or luma-only contrast such
 /// as solid black vs solid white) at full range maps to `1.0`; the rare all-three-channel extreme reaches `~sqrt(2)`

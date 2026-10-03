@@ -5,6 +5,9 @@
 //! single frames; videos compare their per-second frames, aligned in time so trimmed or padded copies still match.
 //! Comparing an image with a video is a [`CompareError`].
 //!
+//! To find duplicates among many files, feed them to a [`Grouper`]: it groups the media whose similarity reaches a
+//! threshold, with the best copy of each group first.
+//!
 //! ```no_run
 //! use mediasim::Media;
 //!
@@ -24,6 +27,6 @@ pub mod core;
 mod error;
 pub mod media;
 
-pub use core::{Icon, euc_metric};
+pub use core::{Grouper, Icon, euc_metric};
 pub use error::{CompareError, MediaError};
 pub use media::{LoadOptions, Media, MediaStream, MediaType};

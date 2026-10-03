@@ -21,7 +21,7 @@ pub fn run(file1: PathBuf, file2: PathBuf) -> Result<(), CliError> {
         let color = output::stdout_color();
         println!();
         println!("{}", output::header(paths.len(), color));
-        progress::run(stream, paths.len(), color)?
+        progress::run(stream, paths.len(), "Loading", Vec::with_capacity(2), color)?
     } else {
         stream.collect::<Result<Vec<_>, _>>()?
     };
