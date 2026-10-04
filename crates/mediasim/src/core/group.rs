@@ -1,6 +1,5 @@
-//! Grouping loaded [`Media`] by similarity, with the best member of each group first.
+//! Grouping loaded [`Media`] by similarity, with each group's members ordered by path.
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use rayon::prelude::*;
@@ -16,6 +15,9 @@ use crate::{CompareError, CompareOptions, Media};
 /// grouping is transitive: if A matches B and B matches C, all three end up in one group. An image and a video are
 /// never compared, so they are never grouped together and mixing them is not an error.
 ///
+/// [`finish`](Self::finish) orders each group's members by path. It does not rank them by duration, resolution or
+/// file size; that is left to the caller.
+///
 /// ```no_run
 /// use mediasim::{Grouper, Media};
 ///
@@ -24,7 +26,7 @@ use crate::{CompareError, CompareOptions, Media};
 ///     grouper.push(media?);
 /// }
 /// for group in grouper.finish() {
-///     println!("best: {}", group[0].path.display());
+///     println!("first: {}", group[0].path.display());
 /// }
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -98,9 +100,9 @@ impl Grouper {
 
     /// Returns the groups of two or more media, leaving out media that matched nothing.
     ///
-    /// Each group is ordered best first: longest duration (an image counts as zero), then most pixels, then largest
-    /// file, then path. The groups are ordered by the path of their best member, so the result does not depend on the
-    /// order the media were added in.
+    /// Each group's members are ordered by path, and the groups by the path of their first member, so the result does
+    /// not depend on the order the media were added in. The members are not ranked by quality: a caller that wants
+    /// them ranked sorts each group itself.
     #[must_use]
     pub fn finish(mut self) -> Vec<Vec<Media>> {
         let roots: Vec<usize> = (0..self.media.len()).map(|i| self.dsu.find(i)).collect();
@@ -112,7 +114,7 @@ impl Grouper {
 
         let mut groups: Vec<Vec<Media>> = by_root.into_values().filter(|group| group.len() >= 2).collect();
         for group in &mut groups {
-            group.sort_by(best_first);
+            group.sort_by(|a, b| a.path.cmp(&b.path));
         }
         groups.sort_by(|a, b| a[0].path.cmp(&b[0].path));
         groups
@@ -125,16 +127,6 @@ impl Extend<Media> for Grouper {
             self.push(media);
         }
     }
-}
-
-/// Orders media best first: longer duration, then more pixels, then larger file, with the path as the tie-break.
-fn best_first(a: &Media, b: &Media) -> Ordering {
-    b.duration
-        .unwrap_or_default()
-        .cmp(&a.duration.unwrap_or_default())
-        .then_with(|| b.pixels().cmp(&a.pixels()))
-        .then_with(|| b.size.cmp(&a.size))
-        .then_with(|| a.path.cmp(&b.path))
 }
 
 #[cfg(test)]
@@ -241,33 +233,53 @@ mod tests {
     }
 
     #[test]
-    fn resolution_decides() {
-        let small = Media { width: 500, height: 500, ..image("a.png", 0) };
+    fn path_decides_not_resolution() {
         let large = Media { width: 1000, height: 1000, ..image("b.png", 0) };
+        let small = Media { width: 500, height: 500, ..image("a.png", 0) };
 
-        let groups = group(0.9, [small, large]);
+        let groups = group(0.9, [large, small]);
 
-        assert_eq!(paths(&groups), [[PathBuf::from("b.png"), PathBuf::from("a.png")]]);
+        assert_eq!(paths(&groups), [[PathBuf::from("a.png"), PathBuf::from("b.png")]]);
     }
 
     #[test]
-    fn duration_decides_before_resolution() {
-        let long = Media { width: 1280, height: 720, ..video("a.mp4", 0, 60) };
-        let sharp = Media { width: 1920, height: 1080, ..video("b.mp4", 0, 30) };
+    fn path_decides_not_duration() {
+        let long = video("b.mp4", 0, 60);
+        let short = video("a.mp4", 0, 30);
 
-        let groups = group(0.9, [sharp, long]);
+        let groups = group(0.9, [long, short]);
 
         assert_eq!(paths(&groups), [[PathBuf::from("a.mp4"), PathBuf::from("b.mp4")]]);
     }
 
     #[test]
-    fn file_size_breaks_a_tie() {
-        let small = Media { width: 200, height: 50, size: 10, ..image("a.png", 0) };
+    fn path_decides_not_file_size() {
         let big = Media { width: 100, height: 100, size: 20, ..image("b.png", 0) };
+        let small = Media { width: 200, height: 50, size: 10, ..image("a.png", 0) };
 
-        let groups = group(0.9, [small, big]);
+        let groups = group(0.9, [big, small]);
 
-        assert_eq!(paths(&groups), [[PathBuf::from("b.png"), PathBuf::from("a.png")]]);
+        assert_eq!(paths(&groups), [[PathBuf::from("a.png"), PathBuf::from("b.png")]]);
+    }
+
+    #[test]
+    fn groups_are_ordered_by_their_first_path() {
+        let media = [
+            image("x1.png", 30_000),
+            image("x2.png", 30_000),
+            image("y1.png", 60_000),
+            image("c.png", 60_000),
+        ];
+
+        let groups = group(0.95, media);
+
+        assert_eq!(
+            paths(&groups),
+            [
+                [PathBuf::from("c.png"), PathBuf::from("y1.png")],
+                [PathBuf::from("x1.png"), PathBuf::from("x2.png")],
+            ]
+        );
     }
 
     #[test]
@@ -289,7 +301,7 @@ mod tests {
         assert_eq!(
             paths(&forward),
             [
-                vec![PathBuf::from("v2.mp4"), PathBuf::from("v1.mp4")],
+                vec![PathBuf::from("v1.mp4"), PathBuf::from("v2.mp4")],
                 vec![PathBuf::from("x1.png"), PathBuf::from("x2.png")],
                 vec![PathBuf::from("y1.png"), PathBuf::from("y2.png")],
             ]

@@ -1,5 +1,6 @@
 //! The grouping pipeline shared by `files` and `dir`: load, group, order and print.
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -36,6 +37,9 @@ pub fn run(
     let progress::Loaded { sink, mut skipped } =
         progress::load(paths, "Processing", grouper, ignore_errors, interactive, color)?;
     let mut groups = sink.finish();
+    for group in &mut groups {
+        group.sort_by(best_first);
+    }
     in_path_order(&mut groups, paths);
 
     if !skipped.is_empty() {
@@ -63,6 +67,17 @@ pub fn run(
 /// Each path's position in `paths`, for putting media that loaded in completion order back in input order.
 pub fn positions(paths: &[PathBuf]) -> HashMap<&Path, usize> {
     paths.iter().enumerate().map(|(i, path)| (path.as_path(), i)).collect()
+}
+
+/// Orders media best first: longer duration (an image counts as zero), then more pixels, then larger file, with the
+/// path as the tie-break.
+fn best_first(a: &Media, b: &Media) -> Ordering {
+    b.duration
+        .unwrap_or_default()
+        .cmp(&a.duration.unwrap_or_default())
+        .then_with(|| b.pixels().cmp(&a.pixels()))
+        .then_with(|| b.size.cmp(&a.size))
+        .then_with(|| a.path.cmp(&b.path))
 }
 
 /// Orders the groups by the earliest position in `paths` among their members, so the output does not depend on the
@@ -125,6 +140,53 @@ mod tests {
 
         assert_eq!(names(&forward), names(&backward));
         assert_eq!(names(&forward), [paths(&["a", "c"]), paths(&["b", "d"])]);
+    }
+
+    fn best_first_order(mut group: Vec<Media>) -> Vec<PathBuf> {
+        group.sort_by(best_first);
+        group.into_iter().map(|m| m.path).collect()
+    }
+
+    fn sized(mut media: Media, size: u64) -> Media {
+        media.size = size;
+        media
+    }
+
+    #[test]
+    fn resolution_decides() {
+        let group = vec![test_support::media("a.png", 500, 500, None), test_support::media("b.png", 1000, 1000, None)];
+
+        assert_eq!(best_first_order(group), paths(&["b.png", "a.png"]));
+    }
+
+    #[test]
+    fn duration_decides_before_resolution() {
+        let group = vec![
+            test_support::media("a.mp4", 1920, 1080, Some(30)),
+            test_support::media("b.mp4", 1280, 720, Some(60)),
+        ];
+
+        assert_eq!(best_first_order(group), paths(&["b.mp4", "a.mp4"]));
+    }
+
+    #[test]
+    fn file_size_breaks_a_tie() {
+        let group = vec![
+            sized(test_support::media("a.png", 200, 50, None), 10),
+            sized(test_support::media("b.png", 100, 100, None), 20),
+        ];
+
+        assert_eq!(best_first_order(group), paths(&["b.png", "a.png"]));
+    }
+
+    #[test]
+    fn path_breaks_a_full_tie() {
+        let group = vec![
+            sized(test_support::media("b.png", 100, 100, None), 10),
+            sized(test_support::media("a.png", 100, 100, None), 10),
+        ];
+
+        assert_eq!(best_first_order(group), paths(&["a.png", "b.png"]));
     }
 
     #[test]

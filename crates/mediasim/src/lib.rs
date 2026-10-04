@@ -10,7 +10,7 @@
 //! load time, but a comparison costs up to 3, 4 or 8 times as much, which matters most for long videos.
 //!
 //! To find duplicates among many files, feed them to a [`Grouper`]: it groups the media whose similarity reaches a
-//! threshold, with the best copy of each group first. [`Grouper::with_options`] groups under [`CompareOptions`].
+//! threshold. [`Grouper::with_options`] groups under [`CompareOptions`].
 //! [`Media::list_dir`] tells up front which files a directory load will yield, for a progress total or a stable
 //! display order.
 //!
