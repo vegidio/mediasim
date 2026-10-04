@@ -9,7 +9,10 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_skipped, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
+use common::{
+    CSV_HEADER, assert_fails, assert_skipped, assert_usage_error, csv_rows, fixture, groups, json, json_groups,
+    oriented_copies, sorted, stdout,
+};
 use rust_sak::fs::{TempDir, mk_temp_dir};
 
 /// A temporary directory holding a copy of each `(fixture, path inside the directory)` pair.
@@ -218,4 +221,41 @@ fn ignore_errors_combines_with_the_other_options() {
 
     assert_skipped(&output, &[&bad_video]);
     assert_eq!(groups(&output), [paths(dir.path(), &["sub/test4.mp4", "test3.mp4"])]);
+}
+
+#[test]
+fn csv_uses_the_directory_joined_paths() {
+    let dir = directory(&[("test1.png", "a.png"), ("test2.png", "sub/b.png")]);
+
+    let (header, rows) = csv_rows(&mediasim(&["-r", "-o", "csv"], dir.path()));
+
+    assert_eq!(header, CSV_HEADER);
+    let expected: Vec<_> = paths(dir.path(), &["a.png", "sub/b.png"]).into_iter().map(|path| (1, path)).collect();
+    assert_eq!(rows, expected);
+}
+
+#[test]
+fn json_uses_the_directory_joined_paths() {
+    let dir = all_fixtures();
+
+    let document = json(&mediasim(&["--output", "json"], dir.path()));
+
+    assert_eq!(json_groups(&document), [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(document["skipped"], serde_json::json!([]));
+}
+
+#[test]
+fn ignore_errors_lists_the_undecodable_file_in_json() {
+    let dir = directory(&[("test1.png", "a.png"), ("test2.png", "a-copy.png")]);
+    let broken = dir.path().join("broken.png");
+    std::fs::write(&broken, b"not a png").unwrap();
+
+    let output = mediasim(&["-o", "json", "--ie"], dir.path());
+
+    assert_skipped(&output, &[&broken]);
+    let document = json(&output);
+    assert_eq!(json_groups(&document), [paths(dir.path(), &["a.png", "a-copy.png"])]);
+    let skipped = document["skipped"].as_array().unwrap();
+    assert_eq!(skipped.len(), 1, "{skipped:?}");
+    assert_eq!(skipped[0]["path"].as_str(), Some(&*broken.to_string_lossy()));
 }

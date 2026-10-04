@@ -8,7 +8,10 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_skipped, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
+use common::{
+    CSV_HEADER, assert_fails, assert_skipped, assert_usage_error, csv_rows, fixture, groups, json, json_groups,
+    oriented_copies, sorted, stdout,
+};
 use rust_sak::fs::mk_temp_dir;
 
 fn fixtures(names: &[&str]) -> Vec<PathBuf> {
@@ -152,4 +155,115 @@ fn ignore_errors_without_failures_prints_no_report() {
 
     assert!(output.stderr.is_empty(), "{:?}", common::stderr(&output));
     assert_eq!(output.stdout, mediasim(&[], &files).stdout);
+}
+
+#[test]
+fn term_given_explicitly_prints_the_plain_groups_when_piped() {
+    let files = fixtures(&["test3.mp4", "test1.png", "test4.mp4", "test2.png"]);
+
+    let output = mediasim(&["-o", "term", "-t", "0"], &files);
+
+    assert!(output.status.success(), "{}", common::stderr(&output));
+    assert_eq!(output.stdout, mediasim(&["-t", "0"], &files).stdout);
+    assert_eq!(groups(&output), [fixtures(&["test4.mp4", "test3.mp4"]), fixtures(&["test1.png", "test2.png"])]);
+}
+
+#[test]
+fn json_lists_the_groups_best_first_with_the_media_fields() {
+    let output = mediasim(&["-o", "json"], &fixtures(&["test1.png", "test2.png", "test3.mp4", "test4.mp4"]));
+
+    let document = json(&output);
+
+    assert_eq!(json_groups(&document), [fixtures(&["test1.png", "test2.png"])]);
+    assert_eq!(document["skipped"], serde_json::json!([]));
+    let best = &document["groups"][0][0];
+    // `Value` sorts its keys; the order they are printed in is checked by the unit tests.
+    let fields: Vec<_> = best.as_object().unwrap().keys().map(String::as_str).collect();
+    assert_eq!(fields, ["created", "duration", "height", "modified", "path", "size", "type", "width"]);
+    assert_eq!(best["type"], "image");
+    assert_eq!((best["width"].as_u64(), best["height"].as_u64()), (Some(1440), Some(3098)));
+    assert_eq!(best["size"].as_u64(), Some(std::fs::metadata(fixture("test1.png")).unwrap().len()));
+    assert!(best["duration"].is_null());
+    assert!(best["modified"].as_str().is_some_and(|time| time.ends_with('Z')), "{best}");
+}
+
+#[test]
+fn json_gives_a_video_its_duration_in_seconds() {
+    let document = json(&mediasim(&["-o", "json", "-t", "0"], &fixtures(&["test3.mp4", "test4.mp4"])));
+
+    let durations: Vec<_> = document["groups"][0].as_array().unwrap().iter().map(|m| m["duration"].as_f64()).collect();
+    assert!(durations.iter().all(|d| d.is_some_and(|d| d > 0.0)), "{durations:?}");
+    assert_eq!(document["groups"][0][0]["type"], "video");
+}
+
+#[test]
+fn csv_has_the_header_and_one_row_per_media_in_group_order() {
+    let output = mediasim(&["-o", "csv", "-t", "0"], &fixtures(&["test3.mp4", "test1.png", "test4.mp4", "test2.png"]));
+
+    let (header, rows) = csv_rows(&output);
+
+    assert_eq!(header, CSV_HEADER);
+    assert_eq!(
+        rows,
+        [
+            (1, fixture("test4.mp4")),
+            (1, fixture("test3.mp4")),
+            (2, fixture("test1.png")),
+            (2, fixture("test2.png"))
+        ]
+    );
+}
+
+#[test]
+fn no_groups_is_the_csv_header_alone() {
+    let output = mediasim(&["-o", "csv", "-t", "0.99"], &fixtures(&["test1.png", "test2.png"]));
+
+    assert!(output.status.success(), "{}", common::stderr(&output));
+    assert_eq!(stdout(&output), format!("{}\n", CSV_HEADER.join(",")));
+}
+
+#[test]
+fn no_groups_is_an_empty_json_document() {
+    let output = mediasim(&["-o", "json", "-t", "0.99"], &fixtures(&["test1.png", "test2.png"]));
+
+    assert!(output.status.success(), "{}", common::stderr(&output));
+    assert_eq!(stdout(&output), "{\"groups\":[],\"skipped\":[]}\n");
+}
+
+#[test]
+fn ignore_errors_lists_skipped_files_in_json_and_reports_them_on_stderr() {
+    let missing = Path::new("definitely-not-a-real-file.png");
+    let files = [fixture("test1.png"), missing.to_path_buf(), fixture("test2.png")];
+
+    let output = mediasim(&["--ie", "-o", "json"], &files);
+
+    assert_skipped(&output, &[missing]);
+    let document = json(&output);
+    assert_eq!(json_groups(&document), [fixtures(&["test1.png", "test2.png"])]);
+    let skipped = document["skipped"].as_array().unwrap();
+    assert_eq!(skipped.len(), 1, "{skipped:?}");
+    assert_eq!(skipped[0]["path"], "definitely-not-a-real-file.png");
+    assert!(skipped[0]["error"].as_str().unwrap().contains("definitely-not-a-real-file.png"), "{skipped:?}");
+}
+
+#[test]
+fn ignore_errors_with_csv_reports_skipped_files_on_stderr_only() {
+    let missing = Path::new("definitely-not-a-real-file.png");
+    let files = [fixture("test1.png"), missing.to_path_buf(), fixture("test2.png")];
+
+    let output = mediasim(&["-o", "csv", "--ie"], &files);
+
+    assert_skipped(&output, &[missing]);
+    let (header, rows) = csv_rows(&output);
+    assert_eq!(header, CSV_HEADER);
+    assert_eq!(rows, [(1, fixture("test1.png")), (1, fixture("test2.png"))]);
+}
+
+#[test]
+fn json_with_a_missing_file_prints_only_the_error() {
+    let files = [fixture("test1.png"), PathBuf::from("definitely-not-a-real-file.png")];
+
+    let stderr = assert_fails(&mediasim(&["-o", "json"], &files));
+
+    assert!(stderr.contains("definitely-not-a-real-file.png"), "{stderr}");
 }

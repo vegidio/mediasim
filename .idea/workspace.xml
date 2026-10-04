@@ -14,12 +14,23 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="refactor: Move &quot;best-first&quot; ordering logic from `mediasim` library to CLI for better flexibility across frontends">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add `--output` option to CLI commands for machine-readable CSV/JSON formats">
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/args.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/args.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/dir.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/dir.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/files.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/files.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/cli/src/group.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/group.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/group.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/group.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/move-best-first-to-cli/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/move-best-first-to-cli/tasks.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/specs/media-grouping/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/media-grouping/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/score.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/score.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/tests/common/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/tests/common/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/tests/dir.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/tests/dir.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/tests/files.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/tests/files.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/tests/score.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/tests/score.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-cli-output-format/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-cli-output-format/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -378,7 +389,14 @@
       <option name="presentableId" value="LOCAL−00018" />
       <updated>1791136517021</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL−00019" summary="feat: Add `--output` option to CLI commands for machine-readable CSV/JSON formats">
+      <option name="closed" value="true" />
+      <created>1791138604676</created>
+      <option name="number" value="LOCAL−00019" />
+      <option name="presentableId" value="LOCAL−00019" />
+      <updated>1791138604676</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -404,7 +422,8 @@
     <MESSAGE value="feat: Add orientation-based similarity options with CLI support for flipped and rotated media" />
     <MESSAGE value="feat: Add `--ignore-errors` flag to `files` and `dir` commands for skipping failed file loads without interrupting processing" />
     <MESSAGE value="refactor: Move &quot;best-first&quot; ordering logic from `mediasim` library to CLI for better flexibility across frontends" />
-    <option name="LAST_COMMIT_MESSAGE" value="refactor: Move &quot;best-first&quot; ordering logic from `mediasim` library to CLI for better flexibility across frontends" />
+    <MESSAGE value="feat: Add `--output` option to CLI commands for machine-readable CSV/JSON formats" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add `--output` option to CLI commands for machine-readable CSV/JSON formats" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

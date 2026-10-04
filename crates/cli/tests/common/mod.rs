@@ -111,3 +111,48 @@ pub fn sorted(mut groups: Vec<Vec<PathBuf>>) -> Vec<Vec<PathBuf>> {
     groups.sort();
     groups
 }
+
+/// The JSON document of a successful run.
+pub fn json(output: &Output) -> serde_json::Value {
+    assert!(output.status.success(), "{}", stderr(output));
+    let stdout = stdout(output);
+    assert_eq!(stdout.matches('\n').count(), 1, "one line: {stdout:?}");
+
+    serde_json::from_str(&stdout).unwrap()
+}
+
+/// The groups of a JSON document, each as its list of paths.
+pub fn json_groups(document: &serde_json::Value) -> Vec<Vec<PathBuf>> {
+    document["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|group| {
+            group
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|media| PathBuf::from(media["path"].as_str().unwrap()))
+                .collect()
+        })
+        .collect()
+}
+
+/// The header of the CSV document of a successful run, and its rows as `(group, path)`.
+pub fn csv_rows(output: &Output) -> (Vec<String>, Vec<(usize, PathBuf)>) {
+    assert!(output.status.success(), "{}", stderr(output));
+    let mut reader = csv::Reader::from_reader(output.stdout.as_slice());
+
+    let header = reader.headers().unwrap().iter().map(String::from).collect();
+    let rows = reader
+        .records()
+        .map(|record| {
+            let record = record.unwrap();
+            (record[0].parse().unwrap(), PathBuf::from(&record[1]))
+        })
+        .collect();
+    (header, rows)
+}
+
+pub const CSV_HEADER: [&str; 9] =
+    ["group", "path", "type", "width", "height", "size", "duration", "created", "modified"];

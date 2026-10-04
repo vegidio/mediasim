@@ -3,9 +3,18 @@ name = "mediasim"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+# Makes `Media` and `MediaType` serializable, for front ends that print or send media as data.
+serde = ["dep:serde", "dep:jiff"]
+
 [dependencies]
 image.workspace = true
+jiff = { workspace = true, optional = true }
 media.workspace = true
 rayon.workspace = true
 rust-sak.workspace = true
+serde = { workspace = true, optional = true }
 thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

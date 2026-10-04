@@ -134,3 +134,61 @@ fn an_orientation_flag_with_a_value_is_a_usage_error() {
 
     assert_usage_error(&output);
 }
+
+fn score_as(format: &str, a: &Path, b: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_mediasim"))
+        .args(["score", "-o", format])
+        .arg(a)
+        .arg(b)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn csv_is_a_header_and_the_score() {
+    let output = score_as("csv", &fixture("test1.png"), &fixture("test1.png"));
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "score\n1\n");
+
+    let (a, b) = (fixture("test1.png"), fixture("test2.png"));
+    assert_eq!(stdout(&score_as("csv", &a, &b)), format!("score\n{}", stdout(&mediasim(&[&a, &b]))));
+}
+
+#[test]
+fn json_is_an_object_with_the_score() {
+    let output = score_as("json", &fixture("test1.png"), &fixture("test1.png"));
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "{\"score\":1.0}\n");
+
+    let (a, b) = (fixture("test1.png"), fixture("test2.png"));
+    let bare = stdout(&mediasim(&[&a, &b]));
+    assert_eq!(stdout(&score_as("json", &a, &b)), format!("{{\"score\":{}}}\n", bare.trim()));
+}
+
+#[test]
+fn term_given_explicitly_prints_the_bare_score_when_piped() {
+    let (a, b) = (fixture("test1.png"), fixture("test2.png"));
+
+    let output = score_as("term", &a, &b);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(output.stdout, mediasim(&[&a, &b]).stdout);
+}
+
+#[test]
+fn json_with_a_missing_file_prints_only_the_error() {
+    let output = score_as("json", &fixture("test1.png"), Path::new("definitely-not-a-real-file.png"));
+
+    let stderr = assert_fails(&output);
+    assert!(stderr.contains("definitely-not-a-real-file.png"), "{stderr}");
+}
+
+#[test]
+fn an_unknown_output_format_is_a_usage_error() {
+    let output = score_as("xml", &fixture("test1.png"), &fixture("test2.png"));
+
+    assert_usage_error(&output);
+    assert!(stderr(&output).contains("term, csv, json"), "{}", stderr(&output));
+}

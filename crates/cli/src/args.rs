@@ -22,6 +22,8 @@ pub enum Command {
         file2: PathBuf,
         #[command(flatten)]
         compare: CompareArgs,
+        #[command(flatten)]
+        output: OutputArgs,
     },
 
     /// Group two or more images and videos by similarity, listing the best file of each group first.
@@ -33,6 +35,8 @@ pub enum Command {
         group: GroupArgs,
         #[command(flatten)]
         compare: CompareArgs,
+        #[command(flatten)]
+        output: OutputArgs,
     },
 
     /// Group the images and videos in a directory by similarity, listing the best file of each group first.
@@ -49,6 +53,8 @@ pub enum Command {
         group: GroupArgs,
         #[command(flatten)]
         compare: CompareArgs,
+        #[command(flatten)]
+        output: OutputArgs,
     },
 }
 
@@ -79,6 +85,25 @@ impl CompareArgs {
     pub fn options(&self) -> CompareOptions {
         CompareOptions::new().flip(self.flip).rotate(self.rotate)
     }
+}
+
+/// The options shared by every command.
+#[derive(Debug, Args)]
+pub struct OutputArgs {
+    /// How to print the result: for a terminal, or as CSV or JSON for other programs.
+    #[arg(short, long, value_enum, default_value_t = OutputFormat::Term)]
+    pub output: OutputFormat,
+}
+
+/// How a command prints its result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OutputFormat {
+    /// A report on a terminal, or the bare result when piped.
+    Term,
+    /// A CSV document.
+    Csv,
+    /// A JSON document on one line.
+    Json,
 }
 
 /// The media a directory scan loads.
@@ -270,7 +295,7 @@ mod tests {
     fn orientation_flags_combine_with_the_other_options() {
         let cli = Cli::try_parse_from(["mediasim", "dir", "--ff", "-r", "--fr", "-m", "videos", "-t", "0.9", "photos"])
             .unwrap();
-        let Command::Dir { directory, recursive, media_type, group, compare } = cli.command else {
+        let Command::Dir { directory, recursive, media_type, group, compare, .. } = cli.command else {
             panic!("expected `dir`")
         };
         assert_eq!((directory, recursive, media_type), (PathBuf::from("photos"), true, MediaKind::Videos));
@@ -368,6 +393,84 @@ mod tests {
                 assert_eq!(err.kind(), ErrorKind::TooManyValues, "{command} {flag}");
                 assert_eq!(err.exit_code(), 2, "{command} {flag}");
             }
+        }
+    }
+
+    /// The output format that `args` parse to for `command`, with whatever positional arguments it needs after them.
+    fn output_format(command: &str, args: &[&str]) -> Result<OutputFormat, clap::Error> {
+        let paths: &[&str] = if command == "dir" { &["photos"] } else { &["a", "b"] };
+        let cli = Cli::try_parse_from(["mediasim", command].iter().chain(args).chain(paths))?;
+        let (Command::Score { output, .. } | Command::Files { output, .. } | Command::Dir { output, .. }) = cli.command;
+        Ok(output.output)
+    }
+
+    #[test]
+    fn output_is_term_by_default() {
+        for command in ["score", "files", "dir"] {
+            assert_eq!(output_format(command, &[]).unwrap(), OutputFormat::Term, "{command}");
+        }
+    }
+
+    #[test]
+    fn output_has_two_spellings() {
+        for command in ["score", "files", "dir"] {
+            for (args, want) in [
+                (&["-o", "csv"][..], OutputFormat::Csv),
+                (&["--output", "json"][..], OutputFormat::Json),
+                (&["--output=csv"][..], OutputFormat::Csv),
+                (&["-o", "term"][..], OutputFormat::Term),
+            ] {
+                assert_eq!(output_format(command, args).unwrap(), want, "{command} {args:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn output_goes_in_any_position() {
+        let cli = Cli::try_parse_from(["mediasim", "score", "a", "b", "--output", "json"]).unwrap();
+        let Command::Score { file1, file2, output, .. } = cli.command else {
+            panic!("expected `score`")
+        };
+        assert_eq!((file1, file2, output.output), (PathBuf::from("a"), PathBuf::from("b"), OutputFormat::Json));
+
+        let cli = Cli::try_parse_from(["mediasim", "files", "a", "b", "c", "-o", "csv"]).unwrap();
+        let Command::Files { files, output, .. } = cli.command else { panic!("expected `files`") };
+        assert_eq!((files.len(), output.output), (3, OutputFormat::Csv));
+
+        let cli = Cli::try_parse_from(["mediasim", "dir", "photos", "-o", "json"]).unwrap();
+        let Command::Dir { directory, output, .. } = cli.command else { panic!("expected `dir`") };
+        assert_eq!((directory, output.output), (PathBuf::from("photos"), OutputFormat::Json));
+    }
+
+    #[test]
+    fn output_combines_with_the_other_options() {
+        let cli = Cli::try_parse_from([
+            "mediasim", "dir", "-r", "-m", "images", "-t", "0.9", "--ie", "--ff", "-o", "csv", "photos",
+        ])
+        .unwrap();
+        let Command::Dir { directory, recursive, media_type, group, compare, output } = cli.command else {
+            panic!("expected `dir`")
+        };
+
+        assert_eq!((directory, recursive, media_type), (PathBuf::from("photos"), true, MediaKind::Images));
+        assert!((group.threshold - 0.9).abs() < f64::EPSILON);
+        assert!(group.ignore_errors);
+        assert_eq!(compare.options(), CompareOptions::new().flip(true));
+        assert_eq!(output.output, OutputFormat::Csv);
+    }
+
+    #[test]
+    fn an_unknown_or_missing_output_is_a_usage_error() {
+        for command in ["score", "files", "dir"] {
+            let err = output_format(command, &["-o", "xml"]).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::InvalidValue, "{command}");
+            assert_eq!(err.exit_code(), 2, "{command}");
+            assert!(err.to_string().contains("term, csv, json"), "{err}");
+
+            let paths: &[&str] = if command == "dir" { &["photos"] } else { &["a", "b"] };
+            let err = Cli::try_parse_from(["mediasim", command].iter().chain(paths).chain(&["-o"])).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::InvalidValue, "{command}");
+            assert_eq!(err.exit_code(), 2, "{command}");
         }
     }
 }

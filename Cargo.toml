@@ -4,10 +4,15 @@ resolver = "2"
 
 [workspace.dependencies]
 clap = { version = "4.6", features = ["derive"] }
+csv = "1.4"
 image = "0.25.10"
+# Only `Timestamp` and its RFC 3339 `Display` are used, so the time zone database is left out.
+jiff = { version = "0.2", default-features = false, features = ["std"] }
 # No tags published yet; switch to a tag once one exists.
 media = { package = "media-rs", git = "https://github.com/vegidio/media-rs", rev = "a0a579152b8421c183f215c67cf97d7e90fcea49" }
 ratatui = "0.30"
 rayon = "1"
 rust-sak = { git = "https://github.com/vegidio/rust-sak", tag = "26.10.2", features = ["fs", "image"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 thiserror = "2"

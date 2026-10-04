@@ -4,6 +4,8 @@
 mod image;
 mod kind;
 mod options;
+#[cfg(feature = "serde")]
+mod ser;
 mod video;
 
 use std::path::{Path, PathBuf};
@@ -20,6 +22,7 @@ pub use options::LoadOptions;
 
 /// Whether a [`Media`] is a still image or a video.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(rename_all = "lowercase"))]
 pub enum MediaType {
     /// A still image, loaded as one frame.
     Image,
@@ -28,25 +31,35 @@ pub enum MediaType {
 }
 
 /// A loaded media file: its metadata plus its frames as [`Icon`] signatures.
+///
+/// With the `serde` feature it serializes its metadata in field order, without the frames: `path` as a string (lossy
+/// if it isn't Unicode), `type` in lowercase, `duration` in seconds, and `created`/`modified` as RFC 3339 in UTC.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Media {
     /// The file this media was loaded from.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "ser::path"))]
     pub path: PathBuf,
-    /// The file size, in bytes.
-    pub size: u64,
-    /// When the file was created, if the platform and filesystem record it.
-    pub created: Option<SystemTime>,
-    /// When the file was last modified, if the platform and filesystem record it.
-    pub modified: Option<SystemTime>,
     /// Whether this is an image or a video.
+    #[cfg_attr(feature = "serde", serde(rename = "type"))]
     pub media_type: MediaType,
     /// Width in pixels (for a video, of its first video stream).
     pub width: u32,
     /// Height in pixels (for a video, of its first video stream).
     pub height: u32,
+    /// The file size, in bytes.
+    pub size: u64,
     /// The playback duration; `None` for images.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "ser::seconds"))]
     pub duration: Option<Duration>,
+    /// When the file was created, if the platform and filesystem record it.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "ser::timestamp"))]
+    pub created: Option<SystemTime>,
+    /// When the file was last modified, if the platform and filesystem record it.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "ser::timestamp"))]
+    pub modified: Option<SystemTime>,
     /// The frames as icon signatures: one for an image, one per second for a video.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub(crate) frames: Vec<Icon>,
 }
 
@@ -226,6 +239,74 @@ pub(crate) mod tests {
             height: 1,
             duration: None,
             frames,
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    mod serialize {
+        use super::*;
+
+        fn time(rfc3339: &str) -> SystemTime {
+            rfc3339.parse::<jiff::Timestamp>().unwrap().into()
+        }
+
+        fn json(media: &Media) -> serde_json::Value {
+            serde_json::to_value(media).unwrap()
+        }
+
+        #[test]
+        fn image_has_the_metadata_fields_in_order() {
+            let media = Media {
+                width: 640,
+                height: 480,
+                size: 12345,
+                modified: Some(time("2026-10-04T12:34:56Z")),
+                ..media("a.png", MediaType::Image, vec![])
+            };
+
+            assert_eq!(
+                serde_json::to_string(&media).unwrap(),
+                r#"{"path":"a.png","type":"image","width":640,"height":480,"size":12345,"duration":null,"created":null,"modified":"2026-10-04T12:34:56Z"}"#
+            );
+        }
+
+        #[test]
+        fn video_duration_is_fractional_seconds() {
+            let media =
+                Media { duration: Some(Duration::from_millis(12_480)), ..media("a.mp4", MediaType::Video, vec![]) };
+
+            let value = json(&media);
+
+            assert_eq!(value["type"], "video");
+            assert_eq!(value["duration"].to_string(), "12.48");
+        }
+
+        #[test]
+        fn sub_second_timestamps_keep_the_fraction() {
+            let media =
+                Media { created: Some(time("2026-10-04T12:34:56.5Z")), ..media("a.png", MediaType::Image, vec![]) };
+
+            assert_eq!(json(&media)["created"], "2026-10-04T12:34:56.5Z");
+        }
+
+        #[test]
+        fn absent_times_are_null() {
+            let value = json(&media("a.png", MediaType::Image, vec![]));
+
+            assert!(value["created"].is_null());
+            assert!(value["modified"].is_null());
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn a_path_that_is_not_unicode_is_lossy() {
+            use std::ffi::OsStr;
+            use std::os::unix::ffi::OsStrExt;
+
+            let mut media = media("", MediaType::Image, vec![]);
+            media.path = PathBuf::from(OsStr::from_bytes(b"a\xffb.png"));
+
+            assert_eq!(json(&media)["path"], "a\u{FFFD}b.png");
         }
     }
 

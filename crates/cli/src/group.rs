@@ -7,26 +7,29 @@ use std::path::{Path, PathBuf};
 
 use mediasim::{CompareOptions, Grouper, Media, MediaError};
 
+use crate::args::OutputFormat;
 use crate::error::CliError;
-use crate::{output, progress};
+use crate::{machine, output, progress};
 
 /// Loads `paths`, groups the ones scoring at least `threshold` against each other under `options`, and prints the
-/// groups.
+/// groups in `format`.
 ///
-/// On a terminal it prints `header` (called with the colour flag), the threshold, the progress display and a report
-/// of the groups. Otherwise it prints only the grouped paths, so the output can be used in scripts.
+/// With [`OutputFormat::Term`] on a terminal it prints `header` (called with the colour flag), the threshold, the
+/// progress display and a report of the groups, and otherwise only the grouped paths, so the output can be used in
+/// scripts. CSV and JSON print only their document.
 ///
-/// If `ignore_errors`, files that fail to load are skipped, and once loading ends they are reported on stderr, on a
-/// terminal or not, in the order of `paths`.
+/// If `ignore_errors`, files that fail to load are skipped, and once loading ends they are reported on stderr, in
+/// every format, in the order of `paths`. JSON lists them in its document too.
 pub fn run(
     paths: &[PathBuf],
     threshold: f64,
     options: CompareOptions,
     ignore_errors: bool,
+    format: OutputFormat,
     header: impl FnOnce(bool) -> String,
 ) -> Result<(), CliError> {
     let stdout = std::io::stdout();
-    let (interactive, color) = (stdout.is_terminal(), output::color_for(&stdout));
+    let (interactive, color) = (format == OutputFormat::Term && stdout.is_terminal(), output::color_for(&stdout));
 
     if interactive {
         println!();
@@ -50,15 +53,22 @@ pub fn run(
         eprintln!("{}", output::skipped(&skipped, output::color_for(&std::io::stderr())));
     }
 
-    if interactive {
-        if groups.is_empty() {
-            println!();
-            println!("{}", output::NO_MATCHES);
-        } else {
-            println!("{}", output::groups(&groups, color));
+    match format {
+        OutputFormat::Term if interactive => {
+            if groups.is_empty() {
+                println!();
+                println!("{}", output::NO_MATCHES);
+            } else {
+                println!("{}", output::groups(&groups, color));
+            }
         }
-    } else if !groups.is_empty() {
-        println!("{}", output::plain_groups(&groups));
+        OutputFormat::Term => {
+            if !groups.is_empty() {
+                println!("{}", output::plain_groups(&groups));
+            }
+        }
+        OutputFormat::Csv => machine::groups_csv(&mut stdout.lock(), &groups)?,
+        OutputFormat::Json => machine::groups_json(&mut stdout.lock(), &groups, &skipped)?,
     }
 
     Ok(())

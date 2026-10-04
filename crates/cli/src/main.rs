@@ -6,6 +6,7 @@ mod dir;
 mod error;
 mod files;
 mod group;
+mod machine;
 mod output;
 mod progress;
 mod score;
@@ -24,13 +25,19 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Command::Score { file1, file2, compare } => score::run(file1, file2, compare.options()),
-        Command::Files { files, group, compare } => {
-            files::run(files, group.threshold, compare.options(), group.ignore_errors)
+        Command::Score { file1, file2, compare, output } => score::run(file1, file2, compare.options(), output.output),
+        Command::Files { files, group, compare, output } => {
+            files::run(files, group.threshold, compare.options(), group.ignore_errors, output.output)
         }
-        Command::Dir { directory, recursive, media_type, group, compare } => {
-            dir::run(&directory, recursive, media_type, group.threshold, compare.options(), group.ignore_errors)
-        }
+        Command::Dir { directory, recursive, media_type, group, compare, output } => dir::run(
+            &directory,
+            recursive,
+            media_type,
+            group.threshold,
+            compare.options(),
+            group.ignore_errors,
+            output.output,
+        ),
     };
 
     match result {
