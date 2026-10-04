@@ -3,16 +3,16 @@
 use std::io::IsTerminal;
 use std::path::PathBuf;
 
-use mediasim::Media;
+use mediasim::{CompareOptions, Media};
 
 use crate::error::CliError;
 use crate::{group, output, progress};
 
-/// Loads both files, compares them and prints the score.
+/// Loads both files, compares them under `options` and prints the score.
 ///
 /// On a terminal it prints a header, the loading display and a report line. Otherwise it prints only the bare score,
 /// so the output can be used in scripts.
-pub fn run(file1: PathBuf, file2: PathBuf) -> Result<(), CliError> {
+pub fn run(file1: PathBuf, file2: PathBuf, options: CompareOptions) -> Result<(), CliError> {
     let paths = [file1, file2];
     let stdout = std::io::stdout();
     let (interactive, color) = (stdout.is_terminal(), output::color_for(&stdout));
@@ -24,7 +24,7 @@ pub fn run(file1: PathBuf, file2: PathBuf) -> Result<(), CliError> {
     let loaded = progress::load(&paths, "Loading", Vec::with_capacity(2), interactive, color)?;
 
     let [a, b] = in_argument_order(loaded, &paths);
-    let score = output::format_score(a.similarity(&b)?);
+    let score = output::format_score(a.similarity_with(&b, options)?);
 
     if interactive {
         println!();

@@ -1,7 +1,7 @@
 //! Runs `mediasim dir` on temporary directories filled with copies of the sample files in `fixtures`, with its output
 //! piped.
 //!
-//! The fixtures score `test1.png`/`test2.png` ≈ 0.955 and `test3.mp4`/`test4.mp4` ≈ 0.507. The two images have the
+//! The fixtures score `test1.png`/`test2.png` ≈ 0.945 and `test3.mp4`/`test4.mp4` ≈ 0.507. The two images have the
 //! same resolution and `test1.png` is the larger file, so it is best; `test4.mp4` is the longer video, so it is best.
 
 mod common;
@@ -9,7 +9,7 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_usage_error, fixture, groups, stdout};
+use common::{assert_fails, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
 use rust_sak::fs::{TempDir, mk_temp_dir};
 
 /// A temporary directory holding a copy of each `(fixture, path inside the directory)` pair.
@@ -170,4 +170,17 @@ fn an_invalid_media_type_is_a_usage_error() {
     let output = mediasim(&["-m", "image"], dir.path());
 
     assert_usage_error(&output);
+}
+
+#[test]
+fn frame_rotate_groups_a_rotated_copy_with_its_original() {
+    let dir = directory(&[]);
+    let copies = oriented_copies(dir.path());
+    std::fs::remove_file(&copies.mirrored).unwrap();
+
+    let plain = groups(&mediasim(&[], dir.path()));
+    let rotated = groups(&mediasim(&["--fr"], dir.path()));
+
+    assert!(plain.is_empty(), "{plain:?}");
+    assert_eq!(sorted(rotated), sorted(vec![vec![copies.original, copies.rotated]]));
 }

@@ -12,9 +12,12 @@ mod dtw;
 mod group;
 mod icon;
 mod metric;
+mod options;
+mod orientation;
 mod similarity;
 
 pub use diff::calculate_diff;
 pub use group::Grouper;
 pub use icon::Icon;
 pub use metric::euc_metric;
+pub use options::CompareOptions;

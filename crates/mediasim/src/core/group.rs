@@ -6,15 +6,15 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 use super::dsu::Dsu;
-use crate::{CompareError, Media};
+use crate::{CompareError, CompareOptions, Media};
 
 /// Groups media whose similarity reaches a threshold, one media at a time.
 ///
 /// Each media [`push`](Self::push)ed is compared with every earlier media of the same [`MediaType`](crate::MediaType),
 /// so grouping can run while files are still loading. Two media join the same group when their
-/// [`similarity`](Media::similarity) is at least the threshold, and grouping is transitive: if A matches B and B
-/// matches C, all three end up in one group. An image and a video are never compared, so they are never grouped
-/// together and mixing them is not an error.
+/// [`similarity_with`](Media::similarity_with) under the grouper's [`CompareOptions`] is at least the threshold, and
+/// grouping is transitive: if A matches B and B matches C, all three end up in one group. An image and a video are
+/// never compared, so they are never grouped together and mixing them is not an error.
 ///
 /// ```no_run
 /// use mediasim::{Grouper, Media};
@@ -31,20 +31,37 @@ use crate::{CompareError, Media};
 #[derive(Debug)]
 pub struct Grouper {
     threshold: f64,
+    options: CompareOptions,
     media: Vec<Media>,
     dsu: Dsu,
 }
 
 impl Grouper {
-    /// Creates an empty grouper that groups media scoring at least `threshold` against each other.
+    /// Creates an empty grouper that groups media scoring at least `threshold` against each other, under the default
+    /// [`CompareOptions`].
     ///
     /// # Panics
     ///
     /// Panics unless `threshold` is a number in the closed range `[0, 1]`.
     #[must_use]
     pub fn new(threshold: f64) -> Self {
+        Self::with_options(threshold, CompareOptions::default())
+    }
+
+    /// Creates an empty grouper that groups media scoring at least `threshold` against each other under `options`,
+    /// as [`similarity_with`](Media::similarity_with) scores them.
+    ///
+    /// Each comparison stops at the first orientation that reaches the threshold, starting with the original, so a
+    /// matching pair often costs no more than without options. A pair that does not match tries every orientation,
+    /// up to 8 times the cost of [`new`](Self::new).
+    ///
+    /// # Panics
+    ///
+    /// Panics unless `threshold` is a number in the closed range `[0, 1]`.
+    #[must_use]
+    pub fn with_options(threshold: f64, options: CompareOptions) -> Self {
         assert!((0.0..=1.0).contains(&threshold), "the threshold must be between 0 and 1, got {threshold}");
-        Self { threshold, media: Vec::new(), dsu: Dsu::default() }
+        Self { threshold, options, media: Vec::new(), dsu: Dsu::default() }
     }
 
     /// Adds `media`, comparing it in parallel with the earlier media of the same type and merging it into the
@@ -59,9 +76,9 @@ impl Grouper {
             }
         }
 
-        let threshold = self.threshold;
-        let is_match = |earlier: &&Media| match earlier.similarity(&media) {
-            Ok(score) => score >= threshold,
+        let (threshold, options) = (self.threshold, self.options);
+        let is_match = |earlier: &&Media| match earlier.matches(&media, options, threshold) {
+            Ok(matched) => matched,
             Err(err @ CompareError::MediaTypeMismatch { .. }) => {
                 unreachable!("only media of the same type are compared: {err}")
             }
@@ -127,6 +144,7 @@ mod tests {
 
     use super::*;
     use crate::core::icon::GREY;
+    use crate::core::orientation::Orientation;
     use crate::media::tests::media;
     use crate::{Icon, MediaType};
 
@@ -147,6 +165,19 @@ mod tests {
         let mut grouper = Grouper::new(threshold);
         grouper.extend(media);
         grouper.finish()
+    }
+
+    fn group_with(threshold: f64, options: CompareOptions, media: impl IntoIterator<Item = Media>) -> Vec<Vec<Media>> {
+        let mut grouper = Grouper::with_options(threshold, options);
+        grouper.extend(media);
+        grouper.finish()
+    }
+
+    /// A textured image and a copy of it with its frame in `orientation`.
+    fn original_and_copy(orientation: Orientation) -> [Media; 2] {
+        let frame = Icon::textured(42);
+        let copy = orientation.apply(&frame);
+        [media("a.png", MediaType::Image, vec![frame]), media("b.png", MediaType::Image, vec![copy])]
     }
 
     fn paths(groups: &[Vec<Media>]) -> Vec<Vec<PathBuf>> {
@@ -263,5 +294,46 @@ mod tests {
                 vec![PathBuf::from("y1.png"), PathBuf::from("y2.png")],
             ]
         );
+    }
+
+    #[test]
+    fn a_mirrored_copy_is_grouped_with_flip() {
+        let groups = group_with(0.9, CompareOptions::new().flip(true), original_and_copy(Orientation::FlipH));
+
+        assert_eq!(paths(&groups), [[PathBuf::from("a.png"), PathBuf::from("b.png")]]);
+    }
+
+    #[test]
+    fn a_mirrored_copy_stays_apart_without_options() {
+        assert!(group(0.9, original_and_copy(Orientation::FlipH)).is_empty());
+        assert!(group_with(0.9, CompareOptions::new().rotate(true), original_and_copy(Orientation::FlipH)).is_empty());
+    }
+
+    #[test]
+    fn a_rotated_copy_is_grouped_with_rotate() {
+        let groups = group_with(0.9, CompareOptions::new().rotate(true), original_and_copy(Orientation::Rotate90));
+
+        assert_eq!(paths(&groups), [[PathBuf::from("a.png"), PathBuf::from("b.png")]]);
+    }
+
+    #[test]
+    fn default_options_group_as_before() {
+        let media = vec![
+            image("x2.png", 30_000),
+            image("y1.png", 60_000),
+            image("x1.png", 30_100),
+            video("v1.mp4", 1_000, 10),
+            image("y2.png", 60_500),
+            video("v2.mp4", 1_200, 20),
+            image("lonely.png", 0),
+        ];
+
+        assert_eq!(group_with(0.95, CompareOptions::default(), media.clone()), group(0.95, media));
+    }
+
+    #[test]
+    #[should_panic(expected = "between 0 and 1")]
+    fn with_options_checks_the_threshold() {
+        let _ = Grouper::with_options(-0.1, CompareOptions::new().flip(true));
     }
 }

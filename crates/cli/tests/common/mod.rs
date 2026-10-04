@@ -5,6 +5,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
+use image::{DynamicImage, imageops};
+
 /// The path of a file in the workspace's `fixtures` directory.
 pub fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
@@ -48,4 +50,40 @@ pub fn assert_fails(output: &Output) -> String {
 pub fn assert_usage_error(output: &Output) {
     assert_eq!(output.status.code(), Some(2));
     assert!(output.stdout.is_empty(), "stdout: {}", stdout(output));
+}
+
+/// The copies [`oriented_copies`] writes: the fixture as it is, mirrored, and rotated by 90°.
+pub struct OrientedCopies {
+    pub original: PathBuf,
+    pub mirrored: PathBuf,
+    pub rotated: PathBuf,
+}
+
+/// Writes `test1.png` into `dir` as it is, mirrored horizontally, and rotated clockwise by 90°.
+///
+/// The changed copies are BMP, because encoding a large PNG takes most of a debug test run.
+pub fn oriented_copies(dir: &Path) -> OrientedCopies {
+    let copies = OrientedCopies {
+        original: dir.join("original.png"),
+        mirrored: dir.join("mirrored.bmp"),
+        rotated: dir.join("rotated.bmp"),
+    };
+    let image = rust_sak::image::decode_file(fixture("test1.png")).unwrap();
+
+    std::fs::copy(fixture("test1.png"), &copies.original).unwrap();
+    let mirrored = DynamicImage::from(imageops::flip_horizontal(&image));
+    rust_sak::image::encode_file(&mirrored, &copies.mirrored, None).unwrap();
+    let rotated = DynamicImage::from(imageops::rotate90(&image));
+    rust_sak::image::encode_file(&rotated, &copies.rotated, None).unwrap();
+
+    copies
+}
+
+/// `groups` with the members of each group, and then the groups, sorted, for comparing without regard to order.
+pub fn sorted(mut groups: Vec<Vec<PathBuf>>) -> Vec<Vec<PathBuf>> {
+    for group in &mut groups {
+        group.sort();
+    }
+    groups.sort();
+    groups
 }

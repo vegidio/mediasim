@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use mediasim::LoadOptions;
+use mediasim::{CompareOptions, LoadOptions};
 
 #[derive(Debug, Parser)]
 #[command(name = "mediasim", version, about, arg_required_else_help = true)]
@@ -20,6 +20,8 @@ pub enum Command {
         file1: PathBuf,
         /// The second image or video.
         file2: PathBuf,
+        #[command(flatten)]
+        compare: CompareArgs,
     },
 
     /// Group two or more images and videos by similarity, listing the best file of each group first.
@@ -29,6 +31,8 @@ pub enum Command {
         files: Vec<PathBuf>,
         #[command(flatten)]
         group: GroupArgs,
+        #[command(flatten)]
+        compare: CompareArgs,
     },
 
     /// Group the images and videos in a directory by similarity, listing the best file of each group first.
@@ -43,6 +47,8 @@ pub enum Command {
         media_type: MediaKind,
         #[command(flatten)]
         group: GroupArgs,
+        #[command(flatten)]
+        compare: CompareArgs,
     },
 }
 
@@ -52,6 +58,24 @@ pub struct GroupArgs {
     /// The minimum similarity, from 0 to 1, for two files to be grouped.
     #[arg(short, long, default_value_t = 0.8, value_parser = parse_threshold, allow_negative_numbers = true)]
     pub threshold: f64,
+}
+
+/// The options shared by the commands that compare media.
+#[derive(Debug, Args)]
+pub struct CompareArgs {
+    /// Also compare the files flipped horizontally and vertically.
+    #[arg(long = "frame-flip", visible_alias = "ff")]
+    pub flip: bool,
+    /// Also compare the files rotated by 90°, 180° and 270°.
+    #[arg(long = "frame-rotate", visible_alias = "fr")]
+    pub rotate: bool,
+}
+
+impl CompareArgs {
+    /// The [`CompareOptions`] these flags enable.
+    pub fn options(&self) -> CompareOptions {
+        CompareOptions::new().flip(self.flip).rotate(self.rotate)
+    }
 }
 
 /// The media a directory scan loads.
@@ -98,7 +122,7 @@ mod tests {
     fn score_takes_two_paths() {
         let cli = Cli::try_parse_from(["mediasim", "score", "a", "b"]).unwrap();
 
-        let Command::Score { file1, file2 } = cli.command else { panic!("expected `score`") };
+        let Command::Score { file1, file2, .. } = cli.command else { panic!("expected `score`") };
         assert_eq!((file1, file2), (PathBuf::from("a"), PathBuf::from("b")));
     }
 
@@ -120,7 +144,7 @@ mod tests {
 
     fn parse_files(args: &[&str]) -> Result<(Vec<PathBuf>, f64), clap::Error> {
         let cli = Cli::try_parse_from(["mediasim", "files"].iter().chain(args))?;
-        let Command::Files { files, group } = cli.command else { panic!("expected `files`") };
+        let Command::Files { files, group, .. } = cli.command else { panic!("expected `files`") };
         Ok((files, group.threshold))
     }
 
@@ -160,7 +184,7 @@ mod tests {
 
     fn parse_dir(args: &[&str]) -> Result<(PathBuf, bool, MediaKind, f64), clap::Error> {
         let cli = Cli::try_parse_from(["mediasim", "dir"].iter().chain(args))?;
-        let Command::Dir { directory, recursive, media_type, group } = cli.command else {
+        let Command::Dir { directory, recursive, media_type, group, .. } = cli.command else {
             panic!("expected `dir`")
         };
         Ok((directory, recursive, media_type, group.threshold))
@@ -201,5 +225,76 @@ mod tests {
         assert_eq!(MediaKind::All.load_options(false), LoadOptions::new());
         assert_eq!(MediaKind::Images.load_options(false), LoadOptions::new().videos(false));
         assert_eq!(MediaKind::Videos.load_options(true), LoadOptions::new().recursive(true).images(false));
+    }
+
+    /// The orientation options that `args` parse to for each command, with whatever positional arguments it needs.
+    fn compare_options(command: &str, args: &[&str]) -> Result<CompareOptions, clap::Error> {
+        let paths: &[&str] = if command == "dir" { &["photos"] } else { &["a", "b"] };
+        let cli = Cli::try_parse_from(["mediasim", command].iter().chain(args).chain(paths))?;
+        let compare = match cli.command {
+            Command::Score { compare, .. } | Command::Files { compare, .. } | Command::Dir { compare, .. } => compare,
+        };
+        Ok(compare.options())
+    }
+
+    #[test]
+    fn orientation_flags_are_off_by_default() {
+        for command in ["score", "files", "dir"] {
+            assert_eq!(compare_options(command, &[]).unwrap(), CompareOptions::new(), "{command}");
+        }
+    }
+
+    #[test]
+    fn orientation_flags_have_two_spellings() {
+        let flip = CompareOptions::new().flip(true);
+        let rotate = CompareOptions::new().rotate(true);
+
+        for command in ["score", "files", "dir"] {
+            for (args, want) in [
+                (&["--ff"][..], flip),
+                (&["--frame-flip"][..], flip),
+                (&["--fr"][..], rotate),
+                (&["--frame-rotate"][..], rotate),
+                (&["--ff", "--fr"][..], flip.rotate(true)),
+                (&["--frame-rotate", "--frame-flip"][..], flip.rotate(true)),
+            ] {
+                assert_eq!(compare_options(command, args).unwrap(), want, "{command} {args:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn orientation_flags_combine_with_the_other_options() {
+        let cli = Cli::try_parse_from(["mediasim", "dir", "--ff", "-r", "--fr", "-m", "videos", "-t", "0.9", "photos"])
+            .unwrap();
+        let Command::Dir { directory, recursive, media_type, group, compare } = cli.command else {
+            panic!("expected `dir`")
+        };
+        assert_eq!((directory, recursive, media_type), (PathBuf::from("photos"), true, MediaKind::Videos));
+        assert!((group.threshold - 0.9).abs() < f64::EPSILON);
+        assert_eq!(compare.options(), CompareOptions::new().flip(true).rotate(true));
+
+        let (files, threshold) = parse_files(&["--ff", "--fr", "-t", "0.9", "a", "b", "c"]).unwrap();
+        assert_eq!(files.len(), 3);
+        assert!((threshold - 0.9).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn compare_args_map_to_compare_options() {
+        for (flip, rotate) in [(false, false), (true, false), (false, true), (true, true)] {
+            assert_eq!(CompareArgs { flip, rotate }.options(), CompareOptions::new().flip(flip).rotate(rotate));
+        }
+    }
+
+    #[test]
+    fn orientation_flag_with_a_value_is_a_usage_error() {
+        for command in ["score", "files", "dir"] {
+            for flag in ["--ff=yes", "--frame-rotate=true"] {
+                let err = compare_options(command, &[flag]).unwrap_err();
+
+                assert_eq!(err.kind(), ErrorKind::TooManyValues, "{command} {flag}");
+                assert_eq!(err.exit_code(), 2, "{command} {flag}");
+            }
+        }
     }
 }

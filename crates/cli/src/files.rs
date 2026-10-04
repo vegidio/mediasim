@@ -3,14 +3,16 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use mediasim::CompareOptions;
+
 use crate::error::CliError;
 use crate::{group, output};
 
-/// Groups every distinct file at `threshold` and prints the groups, as [`group::run`] does.
-pub fn run(files: Vec<PathBuf>, threshold: f64) -> Result<(), CliError> {
+/// Groups every distinct file at `threshold` under `options` and prints the groups, as [`group::run`] does.
+pub fn run(files: Vec<PathBuf>, threshold: f64, options: CompareOptions) -> Result<(), CliError> {
     let paths = distinct(files);
 
-    group::run(&paths, threshold, |color| output::header(paths.len(), color))
+    group::run(&paths, threshold, options, |color| output::header(paths.len(), color))
 }
 
 /// Drops repeated paths, keeping the first occurrence of each. Paths are compared exactly as typed.

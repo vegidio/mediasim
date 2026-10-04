@@ -14,18 +14,24 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads">
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/consts.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/diff.rs" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add orientation-based similarity options with CLI support for flipped and rotated media">
       <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/group.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/group.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/metric.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/metric.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/similarity.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/similarity.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/calculate_diff.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/euc_metric.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/grouper_pool.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/mediasim/tests/similarity.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/tests/similarity.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/options.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/options.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/.openspec.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/design.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/proposal.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/specs/cli-dir/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/specs/cli-files/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/specs/cli-score/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/specs/media-grouping/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/specs/media-similarity/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-frame-transforms/tasks.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/specs/cli-dir/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/cli-dir/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/specs/cli-files/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/cli-files/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/specs/cli-score/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/cli-score/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/specs/media-grouping/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/media-grouping/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/specs/media-similarity/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/media-similarity/spec.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,7 +39,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="36" />
+    <option name="cachedIndexableFilesCount" value="107" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -202,12 +208,6 @@
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Run cli">
-    <configuration default="true" type="AppleRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" IS_LOCATION_SIMULATION_SUPPORTED="false" IS_LOCATION_SIMULATION_ALLOWED="true" APPLICATION_LANGUAGE="IDELaunchSchemeLanguageUseSystemLanguage" APPLICATION_REGION="" DEVELOPMENT_TEAM="" MAKE_ACTIVE="TRUE" SHOULD_DEBUG_EXTENSIONS="false">
-      <embedded_app_extension_list />
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="Run cli" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package cli --bin cli" />
@@ -362,7 +362,21 @@
       <option name="presentableId" value="LOCAL−00014" />
       <updated>1791013327252</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL−00015" summary="refactor: Consolidate media tests into shared modules and introduce dedicated decode pools for images and videos">
+      <option name="closed" value="true" />
+      <created>1791014375568</created>
+      <option name="number" value="LOCAL−00015" />
+      <option name="presentableId" value="LOCAL−00015" />
+      <updated>1791014375568</updated>
+    </task>
+    <task id="LOCAL−00016" summary="feat: Add orientation-based similarity options with CLI support for flipped and rotated media">
+      <option name="closed" value="true" />
+      <created>1791129830736</created>
+      <option name="number" value="LOCAL−00016" />
+      <option name="presentableId" value="LOCAL−00016" />
+      <updated>1791129830736</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -384,7 +398,9 @@
     <MESSAGE value="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs" />
     <MESSAGE value="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering" />
     <MESSAGE value="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads" />
+    <MESSAGE value="refactor: Consolidate media tests into shared modules and introduce dedicated decode pools for images and videos" />
+    <MESSAGE value="feat: Add orientation-based similarity options with CLI support for flipped and rotated media" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add orientation-based similarity options with CLI support for flipped and rotated media" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

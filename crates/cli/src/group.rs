@@ -4,16 +4,22 @@ use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
-use mediasim::{Grouper, Media};
+use mediasim::{CompareOptions, Grouper, Media};
 
 use crate::error::CliError;
 use crate::{output, progress};
 
-/// Loads `paths`, groups the ones scoring at least `threshold` against each other, and prints the groups.
+/// Loads `paths`, groups the ones scoring at least `threshold` against each other under `options`, and prints the
+/// groups.
 ///
 /// On a terminal it prints `header` (called with the colour flag), the threshold, the progress display and a report
 /// of the groups. Otherwise it prints only the grouped paths, so the output can be used in scripts.
-pub fn run(paths: &[PathBuf], threshold: f64, header: impl FnOnce(bool) -> String) -> Result<(), CliError> {
+pub fn run(
+    paths: &[PathBuf],
+    threshold: f64,
+    options: CompareOptions,
+    header: impl FnOnce(bool) -> String,
+) -> Result<(), CliError> {
     let stdout = std::io::stdout();
     let (interactive, color) = (stdout.is_terminal(), output::color_for(&stdout));
 
@@ -22,7 +28,8 @@ pub fn run(paths: &[PathBuf], threshold: f64, header: impl FnOnce(bool) -> Strin
         println!("{}", header(color));
         println!("{}", output::threshold(threshold, color));
     }
-    let mut groups = progress::load(paths, "Processing", Grouper::new(threshold), interactive, color)?.finish();
+    let mut groups =
+        progress::load(paths, "Processing", Grouper::with_options(threshold, options), interactive, color)?.finish();
     in_path_order(&mut groups, paths);
 
     if interactive {

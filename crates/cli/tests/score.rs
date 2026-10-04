@@ -5,7 +5,8 @@ mod common;
 use std::path::Path;
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_usage_error, fixture, stderr, stdout};
+use common::{assert_fails, assert_usage_error, fixture, oriented_copies, stderr, stdout};
+use rust_sak::fs::mk_temp_dir;
 
 fn mediasim(args: &[&Path]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_mediasim")).arg("score").args(args).output().unwrap()
@@ -82,4 +83,54 @@ fn no_command_prints_usage_and_fails() {
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("Usage:"), "{}", stderr(&output));
+}
+
+/// The score that `mediasim score <flags> <a> <b>` prints, piped.
+fn score_with(flags: &[&str], a: &Path, b: &Path) -> f64 {
+    let output = Command::new(env!("CARGO_BIN_EXE_mediasim"))
+        .arg("score")
+        .args(flags)
+        .arg(a)
+        .arg(b)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    stdout(&output).trim().parse().unwrap()
+}
+
+#[test]
+fn frame_flip_scores_a_mirrored_copy_higher() {
+    let dir = mk_temp_dir("mediasim").unwrap();
+    let copies = oriented_copies(dir.path());
+
+    let plain = score_with(&[], &copies.original, &copies.mirrored);
+    let flipped = score_with(&["--ff"], &copies.original, &copies.mirrored);
+
+    assert!(flipped > plain, "{flipped} <= {plain}");
+    assert!(flipped > 0.999, "{flipped}");
+}
+
+#[test]
+fn frame_rotate_scores_a_rotated_copy_higher() {
+    let dir = mk_temp_dir("mediasim").unwrap();
+    let copies = oriented_copies(dir.path());
+
+    let plain = score_with(&[], &copies.original, &copies.rotated);
+    let rotated = score_with(&["--fr"], &copies.original, &copies.rotated);
+
+    assert!(rotated > plain, "{rotated} <= {plain}");
+    assert!(rotated > 0.999, "{rotated}");
+}
+
+#[test]
+fn an_orientation_flag_with_a_value_is_a_usage_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_mediasim"))
+        .args(["score", "--ff=yes"])
+        .arg(fixture("test1.png"))
+        .arg(fixture("test2.png"))
+        .output()
+        .unwrap();
+
+    assert_usage_error(&output);
 }

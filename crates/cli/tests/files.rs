@@ -1,6 +1,6 @@
 //! Runs `mediasim files` on the sample files in `fixtures`, with its output piped.
 //!
-//! The fixtures score `test1.png`/`test2.png` ≈ 0.955 and `test3.mp4`/`test4.mp4` ≈ 0.507. The two images have the
+//! The fixtures score `test1.png`/`test2.png` ≈ 0.945 and `test3.mp4`/`test4.mp4` ≈ 0.507. The two images have the
 //! same resolution and `test1.png` is the larger file, so it is best; `test4.mp4` is the longer video, so it is best.
 
 mod common;
@@ -8,7 +8,8 @@ mod common;
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_usage_error, fixture, groups, stdout};
+use common::{assert_fails, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
+use rust_sak::fs::mk_temp_dir;
 
 fn fixtures(names: &[&str]) -> Vec<PathBuf> {
     names.iter().map(|name| fixture(name)).collect()
@@ -78,4 +79,17 @@ fn missing_file_is_named() {
     let stderr = assert_fails(&mediasim(&[], &files));
 
     assert!(stderr.contains("definitely-not-a-real-file.png"), "{stderr}");
+}
+
+#[test]
+fn frame_flip_groups_a_mirrored_copy_with_its_original() {
+    let dir = mk_temp_dir("mediasim").unwrap();
+    let copies = oriented_copies(dir.path());
+    let files = [copies.original.clone(), copies.mirrored.clone()];
+
+    let plain = groups(&mediasim(&[], &files));
+    let flipped = groups(&mediasim(&["--ff"], &files));
+
+    assert!(plain.is_empty(), "{plain:?}");
+    assert_eq!(sorted(flipped), sorted(vec![files.to_vec()]));
 }

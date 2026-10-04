@@ -2,16 +2,22 @@
 
 use std::path::Path;
 
-use mediasim::Media;
+use mediasim::{CompareOptions, Media};
 
 use crate::args::MediaKind;
 use crate::error::CliError;
 use crate::{group, output};
 
-/// Groups the media in `directory` that `media_type` selects at `threshold` and prints the groups, as [`group::run`]
-/// does. Subdirectories are scanned only if `recursive`.
-pub fn run(directory: &Path, recursive: bool, media_type: MediaKind, threshold: f64) -> Result<(), CliError> {
+/// Groups the media in `directory` that `media_type` selects at `threshold` under `options` and prints the groups, as
+/// [`group::run`] does. Subdirectories are scanned only if `recursive`.
+pub fn run(
+    directory: &Path,
+    recursive: bool,
+    media_type: MediaKind,
+    threshold: f64,
+    options: CompareOptions,
+) -> Result<(), CliError> {
     let paths = Media::list_dir(directory, &media_type.load_options(recursive))?;
 
-    group::run(&paths, threshold, |color| output::dir_header(directory, color))
+    group::run(&paths, threshold, options, |color| output::dir_header(directory, color))
 }

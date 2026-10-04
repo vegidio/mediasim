@@ -24,10 +24,10 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Command::Score { file1, file2 } => score::run(file1, file2),
-        Command::Files { files, group } => files::run(files, group.threshold),
-        Command::Dir { directory, recursive, media_type, group } => {
-            dir::run(&directory, recursive, media_type, group.threshold)
+        Command::Score { file1, file2, compare } => score::run(file1, file2, compare.options()),
+        Command::Files { files, group, compare } => files::run(files, group.threshold, compare.options()),
+        Command::Dir { directory, recursive, media_type, group, compare } => {
+            dir::run(&directory, recursive, media_type, group.threshold, compare.options())
         }
     };
 

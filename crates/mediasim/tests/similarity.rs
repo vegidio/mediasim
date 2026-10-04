@@ -2,8 +2,10 @@
 
 mod common;
 
-use common::load;
-use mediasim::{CompareError, Media, MediaType};
+use common::{fixture, load};
+use image::{DynamicImage, imageops};
+use mediasim::{CompareError, CompareOptions, Media, MediaType};
+use rust_sak::fs::mk_temp_dir;
 
 /// Asserts that `a` and `b` score in `[0, 1]`, identically in either order, and returns the score.
 fn assert_in_range_and_symmetric(a: &Media, b: &Media) -> f64 {
@@ -45,4 +47,50 @@ fn image_vs_video_is_a_type_mismatch() {
         "{err:?}"
     );
     assert!(err.to_string().contains("test1.png") && err.to_string().contains("test3.mp4"), "{err}");
+}
+
+/// Turns an image into an oriented copy of it.
+type Orient = fn(&DynamicImage) -> DynamicImage;
+
+/// Writes `image` to a temporary directory and loads it.
+fn load_copy(image: &DynamicImage) -> Media {
+    let dir = mk_temp_dir("mediasim").unwrap();
+    // BMP, because encoding a large PNG dominates the test time in a debug build.
+    let path = dir.path().join("copy.bmp");
+    rust_sak::image::encode_file(image, &path, None).unwrap();
+
+    Media::from_file(&path).unwrap()
+}
+
+#[test]
+fn oriented_image_copies_score_close_to_one_with_the_matching_option() {
+    let flip = CompareOptions::new().flip(true);
+    let rotate = CompareOptions::new().rotate(true);
+    let both = flip.rotate(true);
+    let cases: [(&str, Orient, CompareOptions); 6] = [
+        ("mirrored", |i| DynamicImage::from(imageops::flip_horizontal(i)), flip),
+        ("flipped", |i| DynamicImage::from(imageops::flip_vertical(i)), flip),
+        ("rotated 90°", |i| DynamicImage::from(imageops::rotate90(i)), rotate),
+        ("rotated 180°", |i| DynamicImage::from(imageops::rotate180(i)), rotate),
+        ("rotated 270°", |i| DynamicImage::from(imageops::rotate270(i)), rotate),
+        (
+            "mirrored and rotated 90°",
+            |i| DynamicImage::from(imageops::rotate90(&imageops::flip_horizontal(i))),
+            both,
+        ),
+    ];
+
+    let decoded = rust_sak::image::decode_file(fixture("test1.png")).unwrap();
+    let original = load("test1.png");
+
+    for (name, orient, options) in cases {
+        let copy = load_copy(&orient(&decoded));
+
+        let plain = original.similarity(&copy).unwrap();
+        let matched = original.similarity_with(&copy, options).unwrap();
+
+        assert!(matched > plain, "{name}: {matched} <= {plain}");
+        assert!(matched > 0.999, "{name}: {matched}");
+        assert_eq!(matched.to_bits(), copy.similarity_with(&original, options).unwrap().to_bits(), "{name}");
+    }
 }

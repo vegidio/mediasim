@@ -45,6 +45,11 @@ impl Icon {
         &self.pixels
     }
 
+    /// The raw channel-major pixel buffer, for rewriting an icon in place.
+    pub(super) fn pixels_mut(&mut self) -> &mut [u16] {
+        &mut self.pixels
+    }
+
     /// Builds an [`Icon`] directly from a raw channel-major pixel buffer.
     ///
     /// Test-only: lets the metric/diff unit tests construct icons with exact, hand-picked pixel values
@@ -63,6 +68,22 @@ impl Icon {
         pixels[2 * NUM_PIX..].fill(cr);
         Self::from_raw(pixels)
     }
+
+    /// Test-only: an icon with a pseudo-random value in every pixel (xorshift64 from `seed`), so that no orientation
+    /// but the identity leaves it unchanged.
+    #[cfg(test)]
+    pub(crate) fn textured(seed: u64) -> Self {
+        let mut state = seed.max(1);
+        let pixels = (0..NUM_PIX * 3)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                u16::try_from(state % 65_026).unwrap()
+            })
+            .collect();
+        Self::from_raw(pixels)
+    }
 }
 
 /// Neutral chroma: the midpoint of the premultiplied range.
@@ -70,7 +91,7 @@ impl Icon {
 pub(crate) const GREY: u16 = 32_640;
 
 /// Maps a 2D point and channel to a 1D index in the channel-major pixel buffer.
-const fn arr_index(x: usize, y: usize, size: usize, ch: usize) -> usize {
+pub(super) const fn arr_index(x: usize, y: usize, size: usize, ch: usize) -> usize {
     size * (ch * size + y) + x
 }
 
@@ -123,11 +144,13 @@ where
     // these opaque 8-bit values, so it is folded away here.
     let x_scale = f64::from(width) / RESIZED_IMG_SIZE as f64;
     let y_scale = f64::from(height) / RESIZED_IMG_SIZE as f64;
+    // Each target pixel samples the centre of its cell, which makes the resize commute with flips and quarter turns: a
+    // mirrored image samples exactly the mirrored pixels, except where a centre falls on a pixel boundary.
     let mut resized = vec![[0u8; 3]; RESIZED_IMG_SIZE * RESIZED_IMG_SIZE];
     for y in 0..RESIZED_IMG_SIZE {
-        let sy = (y as f64 * y_scale) as u32;
+        let sy = ((y as f64 + 0.5) * y_scale) as u32;
         for x in 0..RESIZED_IMG_SIZE {
-            let sx = (x as f64 * x_scale) as u32;
+            let sx = ((x as f64 + 0.5) * x_scale) as u32;
             let px = img.get_pixel(sx, sy).to_rgba().0;
             let a = px[3];
             resized[y * RESIZED_IMG_SIZE + x] =
