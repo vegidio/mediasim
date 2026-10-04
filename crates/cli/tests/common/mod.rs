@@ -46,6 +46,30 @@ pub fn assert_fails(output: &Output) -> String {
     stderr
 }
 
+/// Asserts a successful run that skipped `skipped`, in that order: exit code 0, and a report on stderr without
+/// escapes that counts them and names each one. Returns stderr.
+pub fn assert_skipped(output: &Output, skipped: &[&Path]) -> String {
+    let stderr = stderr(output);
+    let noun = if skipped.len() == 1 { "file" } else { "files" };
+
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert!(!stderr.contains('\x1b'), "{stderr:?}");
+    assert!(!stderr.contains("🧨"), "{stderr}");
+
+    let mut lines = stderr.lines();
+    assert_eq!(
+        lines.next(),
+        Some(format!("⚠️ {} {noun} could not be loaded", skipped.len()).as_str()),
+        "{stderr}"
+    );
+    for path in skipped {
+        let line = lines.next().unwrap_or_default();
+        assert!(line.starts_with("  -> ") && line.contains(&*path.to_string_lossy()), "{path:?} in {stderr}");
+    }
+    assert_eq!(lines.next(), None, "{stderr}");
+    stderr
+}
+
 /// Asserts a usage error: exit code 2 and nothing on stdout.
 pub fn assert_usage_error(output: &Output) {
     assert_eq!(output.status.code(), Some(2));

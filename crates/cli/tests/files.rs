@@ -5,10 +5,10 @@
 
 mod common;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
+use common::{assert_fails, assert_skipped, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
 use rust_sak::fs::mk_temp_dir;
 
 fn fixtures(names: &[&str]) -> Vec<PathBuf> {
@@ -92,4 +92,64 @@ fn frame_flip_groups_a_mirrored_copy_with_its_original() {
 
     assert!(plain.is_empty(), "{plain:?}");
     assert_eq!(sorted(flipped), sorted(vec![files.to_vec()]));
+}
+
+#[test]
+fn ignore_errors_skips_an_undecodable_file_and_groups_the_rest() {
+    let dir = mk_temp_dir("mediasim").unwrap();
+    let broken = dir.path().join("broken.png");
+    std::fs::write(&broken, b"not a png").unwrap();
+    let files = [fixture("test1.png"), broken.clone(), fixture("test2.png")];
+
+    let output = mediasim(&["--ie"], &files);
+
+    assert_skipped(&output, &[&broken]);
+    assert_eq!(stdout(&output), stdout(&mediasim(&[], &fixtures(&["test1.png", "test2.png"]))));
+    assert_eq!(groups(&output), [fixtures(&["test1.png", "test2.png"])]);
+}
+
+#[test]
+fn ignore_errors_long_spelling_skips_a_missing_file() {
+    let missing = Path::new("definitely-not-a-real-file.png");
+    let files = [fixture("test1.png"), missing.to_path_buf(), fixture("test2.png")];
+
+    let output = mediasim(&["--ignore-errors"], &files);
+
+    assert_skipped(&output, &[missing]);
+    assert_eq!(groups(&output), [fixtures(&["test1.png", "test2.png"])]);
+}
+
+#[test]
+fn ignore_errors_reports_skipped_files_in_argument_order() {
+    let dir = mk_temp_dir("mediasim").unwrap();
+    let broken = dir.path().join("broken.png");
+    std::fs::write(&broken, b"not a png").unwrap();
+    let missing = Path::new("definitely-not-a-real-file.png");
+    let files = [fixture("test1.png"), broken.clone(), missing.to_path_buf(), fixture("test2.png")];
+
+    let output = mediasim(&["--ie"], &files);
+
+    assert_skipped(&output, &[&broken, missing]);
+    assert_eq!(groups(&output), [fixtures(&["test1.png", "test2.png"])]);
+}
+
+#[test]
+fn ignore_errors_with_one_loadable_file_prints_nothing() {
+    let missing = Path::new("definitely-not-a-real-file.png");
+    let files = [fixture("test1.png"), missing.to_path_buf()];
+
+    let output = mediasim(&["--ie"], &files);
+
+    assert_skipped(&output, &[missing]);
+    assert!(output.stdout.is_empty(), "{:?}", stdout(&output));
+}
+
+#[test]
+fn ignore_errors_without_failures_prints_no_report() {
+    let files = fixtures(&["test1.png", "test2.png"]);
+
+    let output = mediasim(&["--ie"], &files);
+
+    assert!(output.stderr.is_empty(), "{:?}", common::stderr(&output));
+    assert_eq!(output.stdout, mediasim(&[], &files).stdout);
 }

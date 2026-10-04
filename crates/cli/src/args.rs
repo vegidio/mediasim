@@ -58,6 +58,9 @@ pub struct GroupArgs {
     /// The minimum similarity, from 0 to 1, for two files to be grouped.
     #[arg(short, long, default_value_t = 0.8, value_parser = parse_threshold, allow_negative_numbers = true)]
     pub threshold: f64,
+    /// Skip files that fail to load instead of stopping, and report them once loading ends.
+    #[arg(long = "ignore-errors", visible_alias = "ie")]
+    pub ignore_errors: bool,
 }
 
 /// The options shared by the commands that compare media.
@@ -277,6 +280,76 @@ mod tests {
         let (files, threshold) = parse_files(&["--ff", "--fr", "-t", "0.9", "a", "b", "c"]).unwrap();
         assert_eq!(files.len(), 3);
         assert!((threshold - 0.9).abs() < f64::EPSILON);
+    }
+
+    /// Whether `args` turn on `--ignore-errors` for `command`, with whatever positional arguments it needs.
+    fn ignore_errors(command: &str, args: &[&str]) -> Result<bool, clap::Error> {
+        let paths: &[&str] = if command == "dir" { &["photos"] } else { &["a", "b"] };
+        let cli = Cli::try_parse_from(["mediasim", command].iter().chain(args).chain(paths))?;
+        match cli.command {
+            Command::Files { group, .. } | Command::Dir { group, .. } => Ok(group.ignore_errors),
+            Command::Score { .. } => panic!("`score` has no `--ignore-errors`"),
+        }
+    }
+
+    #[test]
+    fn ignore_errors_is_off_by_default() {
+        for command in ["files", "dir"] {
+            assert!(!ignore_errors(command, &[]).unwrap(), "{command}");
+        }
+    }
+
+    #[test]
+    fn ignore_errors_has_two_spellings() {
+        for command in ["files", "dir"] {
+            for flag in ["--ie", "--ignore-errors"] {
+                assert!(ignore_errors(command, &[flag]).unwrap(), "{command} {flag}");
+            }
+        }
+    }
+
+    #[test]
+    fn ignore_errors_goes_in_any_position() {
+        for args in [
+            &["--ie", "a", "b", "c"][..],
+            &["a", "b", "c", "--ie"][..],
+            &["-t", "0.9", "--ie", "--ff", "a", "b", "c"][..],
+        ] {
+            let cli = Cli::try_parse_from(["mediasim", "files"].iter().chain(args)).unwrap();
+            let Command::Files { files, group, .. } = cli.command else { panic!("expected `files`") };
+            assert_eq!(files.len(), 3, "{args:?}");
+            assert!(group.ignore_errors, "{args:?}");
+        }
+
+        for args in [&["--ie", "-r", "photos"][..], &["photos", "--ignore-errors", "-r"][..]] {
+            let cli = Cli::try_parse_from(["mediasim", "dir"].iter().chain(args)).unwrap();
+            let Command::Dir { directory, recursive, group, .. } = cli.command else {
+                panic!("expected `dir`")
+            };
+            assert_eq!((directory, recursive, group.ignore_errors), (PathBuf::from("photos"), true, true), "{args:?}");
+        }
+    }
+
+    #[test]
+    fn score_rejects_ignore_errors() {
+        for flag in ["--ie", "--ignore-errors"] {
+            let err = Cli::try_parse_from(["mediasim", "score", flag, "a", "b"]).unwrap_err();
+
+            assert_eq!(err.kind(), ErrorKind::UnknownArgument, "{flag}");
+            assert_eq!(err.exit_code(), 2, "{flag}");
+        }
+    }
+
+    #[test]
+    fn ignore_errors_with_a_value_is_a_usage_error() {
+        for command in ["files", "dir"] {
+            for flag in ["--ie=yes", "--ignore-errors=true"] {
+                let err = ignore_errors(command, &[flag]).unwrap_err();
+
+                assert_eq!(err.kind(), ErrorKind::TooManyValues, "{command} {flag}");
+                assert_eq!(err.exit_code(), 2, "{command} {flag}");
+            }
+        }
     }
 
     #[test]

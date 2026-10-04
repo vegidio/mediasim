@@ -9,7 +9,7 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use common::{assert_fails, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
+use common::{assert_fails, assert_skipped, assert_usage_error, fixture, groups, oriented_copies, sorted, stdout};
 use rust_sak::fs::{TempDir, mk_temp_dir};
 
 /// A temporary directory holding a copy of each `(fixture, path inside the directory)` pair.
@@ -183,4 +183,39 @@ fn frame_rotate_groups_a_rotated_copy_with_its_original() {
 
     assert!(plain.is_empty(), "{plain:?}");
     assert_eq!(sorted(rotated), sorted(vec![vec![copies.original, copies.rotated]]));
+}
+
+#[test]
+fn ignore_errors_skips_an_undecodable_file_and_groups_the_rest() {
+    let dir = all_fixtures();
+    let bad = dir.path().join("bad.png");
+    std::fs::write(&bad, b"not a png").unwrap();
+
+    let output = mediasim(&["--ie"], dir.path());
+
+    assert_skipped(&output, &[&bad]);
+    assert_eq!(groups(&output), [paths(dir.path(), &["test1.png", "test2.png"])]);
+}
+
+#[test]
+fn ignore_errors_does_not_ignore_a_missing_directory() {
+    let dir = directory(&[]);
+    let missing = dir.path().join("missing");
+
+    let stderr = assert_fails(&mediasim(&["--ie"], &missing));
+    assert!(stderr.contains(&*missing.to_string_lossy()), "{stderr}");
+}
+
+#[test]
+fn ignore_errors_combines_with_the_other_options() {
+    // The broken image is filtered out by `-m videos`, so only the broken video in the subdirectory is skipped.
+    let dir = directory(&[("test3.mp4", "test3.mp4"), ("test4.mp4", "sub/test4.mp4"), ("test1.png", "test1.png")]);
+    let bad_video = dir.path().join("sub").join("bad.mp4");
+    std::fs::write(&bad_video, b"not an mp4").unwrap();
+    std::fs::write(dir.path().join("bad.png"), b"not a png").unwrap();
+
+    let output = mediasim(&["--ignore-errors", "-r", "-m", "videos", "-t", "0.5"], dir.path());
+
+    assert_skipped(&output, &[&bad_video]);
+    assert_eq!(groups(&output), [paths(dir.path(), &["sub/test4.mp4", "test3.mp4"])]);
 }

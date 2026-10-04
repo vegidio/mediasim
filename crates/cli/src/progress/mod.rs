@@ -38,31 +38,59 @@ const SETTLE_CAP: Duration = Duration::from_secs(1);
 const MAX_BAR_WIDTH: u16 = 50;
 const MIN_BAR_WIDTH: u16 = 10;
 
+/// What [`load`] returns: the sink, fed with every media that loaded, and the errors of the files it skipped.
+pub struct Loaded<C> {
+    pub sink: C,
+    /// In completion order, and always empty unless errors were ignored.
+    pub skipped: Vec<MediaError>,
+}
+
 /// Loads `paths` into `sink` and returns it: through the progress display, labelled `label`, when `interactive`,
-/// otherwise silently. The first error ends the load.
-pub fn load<C>(paths: &[PathBuf], label: &str, mut sink: C, interactive: bool, color: bool) -> Result<C, CliError>
+/// otherwise silently. The first error ends the load, unless `ignore_errors`, in which case files that fail to load
+/// are skipped and returned with the sink.
+pub fn load<C>(
+    paths: &[PathBuf],
+    label: &str,
+    mut sink: C,
+    ignore_errors: bool,
+    interactive: bool,
+    color: bool,
+) -> Result<Loaded<C>, CliError>
 where
     C: Extend<Media> + Send + 'static,
 {
     let stream = Media::from_files(paths.to_vec());
     if interactive {
-        return run(stream, paths.len(), label, sink, color);
+        return run(stream, paths.len(), label, sink, ignore_errors, color);
     }
 
+    let mut skipped = Vec::new();
     for result in stream {
-        sink.extend(once(result?));
+        match result {
+            Ok(media) => sink.extend(once(media)),
+            Err(err) if ignore_errors => skipped.push(err),
+            Err(err) => return Err(err.into()),
+        }
     }
-    Ok(sink)
+    Ok(Loaded { sink, skipped })
 }
 
 /// Shows the progress display, labelled `label`, while `stream` yields `total` results, feeds each loaded media to
 /// `sink`, and returns the sink.
 ///
 /// The sink is fed on a background thread, so slow work it does (such as comparing media) never stalls the display
-/// or Ctrl+C; progress advances once the sink has taken each media. The first error ends the run at once, and Ctrl+C
-/// ends it with [`CliError::Interrupted`]. The terminal is restored on every way out, with the display left on
+/// or Ctrl+C; progress advances once the sink has taken each media. The first error ends the run at once, unless
+/// `ignore_errors`, in which case a failed file is skipped and counted as done; Ctrl+C ends it with
+/// [`CliError::Interrupted`]. The terminal is restored on every way out, with the display left on
 /// screen and the cursor on the line below it.
-fn run<C>(stream: MediaStream, total: usize, label: &str, mut sink: C, color: bool) -> Result<C, CliError>
+fn run<C>(
+    stream: MediaStream,
+    total: usize,
+    label: &str,
+    mut sink: C,
+    ignore_errors: bool,
+    color: bool,
+) -> Result<Loaded<C>, CliError>
 where
     C: Extend<Media> + Send + 'static,
 {
@@ -74,7 +102,7 @@ where
         for result in stream {
             let tick = result.map(|media| sink.extend(once(media)));
             let failed = tick.is_err();
-            if tx.send(tick).is_err() || failed {
+            if tx.send(tick).is_err() || (failed && !ignore_errors) {
                 break;
             }
         }
@@ -85,6 +113,7 @@ where
     let mut session = Session::start()?;
     let started = Instant::now();
     let mut completed = 0;
+    let mut skipped = Vec::new();
     let mut spring = Spring::default();
     let mut eta = Eta::default();
     let mut finished_at = None;
@@ -95,10 +124,12 @@ where
         let mut disconnected = false;
         loop {
             match rx.try_recv() {
-                Ok(tick) => {
-                    tick?;
+                Ok(Ok(())) => completed += 1,
+                Ok(Err(err)) if ignore_errors => {
+                    skipped.push(err);
                     completed += 1;
                 }
+                Ok(Err(err)) => return Err(err.into()),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
                     disconnected = true;
@@ -123,7 +154,8 @@ where
         session.draw(line)?;
 
         if done {
-            return Ok(forwarder.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)));
+            let sink = forwarder.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+            return Ok(Loaded { sink, skipped });
         }
 
         if event::poll(FRAME.saturating_sub(frame_started.elapsed()))? && is_ctrl_c(&event::read()?) {

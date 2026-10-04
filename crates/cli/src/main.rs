@@ -25,9 +25,11 @@ fn main() -> ExitCode {
 
     let result = match cli.command {
         Command::Score { file1, file2, compare } => score::run(file1, file2, compare.options()),
-        Command::Files { files, group, compare } => files::run(files, group.threshold, compare.options()),
+        Command::Files { files, group, compare } => {
+            files::run(files, group.threshold, compare.options(), group.ignore_errors)
+        }
         Command::Dir { directory, recursive, media_type, group, compare } => {
-            dir::run(&directory, recursive, media_type, group.threshold, compare.options())
+            dir::run(&directory, recursive, media_type, group.threshold, compare.options(), group.ignore_errors)
         }
     };
 

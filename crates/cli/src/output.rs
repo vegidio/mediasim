@@ -3,9 +3,10 @@
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::io::IsTerminal;
+use std::iter::once;
 use std::path::Path;
 
-use mediasim::{Media, MediaType};
+use mediasim::{Media, MediaError, MediaType};
 use ratatui::crossterm::style::{Color, Stylize};
 
 pub const GRAY: (u8, u8, u8) = (0x68, 0x68, 0x68);
@@ -95,6 +96,18 @@ pub fn plain_groups(groups: &[Vec<Media>]) -> String {
         .join("\n\n")
 }
 
+/// `⚠️ <N> files could not be loaded` (`file` when N is 1), then one `  -> <message>` line per error, all in yellow.
+pub fn skipped(errors: &[MediaError], color: bool) -> String {
+    let noun = if errors.len() == 1 { "file" } else { "files" };
+    let header = format!("⚠️ {} {noun} could not be loaded", errors.len());
+
+    once(header)
+        .chain(errors.iter().map(|err| format!("  -> {err}")))
+        .map(|line| paint(line, YELLOW, color))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// `🧨 <message>`, with the message in red.
 pub fn error(message: impl Display, color: bool) -> String {
     format!("🧨 {}", paint(message, RED, color))
@@ -180,6 +193,39 @@ mod tests {
     fn plain_groups_are_bare_paths() {
         assert_eq!(plain_groups(&two_groups()), "a\nb\n\nc\nd");
         assert_eq!(plain_groups(&[]), "");
+    }
+
+    fn unsupported(path: &str) -> MediaError {
+        MediaError::Unsupported { path: path.into() }
+    }
+
+    #[test]
+    fn skipped_report_for_one_file() {
+        assert_eq!(
+            skipped(&[unsupported("a.txt")], false),
+            "⚠️ 1 file could not be loaded\n  -> unsupported file a.txt"
+        );
+    }
+
+    #[test]
+    fn skipped_report_for_several_files() {
+        assert_eq!(
+            skipped(&[unsupported("a.txt"), unsupported("b.txt")], false),
+            "⚠️ 2 files could not be loaded\n  -> unsupported file a.txt\n  -> unsupported file b.txt"
+        );
+    }
+
+    #[test]
+    fn skipped_report_colours_every_line_in_yellow() {
+        let errors = [unsupported("a.txt"), unsupported("b.txt")];
+        let plain = skipped(&errors, false);
+        let report = skipped(&errors, true);
+
+        assert!(!plain.contains('\x1b'), "{plain:?}");
+        assert_eq!(report.lines().count(), 3, "{report:?}");
+        for (line, text) in report.lines().zip(plain.lines()) {
+            assert_eq!(line, paint(text, YELLOW, true));
+        }
     }
 
     #[test]

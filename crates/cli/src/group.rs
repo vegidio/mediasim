@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
-use mediasim::{CompareOptions, Grouper, Media};
+use mediasim::{CompareOptions, Grouper, Media, MediaError};
 
 use crate::error::CliError;
 use crate::{output, progress};
@@ -14,10 +14,14 @@ use crate::{output, progress};
 ///
 /// On a terminal it prints `header` (called with the colour flag), the threshold, the progress display and a report
 /// of the groups. Otherwise it prints only the grouped paths, so the output can be used in scripts.
+///
+/// If `ignore_errors`, files that fail to load are skipped, and once loading ends they are reported on stderr, on a
+/// terminal or not, in the order of `paths`.
 pub fn run(
     paths: &[PathBuf],
     threshold: f64,
     options: CompareOptions,
+    ignore_errors: bool,
     header: impl FnOnce(bool) -> String,
 ) -> Result<(), CliError> {
     let stdout = std::io::stdout();
@@ -28,9 +32,19 @@ pub fn run(
         println!("{}", header(color));
         println!("{}", output::threshold(threshold, color));
     }
-    let mut groups =
-        progress::load(paths, "Processing", Grouper::with_options(threshold, options), interactive, color)?.finish();
+    let grouper = Grouper::with_options(threshold, options);
+    let progress::Loaded { sink, mut skipped } =
+        progress::load(paths, "Processing", grouper, ignore_errors, interactive, color)?;
+    let mut groups = sink.finish();
     in_path_order(&mut groups, paths);
+
+    if !skipped.is_empty() {
+        skipped_in_path_order(&mut skipped, paths);
+        if interactive {
+            eprintln!();
+        }
+        eprintln!("{}", output::skipped(&skipped, output::color_for(&std::io::stderr())));
+    }
 
     if interactive {
         if groups.is_empty() {
@@ -63,6 +77,14 @@ fn in_path_order(groups: &mut [Vec<Media>], paths: &[PathBuf]) {
             .min()
             .expect("every grouped media was loaded from one of the paths")
     });
+}
+
+/// Orders the errors of skipped files by their path's position in `paths`, so the report does not depend on the order
+/// the files failed in.
+fn skipped_in_path_order(errors: &mut [MediaError], paths: &[PathBuf]) {
+    let positions = positions(paths);
+
+    errors.sort_by_key(|err| positions.get(err.path()).copied().unwrap_or(usize::MAX));
 }
 
 #[cfg(test)]
@@ -103,5 +125,17 @@ mod tests {
 
         assert_eq!(names(&forward), names(&backward));
         assert_eq!(names(&forward), [paths(&["a", "c"]), paths(&["b", "d"])]);
+    }
+
+    #[test]
+    fn skipped_files_follow_the_paths() {
+        let args = paths(&["a", "b", "c", "d"]);
+        let mut errors: Vec<_> =
+            ["d", "a", "c"].into_iter().map(|path| MediaError::Unsupported { path: path.into() }).collect();
+
+        skipped_in_path_order(&mut errors, &args);
+
+        let order: Vec<_> = errors.iter().map(MediaError::path).collect();
+        assert_eq!(order, [Path::new("a"), Path::new("c"), Path::new("d")]);
     }
 }
