@@ -1642,7 +1642,7 @@ dependencies = [
 [[package]]
 name = "media-rs"
 version = "26.6.0"
-source = "git+https://github.com/vegidio/media-rs?rev=a0a579152b8421c183f215c67cf97d7e90fcea49#a0a579152b8421c183f215c67cf97d7e90fcea49"
+source = "git+https://github.com/vegidio/media-rs?rev=86e2cb94b5d24b79ef72d1dc419eb29b3ddbd2e2#86e2cb94b5d24b79ef72d1dc419eb29b3ddbd2e2"
 dependencies = [
  "image",
  "rust-sak",
@@ -2485,8 +2485,8 @@ dependencies = [
 
 [[package]]
 name = "rust-sak"
-version = "26.10.2"
-source = "git+https://github.com/vegidio/rust-sak?tag=26.10.2#cbc8d76b29fd81631c826712a9949447dd13c6bd"
+version = "26.10.4"
+source = "git+https://github.com/vegidio/rust-sak?tag=26.10.4#b1922e944d9032c7925450f4ac93152a557c574c"
 dependencies = [
  "avif-rs",
  "cap-std",
