@@ -10,11 +10,11 @@ build_dir := justfile_directory() / "build"
 default:
     @just --list
 
-# Build the CLI for this OS into build/. Pass `arm64` or `x64` to override the host architecture.
-cli arch=host_arch: (_compile (if arch == "arm64" { "aarch64" } else if arch == "x64" { "x86_64" } else { error("arch must be arm64 or x64, got: " + arch) }) + "-" + os_triple)
+# Build a target for this OS into build/. The only target is `cli`; pass `arm64` or `x64` to override the host architecture.
+build target arch=host_arch: (_compile (if target != "cli" { error("unknown target: " + target + " (expected: cli)") } else if arch == "arm64" { "aarch64" } else if arch == "x64" { "x86_64" } else { error("arch must be arm64 or x64, got: " + arch) }) + "-" + os_triple)
 
-# Build the CLI like `cli`, then package it as build/mediasim_<os>_<arch>.zip.
-package arch=host_arch: (cli arch) (_package "mediasim_" + os() + "_" + arch)
+# Build the CLI like `build cli`, then package it as build/mediasim_<os>_<arch>.zip.
+package arch=host_arch: (build "cli" arch) (_package "mediasim_" + os() + "_" + arch)
 
 # Delete build output and the Cargo target directory.
 [unix]
@@ -29,9 +29,9 @@ clean:
 test:
     cargo test --workspace
 
-# Run the CLI in development mode, passing the arguments through to it.
-run *args:
-    cargo run -p cli -- {{ args }}
+# Run a target in development mode, passing the arguments through to it. The only target is `cli`.
+run target *args:
+    {{ if target != "cli" { error("unknown target: " + target + " (expected: cli)") } else { "" } }}cargo run -p cli -- {{ args }}
 
 _compile triple:
     rustup target add {{ triple }}

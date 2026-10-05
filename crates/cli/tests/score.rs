@@ -71,10 +71,12 @@ fn three_paths_is_a_usage_error() {
 
 #[test]
 fn version_is_printed() {
-    let output = Command::new(env!("CARGO_BIN_EXE_mediasim")).arg("--version").output().unwrap();
+    for flag in ["-v", "--version"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_mediasim")).arg(flag).output().unwrap();
 
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(stdout(&output), format!("mediasim {}\n", env!("CARGO_PKG_VERSION")));
+        assert!(output.status.success(), "{flag}: {}", stderr(&output));
+        assert_eq!(stdout(&output), format!("mediasim {}\n", env!("CARGO_PKG_VERSION")), "{flag}");
+    }
 }
 
 #[test]

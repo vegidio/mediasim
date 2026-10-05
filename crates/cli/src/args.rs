@@ -6,8 +6,11 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use mediasim::{CompareOptions, LoadOptions};
 
 #[derive(Debug, Parser)]
-#[command(name = "mediasim", version, about, arg_required_else_help = true)]
+#[command(name = "mediasim", version, about, arg_required_else_help = true, disable_version_flag = true)]
 pub struct Cli {
+    /// Print version.
+    #[arg(short = 'v', long, action = clap::ArgAction::Version)]
+    version: (),
     #[command(subcommand)]
     pub command: Command,
 }
@@ -147,6 +150,17 @@ mod tests {
     #[test]
     fn command_is_well_formed() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn version_has_a_lowercase_short_flag() {
+        for flag in ["-v", "--version"] {
+            let err = Cli::try_parse_from(["mediasim", flag]).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::DisplayVersion, "{flag}");
+        }
+
+        let err = Cli::try_parse_from(["mediasim", "-V"]).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::UnknownArgument);
     }
 
     #[test]
