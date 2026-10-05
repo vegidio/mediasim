@@ -1,0 +1,32 @@
+{
+    "compilerOptions": {
+        // This code only ever runs in a Tauri webview (WKWebView, WebView2 or WebKitGTK), all past ES2022.
+        "target": "ES2022",
+        "useDefineForClassFields": true,
+        "lib": ["ES2023", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "skipLibCheck": true,
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noEmit": true,
+        "jsx": "react-jsx",
+        // Mirrored by `resolve.alias` in vite.config.ts; Vite does not read `paths`.
+        "paths": { "@/*": ["./frontend/*"] },
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "exactOptionalPropertyTypes": true,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitReturns": true,
+        "noImplicitOverride": true,
+        "verbatimModuleSyntax": true,
+        "noUncheckedSideEffectImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "allowUnreachableCode": false
+    },
+    // `src` is deliberately absent: it is this crate's Rust.
+    "include": ["frontend", "vite.config.ts"]
+}

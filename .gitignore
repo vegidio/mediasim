@@ -4,6 +4,11 @@
 **/*.rs.bk
 *.pdb
 
+# GUI frontend
+node_modules/
+/crates/gui/dist/
+/crates/gui/gen/
+
 # macOS
 .DS_Store
 

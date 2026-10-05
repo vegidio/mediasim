@@ -11,6 +11,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/mediasim/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/mediasim/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/mediasim/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/gui/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

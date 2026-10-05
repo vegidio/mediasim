@@ -1,0 +1,21 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2024"
+description = "Tauri 2 desktop application for MediaSim"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the bin target, mainly on Windows.
+name = "gui_lib"
+crate-type = ["lib"]
+
+# Named explicitly so Cargo itself emits `MediaSim[.exe]`. Must match `mainBinaryName` in tauri.conf.json.
+[[bin]]
+name = "MediaSim"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

@@ -1,0 +1,11 @@
+# Paths `tauri dev` must not rebuild the Rust app for. The frontend lives inside this crate, and Vite already
+# hot-reloads it; without this, every frontend edit would also restart the app.
+frontend/
+index.html
+package.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+biome.json
+components.json
+tsconfig.json
+vite.config.ts

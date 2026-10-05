@@ -8,14 +8,25 @@
       <package file="$PROJECT_DIR$/crates/cli">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/crates/gui">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/crates/mediasim">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="build: Update `Justfile` to improve task clarity">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/mediasim.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/mediasim.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Justfile" beforeDir="false" afterPath="$PROJECT_DIR$/Justfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/specs/gui-app/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/specs/gui-app/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,61 +82,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0007400959797415" />
-      <entry key="MS500" value="1.2365165133665286" />
-      <entry key="S2" value="1.7602156653283902" />
-      <entry key="S5" value="2.3660517515985102" />
-      <entry key="S10" value="2.9305032988440605" />
-      <entry key="S30" value="3.56359446223479" />
-      <entry key="S60" value="3.7698059679890874" />
-      <entry key="M2" value="3.88173016929823" />
-      <entry key="M5" value="3.955667922203139" />
-      <entry key="M10" value="4.1307802609893045" />
-      <entry key="M15" value="4.651124344944288" />
-      <entry key="M30" value="10.315636343555047" />
-      <entry key="H1" value="37.29505832825144" />
-      <entry key="H2" value="98.61599439612341" />
-      <entry key="H4" value="196.65386361974205" />
-      <entry key="D1" value="432.6033636523399" />
-      <entry key="W1" value="507.04823429044745" />
+      <entry key="MS100" value="1.0006861580409547" />
+      <entry key="MS500" value="1.318857557229194" />
+      <entry key="S2" value="2.8901228644345105" />
+      <entry key="S5" value="3.9354428418135385" />
+      <entry key="S10" value="4.421312059169176" />
+      <entry key="S30" value="4.795683021297835" />
+      <entry key="S60" value="4.896338302250991" />
+      <entry key="M2" value="4.947787896674965" />
+      <entry key="M5" value="4.987087830363414" />
+      <entry key="M10" value="5.229426595749913" />
+      <entry key="M15" value="5.792463997548036" />
+      <entry key="M30" value="9.097310975961467" />
+      <entry key="H1" value="26.502585391379412" />
+      <entry key="H2" value="78.73942900978781" />
+      <entry key="H4" value="174.98100001762288" />
+      <entry key="D1" value="429.67086188359394" />
+      <entry key="W1" value="514.0286107847145" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
-      <entry key="S5" value="9.166033472561981E-185" />
-      <entry key="S10" value="9.57394039701626E-93" />
-      <entry key="S30" value="2.1233923081064835E-31" />
-      <entry key="S60" value="4.608028335949045E-16" />
-      <entry key="M2" value="2.1471050294353042E-8" />
-      <entry key="M5" value="8.859658768578677E-4" />
-      <entry key="M10" value="0.034698298817314135" />
-      <entry key="M15" value="0.12592640409400235" />
-      <entry key="M30" value="0.4915253685597225" />
-      <entry key="H1" value="1.0782310148819123" />
-      <entry key="H2" value="2.1738299218782196" />
-      <entry key="H4" value="4.819502641237238" />
-      <entry key="D1" value="13.423451325558649" />
-      <entry key="W1" value="16.427768071989437" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="6.459106879341898E-197" />
+      <entry key="S30" value="4.012276218268903E-66" />
+      <entry key="S60" value="2.003066800744451E-33" />
+      <entry key="M2" value="4.476549954290119E-17" />
+      <entry key="M5" value="2.985747337213434E-7" />
+      <entry key="M10" value="6.369806093870539E-4" />
+      <entry key="M15" value="0.00876318852275299" />
+      <entry key="M30" value="0.12966376082196743" />
+      <entry key="H1" value="0.5537938878397064" />
+      <entry key="H2" value="1.557914901753377" />
+      <entry key="H4" value="4.0800107480703085" />
+      <entry key="D1" value="13.055916778237094" />
+      <entry key="W1" value="16.362744916008744" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9801351831806504" />
-      <entry key="MS500" value="1.230732531290332" />
-      <entry key="S2" value="1.757891656557363" />
-      <entry key="S5" value="2.3647917958474927" />
-      <entry key="S10" value="2.929729585944843" />
-      <entry key="S30" value="3.563283876794097" />
-      <entry key="S60" value="3.7696421602159655" />
-      <entry key="M2" value="3.881645980783883" />
-      <entry key="M5" value="3.9565181628430963" />
-      <entry key="M10" value="4.165428925507383" />
-      <entry key="M15" value="4.776953569439895" />
-      <entry key="M30" value="10.80695130779863" />
-      <entry key="H1" value="38.372974599013766" />
-      <entry key="H2" value="100.78931200575535" />
-      <entry key="H4" value="201.47258264249143" />
-      <entry key="D1" value="446.0263869564822" />
-      <entry key="W1" value="523.4759262887138" />
+      <entry key="MS100" value="0.9599177820928263" />
+      <entry key="MS500" value="1.3074300369882195" />
+      <entry key="S2" value="2.8827970961346483" />
+      <entry key="S5" value="3.9312343806203485" />
+      <entry key="S10" value="4.418904558805712" />
+      <entry key="S30" value="4.794801937775672" />
+      <entry key="S60" value="4.895887150340471" />
+      <entry key="M2" value="4.947559605506402" />
+      <entry key="M5" value="4.9869960783756655" />
+      <entry key="M10" value="5.230015808007466" />
+      <entry key="M15" value="5.801188200314751" />
+      <entry key="M30" value="9.226901716420748" />
+      <entry key="H1" value="27.056208114658002" />
+      <entry key="H2" value="80.29697172314955" />
+      <entry key="H4" value="179.0603447841532" />
+      <entry key="D1" value="442.7263619132142" />
+      <entry key="W1" value="530.3912798639874" />
     </decayedShown>
   </component>
   <component name="OptimizeOnSaveOptions">
@@ -409,7 +420,21 @@
       <option name="presentableId" value="LOCAL−00023" />
       <updated>1791182593249</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL−00024" summary="refactor: Add `Media::stub` for unit tests, refactor orientation constants, and improve CLI output handling">
+      <option name="closed" value="true" />
+      <created>1791183296145</created>
+      <option name="number" value="LOCAL−00024" />
+      <option name="presentableId" value="LOCAL−00024" />
+      <updated>1791183296145</updated>
+    </task>
+    <task id="LOCAL−00025" summary="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration">
+      <option name="closed" value="true" />
+      <created>1791186446611</created>
+      <option name="number" value="LOCAL−00025" />
+      <option name="presentableId" value="LOCAL−00025" />
+      <updated>1791186446611</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -417,7 +442,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="feat: Add `calculate_diff` function and integrate icon similarity calculation" />
     <MESSAGE value="refactor: Replace `image` crate with `rust-sak` for image decoding and errors" />
     <MESSAGE value="fix: Refine `calculate_diff` normalization and max-distance constants" />
     <MESSAGE value="feat: Add `Media` struct for media management with icon-based frame signatures" />
@@ -440,7 +464,10 @@
     <MESSAGE value="build: Add `Justfile` for build automation, packaging, and testing tasks on all platforms" />
     <MESSAGE value="feat: Add directory cache support to `mediasim` for faster restarts and interrupted run resumes" />
     <MESSAGE value="build: Update `Justfile` to improve task clarity" />
-    <option name="LAST_COMMIT_MESSAGE" value="build: Update `Justfile` to improve task clarity" />
+    <MESSAGE value="refactor: Add `Media::stub` for unit tests, refactor orientation constants, and improve CLI output handling" />
+    <MESSAGE value="feat: Add GUI scaffold with Tauri 2 + React and integrate with workspace" />
+    <MESSAGE value="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

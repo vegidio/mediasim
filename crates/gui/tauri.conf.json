@@ -1,0 +1,54 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "MediaSim",
+    "mainBinaryName": "MediaSim",
+    "identifier": "io.vinicius.mediasim",
+    "build": {
+        "beforeDevCommand": "pnpm dev",
+        "devUrl": "http://localhost:1420",
+        "beforeBuildCommand": "pnpm build",
+        "frontendDist": "dist"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "MediaSim",
+                "width": 1280,
+                "height": 720,
+                "minWidth": 800,
+                "minHeight": 600
+            }
+        ],
+        "security": {
+            "csp": {
+                "default-src": "'self'",
+                "script-src": "'self'",
+                "style-src": "'self' 'unsafe-inline'",
+                "connect-src": "'self' ipc: http://ipc.localhost",
+                "img-src": "'self' data: asset: http://asset.localhost",
+                "font-src": "'self' data:",
+                "object-src": "'none'",
+                "base-uri": "'self'",
+                "frame-ancestors": "'none'"
+            },
+            "devCsp": {
+                "default-src": "'self'",
+                "script-src": "'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src": "'self' 'unsafe-inline'",
+                "connect-src": "'self' ipc: http://ipc.localhost ws://localhost:1420 ws://localhost:1421 http://localhost:1420",
+                "img-src": "'self' data: asset: http://asset.localhost",
+                "font-src": "'self' data:",
+                "object-src": "'none'",
+                "base-uri": "'self'",
+                "frame-ancestors": "'none'"
+            },
+            "dangerousDisableAssetCspModification": ["style-src"]
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+    }
+}
