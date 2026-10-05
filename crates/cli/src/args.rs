@@ -49,6 +49,9 @@ pub enum Command {
         /// Which media to load.
         #[arg(short = 'm', long, value_enum, default_value_t = MediaKind::All)]
         media_type: MediaKind,
+        /// Neither read nor write the cache that lets an interrupted run resume.
+        #[arg(long = "no-cache", visible_alias = "nc")]
+        no_cache: bool,
         #[command(flatten)]
         group: GroupArgs,
         #[command(flatten)]
@@ -448,7 +451,7 @@ mod tests {
             "mediasim", "dir", "-r", "-m", "images", "-t", "0.9", "--ie", "--ff", "-o", "csv", "photos",
         ])
         .unwrap();
-        let Command::Dir { directory, recursive, media_type, group, compare, output } = cli.command else {
+        let Command::Dir { directory, recursive, media_type, group, compare, output, .. } = cli.command else {
             panic!("expected `dir`")
         };
 
@@ -457,6 +460,47 @@ mod tests {
         assert!(group.ignore_errors);
         assert_eq!(compare.options(), CompareOptions::new().flip(true));
         assert_eq!(output.output, OutputFormat::Csv);
+    }
+
+    /// Whether `args` turn on `--no-cache` for `dir`.
+    fn no_cache(args: &[&str]) -> Result<bool, clap::Error> {
+        let cli = Cli::try_parse_from(["mediasim", "dir"].iter().chain(args).chain(&["photos"]))?;
+        let Command::Dir { no_cache, .. } = cli.command else { panic!("expected `dir`") };
+        Ok(no_cache)
+    }
+
+    #[test]
+    fn no_cache_is_off_by_default() {
+        assert!(!no_cache(&[]).unwrap());
+    }
+
+    #[test]
+    fn no_cache_has_two_spellings() {
+        for flag in ["--nc", "--no-cache"] {
+            assert!(no_cache(&[flag]).unwrap(), "{flag}");
+        }
+    }
+
+    #[test]
+    fn no_cache_combines_with_the_other_options() {
+        let cli = Cli::try_parse_from(["mediasim", "dir", "-r", "--ie", "--nc", "-o", "json", "photos"]).unwrap();
+        let Command::Dir { directory, recursive, no_cache, group, output, .. } = cli.command else {
+            panic!("expected `dir`")
+        };
+
+        assert_eq!((directory, recursive, no_cache), (PathBuf::from("photos"), true, true));
+        assert!(group.ignore_errors);
+        assert_eq!(output.output, OutputFormat::Json);
+    }
+
+    #[test]
+    fn only_dir_takes_no_cache() {
+        for args in [&["files", "--nc", "a", "b"][..], &["score", "--no-cache", "a", "b"][..]] {
+            let err = Cli::try_parse_from(["mediasim"].iter().chain(args)).unwrap_err();
+
+            assert_eq!(err.kind(), ErrorKind::UnknownArgument, "{args:?}");
+            assert_eq!(err.exit_code(), 2, "{args:?}");
+        }
     }
 
     #[test]

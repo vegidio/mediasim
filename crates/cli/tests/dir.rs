@@ -259,3 +259,150 @@ fn ignore_errors_lists_the_undecodable_file_in_json() {
     assert_eq!(skipped.len(), 1, "{skipped:?}");
     assert_eq!(skipped[0]["path"].as_str(), Some(&*broken.to_string_lossy()));
 }
+
+/// The cache `mediasim dir` keeps in `dir` while it runs.
+fn cache_dir(dir: &Path) -> PathBuf {
+    dir.join(".mediasim")
+}
+
+fn cache_file(dir: &Path) -> PathBuf {
+    cache_dir(dir).join("cache.redb")
+}
+
+/// The two images under their own names, which group together.
+fn two_images() -> TempDir {
+    directory(&[("test1.png", "test1.png"), ("test2.png", "test2.png")])
+}
+
+#[test]
+fn a_successful_run_leaves_no_cache() {
+    let dir = two_images();
+
+    let groups = groups(&mediasim(&[], dir.path()));
+
+    assert_eq!(groups, [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert!(!cache_dir(dir.path()).exists());
+}
+
+#[test]
+fn skipped_files_count_as_finished() {
+    let dir = two_images();
+    let bad = dir.path().join("bad.png");
+    std::fs::write(&bad, b"not a png").unwrap();
+
+    let output = mediasim(&["--ie"], dir.path());
+
+    assert_skipped(&output, &[&bad]);
+    assert!(!cache_dir(dir.path()).exists());
+}
+
+#[test]
+fn an_aborted_run_keeps_the_cache() {
+    let dir = two_images();
+    std::fs::write(dir.path().join("bad.png"), b"not a png").unwrap();
+
+    assert_fails(&mediasim(&[], dir.path()));
+
+    assert!(cache_file(dir.path()).is_file());
+}
+
+#[test]
+fn a_recursive_run_keeps_one_cache_at_the_root() {
+    let dir = directory(&[("test1.png", "sub/test1.png"), ("test2.png", "sub/test2.png")]);
+    std::fs::write(dir.path().join("bad.png"), b"not a png").unwrap();
+
+    assert_fails(&mediasim(&["-r"], dir.path()));
+
+    assert!(cache_file(dir.path()).is_file());
+    assert!(!cache_dir(&dir.path().join("sub")).exists());
+}
+
+#[test]
+fn an_empty_directory_gets_no_cache() {
+    let dir = directory(&[]);
+    std::fs::write(dir.path().join("notes.txt"), b"not media").unwrap();
+
+    let output = mediasim(&[], dir.path());
+
+    assert!(output.status.success());
+    assert!(!cache_dir(dir.path()).exists());
+}
+
+#[test]
+fn no_cache_creates_no_cache() {
+    for flag in ["--nc", "--no-cache"] {
+        let dir = two_images();
+        std::fs::write(dir.path().join("bad.png"), b"not a png").unwrap();
+
+        // An aborted run would keep the cache it created, so this shows none was created at all.
+        assert_fails(&mediasim(&[flag], dir.path()));
+
+        assert!(!cache_dir(dir.path()).exists(), "{flag}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_read_only_directory_runs_without_a_cache() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = two_images();
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+
+    // Root ignores permissions, so the scenario can't be reproduced there.
+    let denied = std::fs::write(dir.path().join("probe"), b"").is_err();
+    let output = mediasim(&[], dir.path());
+
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    if !denied {
+        eprintln!(
+            "skipped a_read_only_directory_runs_without_a_cache: permissions are not enforced (running as root?)"
+        );
+        return;
+    }
+    assert_eq!(groups(&output), [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert!(output.stderr.is_empty(), "{}", common::stderr(&output));
+    assert!(!cache_dir(dir.path()).exists());
+}
+
+#[test]
+fn a_run_resumes_from_the_cache_unless_told_not_to() {
+    let dir = two_images();
+    let names = paths(dir.path(), &["test1.png", "test2.png"]);
+    let cache = mediasim::DirCache::open(dir.path()).unwrap();
+    for result in mediasim::Media::from_files_cached(names.clone(), &cache) {
+        result.unwrap();
+    }
+    drop(cache);
+
+    // The cache still knows the image, but decoding it now fails: only a run that reads the cache succeeds.
+    let replaced = &names[1];
+    let meta = std::fs::metadata(replaced).unwrap();
+    std::fs::write(replaced, vec![0xAB; usize::try_from(meta.len()).unwrap()]).unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(replaced)
+        .unwrap()
+        .set_modified(meta.modified().unwrap())
+        .unwrap();
+    let before = (
+        std::fs::read(cache_file(dir.path())).unwrap(),
+        std::fs::metadata(cache_file(dir.path())).unwrap(),
+    );
+
+    let uncached = mediasim(&["--nc", "--ie"], dir.path());
+
+    assert_skipped(&uncached, &[replaced]);
+    let after = (
+        std::fs::read(cache_file(dir.path())).unwrap(),
+        std::fs::metadata(cache_file(dir.path())).unwrap(),
+    );
+    assert!(before.0 == after.0, "the cache's contents changed");
+    assert_eq!(before.1.modified().unwrap(), after.1.modified().unwrap());
+
+    let cached = mediasim(&[], dir.path());
+
+    assert_eq!(groups(&cached), [names]);
+    assert!(!cache_dir(dir.path()).exists());
+}

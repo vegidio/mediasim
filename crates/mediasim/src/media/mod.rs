@@ -1,6 +1,8 @@
 //! Media loading: turns image and video files into [`Media`] values with their file metadata and per-frame
 //! [`Icon`] signatures for similarity comparison.
 
+#[cfg(feature = "cache")]
+mod cache;
 mod image;
 mod kind;
 mod options;
@@ -12,12 +14,15 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::{Duration, SystemTime};
 
+use rayon::ThreadPool;
 use rayon::prelude::*;
 use rust_sak::fs::ListOptions;
 
 use crate::pool::{image_pool, video_pool};
 use crate::{Icon, MediaError};
 
+#[cfg(feature = "cache")]
+pub use cache::DirCache;
 pub use options::LoadOptions;
 
 /// Whether a [`Media`] is a still image or a video.
@@ -65,6 +70,7 @@ pub struct Media {
 
 /// What a loader extracts from the file's contents.
 #[derive(Debug)]
+#[cfg_attr(feature = "cache", derive(serde::Serialize, serde::Deserialize))]
 struct Decoded {
     width: u32,
     height: u32,
@@ -107,14 +113,18 @@ impl Media {
     /// - [`MediaError::Image`] or [`MediaError::Video`] if the file cannot be decoded.
     /// - [`MediaError::NoFrames`] if a video yields no frames.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, MediaError> {
-        let path = path.as_ref();
+        Self::load(path.as_ref(), |path, media_type, _| decode(path, media_type))
+    }
+
+    /// Loads `path` as [`from_file`](Self::from_file) does, with `decode` extracting its contents once its type is
+    /// known and its metadata read.
+    fn load<D>(path: &Path, decode: D) -> Result<Self, MediaError>
+    where
+        D: FnOnce(&Path, MediaType, &FileInfo) -> Result<Decoded, MediaError>,
+    {
         let media_type = MediaType::from_path(path).ok_or_else(|| MediaError::Unsupported { path: path.into() })?;
         let info = FileInfo::read(path)?;
-
-        let decoded = match media_type {
-            MediaType::Image => image::load(path)?,
-            MediaType::Video => video::load(path)?,
-        };
+        let decoded = decode(path, media_type, &info)?;
 
         Ok(Self {
             path: path.to_path_buf(),
@@ -141,22 +151,25 @@ impl Media {
     where
         P: AsRef<Path> + Send + 'static,
     {
+        Self::load_all(paths, |path| Self::from_file(path))
+    }
+
+    /// Loads every path with `load`, as [`from_files`](Self::from_files) describes.
+    fn load_all<P, L>(paths: Vec<P>, load: L) -> MediaStream
+    where
+        P: AsRef<Path> + Send + 'static,
+        L: Fn(&Path) -> Result<Self, MediaError> + Clone + Send + Sync + 'static,
+    {
         let (videos, others): (Vec<P>, Vec<P>) =
             paths.into_iter().partition(|p| MediaType::from_path(p) == Some(MediaType::Video));
         let (tx, rx) = mpsc::channel();
 
         // Both pools are driven from a spawned task so neither blocks the caller, which consumes `rx` as results
-        // stream in. A failed send means the caller dropped the iterator, which ends the batch.
+        // stream in.
         if !videos.is_empty() {
-            let tx = tx.clone();
-            video_pool().spawn(move || {
-                let _ = videos.into_par_iter().try_for_each_with(tx, |tx, path| tx.send(Self::from_file(path)));
-            });
+            spawn_batch(video_pool(), videos, tx.clone(), load.clone());
         }
-
-        image_pool().spawn(move || {
-            let _ = others.into_par_iter().try_for_each_with(tx, |tx, path| tx.send(Self::from_file(path)));
-        });
+        spawn_batch(image_pool(), others, tx, load);
 
         MediaStream(rx.into_iter())
     }
@@ -195,6 +208,30 @@ impl Media {
     pub fn from_dir(dir: impl AsRef<Path>, options: &LoadOptions) -> Result<MediaStream, MediaError> {
         Ok(Self::from_files(Self::list_dir(dir, options)?))
     }
+}
+
+/// Extracts the contents of the file at `path`, which is of type `media_type`.
+fn decode(path: &Path, media_type: MediaType) -> Result<Decoded, MediaError> {
+    match media_type {
+        MediaType::Image => image::load(path),
+        MediaType::Video => video::load(path),
+    }
+}
+
+/// Loads `paths` with `load` on `pool`, from a spawned task, sending each result to `tx`. A failed send means the
+/// caller dropped the stream, which ends the batch.
+fn spawn_batch<P, L>(pool: &ThreadPool, paths: Vec<P>, tx: mpsc::Sender<Result<Media, MediaError>>, load: L)
+where
+    P: AsRef<Path> + Send + 'static,
+    L: Fn(&Path) -> Result<Media, MediaError> + Send + Sync + 'static,
+{
+    pool.spawn(move || {
+        let _ = paths.into_par_iter().try_for_each_with(tx.clone(), |tx, path| tx.send(load(path.as_ref())));
+        // `load` goes before the last sender, so whatever it holds (such as a cache handle) is released by the time
+        // the stream ends.
+        drop(load);
+        drop(tx);
+    });
 }
 
 /// The results of a batch load, yielded in completion order. Returned by [`Media::from_files`] and

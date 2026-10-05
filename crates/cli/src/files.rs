@@ -20,7 +20,9 @@ pub fn run(
 ) -> Result<(), CliError> {
     let paths = distinct(files);
 
-    group::run(&paths, threshold, options, ignore_errors, format, |color| output::header(paths.len(), color))
+    group::run(&paths, None, threshold, options, ignore_errors, format, |color| {
+        output::header(paths.len(), color)
+    })
 }
 
 /// Drops repeated paths, keeping the first occurrence of each. Paths are compared exactly as typed.

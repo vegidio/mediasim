@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
-use mediasim::{CompareOptions, Grouper, Media, MediaError};
+use mediasim::{CompareOptions, DirCache, Grouper, Media, MediaError};
 
 use crate::args::OutputFormat;
 use crate::error::CliError;
@@ -20,8 +20,12 @@ use crate::{machine, output, progress};
 ///
 /// If `ignore_errors`, files that fail to load are skipped, and once loading ends they are reported on stderr, in
 /// every format, in the order of `paths`. JSON lists them in its document too.
+///
+/// With a `cache`, the files load through it. Once every file has finished loading (skipped ones included), the cache
+/// is deleted, before anything is printed; on any error, including Ctrl+C, it is kept for the next run.
 pub fn run(
     paths: &[PathBuf],
+    cache: Option<DirCache>,
     threshold: f64,
     options: CompareOptions,
     ignore_errors: bool,
@@ -38,7 +42,10 @@ pub fn run(
     }
     let grouper = Grouper::with_options(threshold, options);
     let progress::Loaded { sink, mut skipped } =
-        progress::load(paths, "Processing", grouper, ignore_errors, interactive, color)?;
+        progress::load(paths, cache.as_ref(), "Processing", grouper, ignore_errors, interactive, color)?;
+    if let Some(cache) = cache {
+        cache.finish();
+    }
     let mut groups = sink.finish();
     for group in &mut groups {
         group.sort_by(best_first);

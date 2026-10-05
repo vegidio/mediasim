@@ -11,7 +11,7 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 csv.workspace = true
-mediasim = { path = "../mediasim", features = ["serde"] }
+mediasim = { path = "../mediasim", features = ["cache", "serde"] }
 ratatui.workspace = true
 serde.workspace = true
 serde_json.workspace = true

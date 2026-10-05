@@ -20,6 +20,7 @@ use super::consts::{
 /// `size * (ch * size + y) + x`. Channels are YCbCr (not RGB), each value premultiplied by 255 to preserve
 /// colour relationships from the source image.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "cache", derive(serde::Serialize, serde::Deserialize))]
 pub struct Icon {
     pixels: Vec<u16>,
 }

@@ -14,8 +14,24 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add deferred durability and file-path support to `memo` in `rust-sak`">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add directory cache support to `mediasim` for faster restarts and interrupted run resumes">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/args.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/args.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/dir.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/dir.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/files.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/files.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/group.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/group.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/progress/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/progress/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/src/score.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/src/score.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/cli/tests/dir.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/cli/tests/dir.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/core/icon.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-dir-cache-2-resume/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-dir-cache-2-resume/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-dir-cache-2-resume/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-dir-cache-2-resume/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,61 +87,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0059207678379312" />
-      <entry key="MS500" value="1.3584888120039569" />
-      <entry key="S2" value="1.773782496771195" />
-      <entry key="S5" value="1.9025007274624302" />
-      <entry key="S10" value="1.950000382874886" />
-      <entry key="S30" value="1.9830477045566721" />
-      <entry key="S60" value="1.9914889389220016" />
-      <entry key="M2" value="1.9981100008089667" />
-      <entry key="M5" value="2.2279372684015923" />
-      <entry key="M10" value="3.195734723557675" />
-      <entry key="M15" value="4.938525377317454" />
-      <entry key="M30" value="18.39226555285208" />
-      <entry key="H1" value="57.797172190251565" />
-      <entry key="H2" value="124.79383461841914" />
-      <entry key="H4" value="221.01917044526894" />
-      <entry key="D1" value="437.1869728952132" />
-      <entry key="W1" value="502.80428891245805" />
+      <entry key="MS100" value="1.023515096727246" />
+      <entry key="MS500" value="1.9660301025562554" />
+      <entry key="S2" value="3.2176857078871945" />
+      <entry key="S5" value="3.6538560241149134" />
+      <entry key="S10" value="3.820785615091233" />
+      <entry key="S30" value="3.9388348838369187" />
+      <entry key="S60" value="3.969236341772264" />
+      <entry key="M2" value="3.986937923331558" />
+      <entry key="M5" value="4.223115878949122" />
+      <entry key="M10" value="5.192591086197185" />
+      <entry key="M15" value="6.9355504157751975" />
+      <entry key="M30" value="20.38738489614735" />
+      <entry key="H1" value="59.78976250029558" />
+      <entry key="H2" value="126.78590517202359" />
+      <entry key="H4" value="223.01217186021023" />
+      <entry key="D1" value="439.18467054176375" />
+      <entry key="W1" value="504.8039107464784" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.1846629459140631E-49" />
-      <entry key="MS500" value="1.6395284641907546E-10" />
-      <entry key="S2" value="0.0035783246505148372" />
-      <entry key="S5" value="0.10506834612225344" />
-      <entry key="S10" value="0.32414247812073854" />
-      <entry key="S30" value="0.6869292077744606" />
-      <entry key="S60" value="0.8288119657322622" />
-      <entry key="M2" value="0.9105917787077833" />
-      <entry key="M5" value="0.9963345016101184" />
-      <entry key="M10" value="1.163596134759494" />
-      <entry key="M15" value="1.3095221842530769" />
-      <entry key="M30" value="1.5850536500091477" />
-      <entry key="H1" value="1.9362473416266373" />
-      <entry key="H2" value="2.913064291290247" />
-      <entry key="H4" value="5.579104245133019" />
-      <entry key="D1" value="13.754914693751973" />
-      <entry key="W1" value="16.485113811986196" />
+      <entry key="MS100" value="1.2642947459405193E-51" />
+      <entry key="MS500" value="6.612560623247906E-11" />
+      <entry key="S2" value="0.002851625020809611" />
+      <entry key="S5" value="0.09594822981049607" />
+      <entry key="S10" value="0.30975511264625816" />
+      <entry key="S30" value="0.6766116861141578" />
+      <entry key="S60" value="0.8225641323798745" />
+      <entry key="M2" value="0.9071531289915896" />
+      <entry key="M5" value="0.9948278178996597" />
+      <entry key="M10" value="1.1627159912741756" />
+      <entry key="M15" value="1.3088617530639308" />
+      <entry key="M30" value="1.5846539046293706" />
+      <entry key="H1" value="1.9360031685869687" />
+      <entry key="H2" value="2.912880607580662" />
+      <entry key="H4" value="5.578928346729049" />
+      <entry key="D1" value="13.754842415144168" />
+      <entry key="W1" value="16.48510143694181" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9919915686234025" />
-      <entry key="MS500" value="1.3537376807603394" />
-      <entry key="S2" value="1.774881151929825" />
-      <entry key="S5" value="1.9978311707205345" />
-      <entry key="S10" value="2.2596112704116584" />
-      <entry key="S30" value="2.659709955827152" />
-      <entry key="S60" value="2.8140981902929796" />
-      <entry key="M2" value="2.905290442516108" />
-      <entry key="M5" value="3.222716060647592" />
-      <entry key="M10" value="4.358289231128614" />
-      <entry key="M15" value="6.247186696811329" />
-      <entry key="M30" value="19.976674309151537" />
-      <entry key="H1" value="59.732867016842974" />
-      <entry key="H2" value="127.70621806896652" />
-      <entry key="H4" value="226.59737027875812" />
-      <entry key="D1" value="450.9414494346612" />
-      <entry key="W1" value="519.2893264471126" />
+      <entry key="MS100" value="0.9350903617438919" />
+      <entry key="MS500" value="1.9314511470413553" />
+      <entry key="S2" value="3.2068525276980315" />
+      <entry key="S5" value="3.7358136192200226" />
+      <entry key="S10" value="4.114029705948916" />
+      <entry key="S30" value="4.604441619616522" />
+      <entry key="S60" value="4.7851962027814015" />
+      <entry key="M2" value="4.890467883366114" />
+      <entry key="M5" value="5.216300320429587" />
+      <entry key="M10" value="6.354221205983827" />
+      <entry key="M15" value="8.243521711810502" />
+      <entry key="M30" value="21.971379054005666" />
+      <entry key="H1" value="61.72520571505039" />
+      <entry key="H2" value="129.69810122740014" />
+      <entry key="H4" value="228.59019394657506" />
+      <entry key="D1" value="452.93907449202845" />
+      <entry key="W1" value="521.2889358614487" />
     </decayedShown>
   </component>
   <component name="OptimizeOnSaveOptions">
@@ -388,7 +404,21 @@
       <option name="presentableId" value="LOCAL−00020" />
       <updated>1791146847571</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL−00021" summary="build: Add `Justfile` for build automation, packaging, and testing tasks on all platforms">
+      <option name="closed" value="true" />
+      <created>1791179552751</created>
+      <option name="number" value="LOCAL−00021" />
+      <option name="presentableId" value="LOCAL−00021" />
+      <updated>1791179552751</updated>
+    </task>
+    <task id="LOCAL−00022" summary="feat: Add directory cache support to `mediasim` for faster restarts and interrupted run resumes">
+      <option name="closed" value="true" />
+      <created>1791180452767</created>
+      <option name="number" value="LOCAL−00022" />
+      <option name="presentableId" value="LOCAL−00022" />
+      <updated>1791180452767</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -416,7 +446,9 @@
     <MESSAGE value="refactor: Move &quot;best-first&quot; ordering logic from `mediasim` library to CLI for better flexibility across frontends" />
     <MESSAGE value="feat: Add `--output` option to CLI commands for machine-readable CSV/JSON formats" />
     <MESSAGE value="feat: Add deferred durability and file-path support to `memo` in `rust-sak`" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add deferred durability and file-path support to `memo` in `rust-sak`" />
+    <MESSAGE value="build: Add `Justfile` for build automation, packaging, and testing tasks on all platforms" />
+    <MESSAGE value="feat: Add directory cache support to `mediasim` for faster restarts and interrupted run resumes" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add directory cache support to `mediasim` for faster restarts and interrupted run resumes" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

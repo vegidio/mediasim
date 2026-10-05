@@ -29,6 +29,15 @@
 //!
 //! The building blocks are public too: [`Icon`] is the compact 11×11 visual signature of one frame, and
 //! [`euc_metric`] the per-channel distance between two of them, which [`calculate_diff`] folds into one number.
+//!
+//! # Features
+//!
+//! - `serde`: makes [`Media`] and [`MediaType`] serializable, for front ends that print or send media as data.
+//! - `cache`: adds `DirCache`, a directory's cache of decoded media in `<dir>/.mediasim/cache.redb`, and
+//!   `Media::from_files_cached`, which loads through it. A load that was interrupted or aborted then resumes without
+//!   decoding again the files it had already finished. Call `DirCache::finish` once every file has finished loading
+//!   (and its stream is exhausted) to delete the cache; drop the handle instead to keep it for the next run.
+//!   [`Media::from_dir`] stays uncached. This feature does not make [`Media`] serializable.
 
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
@@ -40,4 +49,6 @@ mod pool;
 
 pub use core::{CompareOptions, Grouper, Icon, calculate_diff, euc_metric};
 pub use error::{CompareError, MediaError};
+#[cfg(feature = "cache")]
+pub use media::DirCache;
 pub use media::{LoadOptions, Media, MediaStream, MediaType};

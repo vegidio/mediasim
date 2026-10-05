@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::{Duration, Instant};
 
-use mediasim::{Media, MediaError, MediaStream};
+use mediasim::{DirCache, Media, MediaError, MediaStream};
 use ratatui::buffer::Buffer;
 use ratatui::crossterm::cursor::{MoveTo, Show};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -45,11 +45,14 @@ pub struct Loaded<C> {
     pub skipped: Vec<MediaError>,
 }
 
-/// Loads `paths` into `sink` and returns it: through the progress display, labelled `label`, when `interactive`,
-/// otherwise silently. The first error ends the load, unless `ignore_errors`, in which case files that fail to load
-/// are skipped and returned with the sink.
+/// Loads `paths` into `sink`, through `cache` if there is one, and returns it: through the progress display, labelled
+/// `label`, when `interactive`, otherwise silently. The first error ends the load, unless `ignore_errors`, in which
+/// case files that fail to load are skipped and returned with the sink.
+///
+/// On success, the stream has been exhausted, so the cache can be finished.
 pub fn load<C>(
     paths: &[PathBuf],
+    cache: Option<&DirCache>,
     label: &str,
     mut sink: C,
     ignore_errors: bool,
@@ -59,7 +62,10 @@ pub fn load<C>(
 where
     C: Extend<Media> + Send + 'static,
 {
-    let stream = Media::from_files(paths.to_vec());
+    let stream = match cache {
+        Some(cache) => Media::from_files_cached(paths.to_vec(), cache),
+        None => Media::from_files(paths.to_vec()),
+    };
     if interactive {
         return run(stream, paths.len(), label, sink, ignore_errors, color);
     }
