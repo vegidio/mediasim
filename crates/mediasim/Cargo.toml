@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-# Makes `Media` and `MediaType` serializable, for front ends that print or send media as data.
+# Makes `Media`, `MediaInfo` and `MediaType` serializable, for front ends that print or send media as data.
 serde = ["dep:serde", "dep:jiff"]
 # Adds `DirCache` and `Media::from_files_cached`, which keep a directory's decoded media on disk so a restarted load
 # resumes where the last one stopped.

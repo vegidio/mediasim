@@ -11,6 +11,9 @@
 //!
 //! To find duplicates among many files, feed them to a [`Grouper`]: it groups the media whose similarity reaches a
 //! threshold. [`Grouper::with_options`] groups under [`CompareOptions`].
+//! [`Media::probe`] reads a file's metadata ([`MediaInfo`]) from its header without decoding any frames, to show a
+//! file's details before or while it loads; it also reports an image's format and color profile and a video's frame
+//! rate.
 //! [`Media::list_dir`] tells up front which files a directory load will yield, for a progress total or a stable
 //! display order. [`MediaFormat::all`] lists every format that loads, with its [`MediaType`] and extensions, for a
 //! file picker's filter or a list of supported formats; it always agrees with [`MediaType::from_path`].
@@ -33,7 +36,7 @@
 //!
 //! # Features
 //!
-//! - `serde`: makes [`Media`], [`MediaType`] and [`MediaFormat`] serializable, for front ends that print or send media as data.
+//! - `serde`: makes [`Media`], [`MediaInfo`], [`MediaType`] and [`MediaFormat`] serializable, for front ends that print or send media as data.
 //! - `cache`: adds `DirCache`, a directory's cache of decoded media in `<dir>/.mediasim/cache.redb`, and
 //!   `Media::from_files_cached`, which loads through it. A load that was interrupted or aborted then resumes without
 //!   decoding again the files it had already finished. Call `DirCache::finish` once every file has finished loading
@@ -52,4 +55,4 @@ pub use core::{CompareOptions, Grouper, Icon, calculate_diff, euc_metric};
 pub use error::{CompareError, MediaError};
 #[cfg(feature = "cache")]
 pub use media::DirCache;
-pub use media::{LoadOptions, Media, MediaFormat, MediaStream, MediaType};
+pub use media::{LoadOptions, Media, MediaFormat, MediaInfo, MediaStream, MediaType};

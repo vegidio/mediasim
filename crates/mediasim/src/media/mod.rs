@@ -6,6 +6,7 @@ mod cache;
 mod image;
 mod kind;
 mod options;
+mod probe;
 #[cfg(feature = "serde")]
 mod ser;
 mod video;
@@ -25,6 +26,7 @@ use crate::{Icon, MediaError};
 pub use cache::DirCache;
 pub use kind::MediaFormat;
 pub use options::LoadOptions;
+pub use probe::MediaInfo;
 
 /// Whether a [`Media`] is a still image or a video.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -454,7 +456,7 @@ pub(crate) mod tests {
     /// Copies `src` to `dst` with the payload of every top-level `mdat` box zeroed: the container still probes, but
     /// none of its packets decode.
     #[allow(clippy::cast_possible_truncation)]
-    fn zero_media_data(src: &Path, dst: &Path) {
+    pub(crate) fn zero_media_data(src: &Path, dst: &Path) {
         let mut data = std::fs::read(src).unwrap();
         let mut pos = 0;
 
