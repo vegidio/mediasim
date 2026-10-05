@@ -18,6 +18,10 @@
 //! display order. [`MediaFormat::all`] lists every format that loads, with its [`MediaType`] and extensions, for a
 //! file picker's filter or a list of supported formats; it always agrees with [`MediaType::from_path`].
 //!
+//! A long load can be stopped from another thread: [`Media::from_file_cancellable`] takes a [`CancelToken`], and fails
+//! with [`MediaError::Cancelled`] once the token is cancelled. A video stops before its next sampled frame; an image,
+//! whose decode can't be interrupted, before decoding starts or as soon as it returns. One token can stop several loads.
+//!
 //! ```no_run
 //! use mediasim::{CompareOptions, Media};
 //!
@@ -46,11 +50,13 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 
+mod cancel;
 mod core;
 mod error;
 mod media;
 mod pool;
 
+pub use cancel::CancelToken;
 pub use core::{CompareOptions, Grouper, Icon, calculate_diff, euc_metric};
 pub use error::{CompareError, MediaError};
 #[cfg(feature = "cache")]

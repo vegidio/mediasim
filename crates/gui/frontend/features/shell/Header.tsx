@@ -3,10 +3,15 @@ import { Button } from "@/components/ui/button";
 import { type Step, StepIndicator } from "@/features/shell/StepIndicator";
 import { isMacOs } from "@/ipc/os";
 
-type HeaderProps = {
-    /** The workflow step the step indicator marks as current. */
-    current: Step;
-};
+type HeaderProps =
+    | {
+          /** The workflow step the step indicator marks as current. */
+          current: Step;
+      }
+    | {
+          /** The text shown in the step indicator's place, on a screen outside the workflow's steps. */
+          title: string;
+      };
 
 /** The MediaSim logo: two overlapping rounded squares. */
 const Logo = () => (
@@ -17,7 +22,7 @@ const Logo = () => (
 );
 
 /** The strip across the top of the window, which is also its title bar on every platform. */
-export const Header = ({ current }: HeaderProps) => (
+export const Header = (props: HeaderProps) => (
     <header
         // Dragging the header moves the window and double-clicking it toggles maximize. `deep` makes the whole subtree a
         // drag region; buttons inside it still take their own presses, because Tauri skips clickable elements.
@@ -33,7 +38,11 @@ export const Header = ({ current }: HeaderProps) => (
         </div>
 
         <div className="flex flex-1 justify-center">
-            <StepIndicator current={current} />
+            {"title" in props ? (
+                <span className="text-[13px] text-muted-foreground">{props.title}</span>
+            ) : (
+                <StepIndicator current={props.current} />
+            )}
         </div>
 
         <div className="flex w-[290px] justify-end">

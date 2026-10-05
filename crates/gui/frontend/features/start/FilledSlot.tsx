@@ -2,9 +2,9 @@ import { useState } from "react";
 import { ImageIcon, VideoIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { slotLabel } from "@/features/start/EmptySlot";
-import { formatSize } from "@/features/start/format";
 import type { Slot } from "@/features/start/routePairDrop";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
+import { formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePairStore } from "@/stores/pair";
 

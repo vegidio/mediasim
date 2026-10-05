@@ -35,6 +35,16 @@ describe("Header", () => {
         expect(screen.getByTestId("traffic-light-inset")).toBeInTheDocument();
     });
 
+    it("shows a title in place of the step indicator, keeping the logo and Settings", () => {
+        render(<Header title="Compare two files" />);
+
+        const header = screen.getByRole("banner");
+        expect(header).toHaveTextContent("Compare two files");
+        expect(screen.queryByRole("navigation", { name: "Progress" })).not.toBeInTheDocument();
+        expect(screen.getByText("MediaSim")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Settings" })).toBeDisabled();
+    });
+
     it("starts flush at the leading edge elsewhere", () => {
         onMacOs.mockReturnValue(false);
         render(<Header current="select" />);

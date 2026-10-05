@@ -50,6 +50,13 @@ pub enum MediaError {
         /// The file that was rejected.
         path: PathBuf,
     },
+
+    /// The load was stopped by its [`CancelToken`](crate::CancelToken) before it finished.
+    #[error("loading {} was cancelled", path.display())]
+    Cancelled {
+        /// The file whose load was stopped.
+        path: PathBuf,
+    },
 }
 
 impl MediaError {
@@ -61,7 +68,8 @@ impl MediaError {
             | Self::Image { path, .. }
             | Self::Video { path, .. }
             | Self::NoFrames { path }
-            | Self::Unsupported { path } => path,
+            | Self::Unsupported { path }
+            | Self::Cancelled { path } => path,
         }
     }
 
@@ -126,6 +134,7 @@ mod tests {
             MediaError::video("a.png", media::Error::NoVideoStream),
             MediaError::NoFrames { path: "a.png".into() },
             MediaError::Unsupported { path: "a.png".into() },
+            MediaError::Cancelled { path: "a.png".into() },
         ];
 
         for err in &errors {
@@ -141,6 +150,7 @@ mod tests {
         assert!(MediaError::video("a", media::Error::NoVideoStream).source().is_some());
         assert!(MediaError::NoFrames { path: "a".into() }.source().is_none());
         assert!(MediaError::Unsupported { path: "a".into() }.source().is_none());
+        assert!(MediaError::Cancelled { path: "a".into() }.source().is_none());
     }
 
     #[test]

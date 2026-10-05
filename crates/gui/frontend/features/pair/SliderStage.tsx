@@ -1,0 +1,92 @@
+import type { KeyboardEvent } from "react";
+import { ChevronsLeftRightIcon } from "lucide-react";
+import { Slider } from "radix-ui";
+import type { MediaFile } from "@/ipc/thumbs";
+import { Picture } from "./Picture";
+
+/**
+ * Where each key moves the handle from `position`. Radix's own keys step by `step`, which is fine-grained so a drag
+ * doesn't snap, so these replace them.
+ */
+const KEY_MOVES: Record<string, (position: number) => number> = {
+    ArrowLeft: (position) => position - 1,
+    ArrowDown: (position) => position - 1,
+    ArrowRight: (position) => position + 1,
+    ArrowUp: (position) => position + 1,
+    PageDown: (position) => position - 10,
+    PageUp: (position) => position + 10,
+    Home: () => 0,
+    End: () => 100,
+};
+
+const clamp = (position: number) => Math.min(100, Math.max(0, position));
+
+type SliderStageProps = {
+    a: MediaFile;
+    b: MediaFile;
+    /** The share of the stage showing A, from 0 to 100. */
+    position: number;
+    onPositionChange: (position: number) => void;
+};
+
+/**
+ * A over B in one frame that fills the view, A showing left of the handle and B right of it. Each is fitted inside it
+ * whole and centred. Pressing or dragging anywhere on the stage, edge to edge, moves the handle.
+ */
+export const SliderStage = ({ a, b, position, onPositionChange }: SliderStageProps) => {
+    const onKeyDown = (event: KeyboardEvent) => {
+        const move = KEY_MOVES[event.key];
+        if (!move) return;
+
+        // Stops Radix's own handler, which runs after this one unless the default is prevented.
+        event.preventDefault();
+        onPositionChange(clamp(move(position)));
+    };
+
+    return (
+        // Opaque, with its own dots, so A's layer can repeat them exactly: both are this same box.
+        <div data-testid="slider-stage" className="relative min-h-0 flex-1 overflow-hidden bg-background bg-dots">
+            {/* Keyed so another file starts loading afresh rather than showing as loaded. */}
+            <Picture key={b.identity} file={b} className="absolute inset-0" />
+            <div
+                data-testid="slider-a"
+                style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+                // Opaque, so B never shows left of the handle where A's picture doesn't cover, or hasn't loaded.
+                className="absolute inset-0 bg-background bg-dots"
+            >
+                <Picture key={a.identity} file={a} className="absolute inset-0" />
+            </div>
+
+            <div
+                aria-hidden="true"
+                style={{ left: `${position}%` }}
+                className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-[#FAFAFA] shadow-[0_0_0_1px_rgba(0,0,0,0.3)]"
+            />
+
+            {/* The whole stage is the track; the line and the clip above draw the value, so no Track or Range. */}
+            <Slider.Root
+                min={0}
+                max={100}
+                step={0.1}
+                value={[position]}
+                onValueChange={([value]) => value !== undefined && onPositionChange(value)}
+                onKeyDown={onKeyDown}
+                className="absolute inset-0 flex cursor-ew-resize touch-none select-none items-center"
+            >
+                {/*
+                 * Zero-sized, so Radix has no half-width to pull inward near the ends and the thumb sits exactly on the
+                 * line; the grip is drawn centred on it, so it never drifts off the line.
+                 */}
+                <Slider.Thumb
+                    aria-label="Drag to compare A and B"
+                    aria-valuetext={`${Math.round(position)}% A`}
+                    className="group relative block size-0 outline-none"
+                >
+                    <span className="absolute top-1/2 left-1/2 flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090B] shadow-[0_4px_16px_rgba(0,0,0,0.5)] group-focus-visible:ring-4 group-focus-visible:ring-primary">
+                        <ChevronsLeftRightIcon aria-hidden="true" className="size-5" />
+                    </span>
+                </Slider.Thumb>
+            </Slider.Root>
+        </div>
+    );
+};

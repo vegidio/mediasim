@@ -65,6 +65,17 @@
     --color-text-label: #e4e4e7;
     /* Amber, for fixable input states; the destructive red stays reserved for deletion. */
     --color-warning: #fbbf24;
+
+    /* A highlight a third of its track wide, sliding across it, for progress with no known end. */
+    --animate-slide: slide 1.4s ease-in-out infinite;
+    @keyframes slide {
+        from {
+            transform: translateX(-100%);
+        }
+        to {
+            transform: translateX(300%);
+        }
+    }
 }
 
 /* The design's zinc and lime palette, under shadcn's names so components added later pick it up unedited. */
@@ -134,7 +145,12 @@
         @apply font-sans;
     }
     main {
-        background-image: radial-gradient(var(--border) 1px, transparent 1px);
-        background-size: 48px 48px;
+        @apply bg-dots;
     }
+}
+
+/* The dotted background of the main area, also drawn by layers that must hide what is under them. */
+@utility bg-dots {
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
 }

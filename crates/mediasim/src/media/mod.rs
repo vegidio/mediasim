@@ -20,7 +20,7 @@ use rayon::prelude::*;
 use rust_sak::fs::ListOptions;
 
 use crate::pool::{image_pool, video_pool};
-use crate::{Icon, MediaError};
+use crate::{CancelToken, Icon, MediaError};
 
 #[cfg(feature = "cache")]
 pub use cache::DirCache;
@@ -117,6 +117,22 @@ impl Media {
     /// - [`MediaError::NoFrames`] if a video yields no frames.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, MediaError> {
         Self::load(path.as_ref(), |path, media_type, _| decode(path, media_type))
+    }
+
+    /// Loads one image or video file as [`from_file`](Self::from_file) does, stopping early once `cancel` is
+    /// cancelled.
+    ///
+    /// Until `cancel` is cancelled, the result is the same as [`from_file`](Self::from_file)'s. A video stops before
+    /// decoding its next sampled frame. An image's decode can't be interrupted, so it stops before decoding starts or
+    /// as soon as decoding returns. A token cancelled before the call decodes nothing. One token may be shared by
+    /// several loads, and cancelling it stops them all.
+    ///
+    /// # Errors
+    ///
+    /// - [`MediaError::Cancelled`] if `cancel` was cancelled before the load finished, whatever else went wrong.
+    /// - Otherwise, the errors of [`from_file`](Self::from_file).
+    pub fn from_file_cancellable(path: impl AsRef<Path>, cancel: &CancelToken) -> Result<Self, MediaError> {
+        Self::load(path.as_ref(), |path, media_type, _| decode_with(path, media_type, Some(cancel)))
     }
 
     /// A media with the given metadata, no frames and no file behind it, so a front end's unit tests can build one
@@ -240,9 +256,24 @@ impl Media {
 
 /// Extracts the contents of the file at `path`, which is of type `media_type`.
 fn decode(path: &Path, media_type: MediaType) -> Result<Decoded, MediaError> {
+    decode_with(path, media_type, None)
+}
+
+/// Extracts the contents of the file at `path` as [`decode`] does, stopping with [`MediaError::Cancelled`] once
+/// `cancel`, if given, is cancelled.
+fn decode_with(path: &Path, media_type: MediaType, cancel: Option<&CancelToken>) -> Result<Decoded, MediaError> {
     match media_type {
-        MediaType::Image => image::load(path),
-        MediaType::Video => video::load(path),
+        MediaType::Image => image::load(path, cancel),
+        MediaType::Video => video::load(path, cancel),
+    }
+}
+
+/// Fails with [`MediaError::Cancelled`] naming `path` if `cancel` is given and cancelled.
+fn check(path: &Path, cancel: Option<&CancelToken>) -> Result<(), MediaError> {
+    if cancel.is_some_and(CancelToken::is_cancelled) {
+        Err(MediaError::Cancelled { path: path.into() })
+    } else {
+        Ok(())
     }
 }
 
@@ -423,6 +454,38 @@ pub(crate) mod tests {
         assert_eq!((media.width, media.height), (1080, 1920));
         assert!(media.duration.is_some_and(|d| d > Duration::ZERO));
         assert!(!media.frames.is_empty());
+    }
+
+    #[test]
+    fn from_file_cancellable_uncancelled_image_equals_from_file() {
+        let path = fixture("test1.png");
+
+        let cancellable = Media::from_file_cancellable(&path, &CancelToken::new()).unwrap();
+
+        assert_eq!(cancellable, Media::from_file(&path).unwrap());
+    }
+
+    #[test]
+    fn from_file_cancellable_pre_cancelled_image_is_cancelled() {
+        let path = fixture("test1.png");
+        let token = CancelToken::new();
+        token.clone().cancel();
+
+        let err = Media::from_file_cancellable(&path, &token).unwrap_err();
+
+        assert!(matches!(err, MediaError::Cancelled { .. }), "{err}");
+        assert_eq!(err.path(), path);
+    }
+
+    #[test]
+    fn from_file_cancellable_uncancelled_video_equals_from_file() {
+        let path = fixture("test3.mp4");
+
+        let cancellable = Media::from_file_cancellable(&path, &CancelToken::new()).unwrap();
+        let plain = Media::from_file(&path).unwrap();
+
+        assert_eq!(cancellable.frames.len(), plain.frames.len());
+        assert_eq!(cancellable, plain);
     }
 
     #[test]

@@ -38,7 +38,7 @@ export const describeMedia = async (paths: string[]): Promise<(MediaFile | undef
 
 /**
  * The address of an admitted file's thumbnail, for an `<img>`: its picture with the longer edge at most `bound`
- * pixels, from 16 to 1024. `convertFileSrc` picks the platform's form, `thumb://localhost/…` or
+ * pixels, from 16 to 2048. `convertFileSrc` picks the platform's form, `thumb://localhost/…` or
  * `http://thumb.localhost/…`.
  */
 export const renditionUrl = (identity: string, bound: number) => `${convertFileSrc(identity, SCHEME)}?size=${bound}`;

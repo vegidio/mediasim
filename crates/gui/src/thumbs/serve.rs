@@ -17,7 +17,7 @@ use super::{Admitted, ThumbState};
 const IDENTITY_LENGTH: usize = 16;
 
 /// The bounds a request may ask for, in pixels of the longer edge.
-const BOUNDS: std::ops::RangeInclusive<u32> = 16..=1024;
+const BOUNDS: std::ops::RangeInclusive<u32> = 16..=2048;
 
 /// JPEG quality thumbnails are encoded at.
 const JPEG_QUALITY: u8 = 85;
@@ -254,7 +254,7 @@ mod tests {
             "thumb://localhost/cafebabecafebabe?size=9.5",
             "thumb://localhost/cafebabecafebabe?size=0",
             "thumb://localhost/cafebabecafebabe?size=15",
-            "thumb://localhost/cafebabecafebabe?size=1025",
+            "thumb://localhost/cafebabecafebabe?size=2049",
             "thumb://localhost/cafebabecafebabe?size=4096",
             "thumb://localhost/cafebabecafebabe?size=99999999999999999999",
         ] {
@@ -263,6 +263,7 @@ mod tests {
 
         assert!(asked("thumb://localhost/cafebabecafebabe?size=16").is_some());
         assert!(asked("thumb://localhost/cafebabecafebabe?size=1024").is_some());
+        assert!(asked("thumb://localhost/cafebabecafebabe?size=2048").is_some());
     }
 
     #[test]
@@ -340,6 +341,18 @@ mod tests {
         assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
         // 1440×3098: 1440 * 384 / 3098 = 178.5.
         assert_eq!(image::load_from_memory(response.body()).unwrap().dimensions(), (178, 384));
+    }
+
+    #[test]
+    fn the_largest_bound_caps_the_longer_edge() {
+        let state = state();
+        let identity = admit(&state, &fixture("test1.png"));
+
+        let response = respond(produce(&state, &asking(&identity, 2048), render));
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let (width, height) = image::load_from_memory(response.body()).unwrap().dimensions();
+        assert!(width.max(height) <= 2048, "{width}×{height}");
     }
 
     #[test]

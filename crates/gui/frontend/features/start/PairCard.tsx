@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Columns2Icon, TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptySlot } from "@/features/start/EmptySlot";
@@ -8,6 +8,8 @@ import { route, type Slot } from "@/features/start/routePairDrop";
 import { hits, type Point, useDropTarget } from "@/features/start/useDropTarget";
 import { cn } from "@/lib/utils";
 import { selectCanCompare, selectMismatch, usePairStore } from "@/stores/pair";
+import { usePairResultStore } from "@/stores/pairResult";
+import { useScreenStore } from "@/stores/screen";
 
 const SLOTS: Slot[] = ["a", "b"];
 
@@ -18,10 +20,18 @@ export const PairCard = () => {
     const drop = usePairStore((state) => state.drop);
     const mismatch = usePairStore(selectMismatch);
     const canCompare = usePairStore(selectCanCompare);
+    const open = usePairResultStore((state) => state.open);
     const cardRef = useRef<HTMLElement>(null);
+    const compareRef = useRef<HTMLButtonElement>(null);
     const slotRefs = { a: useRef<HTMLDivElement>(null), b: useRef<HTMLDivElement>(null) };
     // The slot whose file was just removed, whose empty button takes focus as it mounts.
     const focusNext = useRef<Slot>(undefined);
+
+    // Compare opened the pair result screen, which unmounted this card; coming back from there, focus returns to it,
+    // once, so a later remount on the start screen leaves focus alone.
+    useEffect(() => {
+        if (useScreenStore.getState().takePrevious() === "pair") compareRef.current?.focus();
+    }, []);
 
     /** The slot under a position in CSS pixels, or `undefined` outside both. */
     const slotAt = (position: Point) => SLOTS.find((slot) => hits(slotRefs[slot].current, position));
@@ -81,8 +91,14 @@ export const PairCard = () => {
                         Both files must be images, or both videos.
                     </span>
                 </div>
-                {/* No destination until the pair result exists; enabled as the design draws it for a valid pair. */}
-                <Button disabled={!canCompare} className="h-10 px-[18px] text-sm">
+                <Button
+                    disabled={!canCompare}
+                    ref={compareRef}
+                    onClick={() => {
+                        if (a && b) open(a, b);
+                    }}
+                    className="h-10 px-[18px] text-sm"
+                >
                     Compare
                 </Button>
             </div>

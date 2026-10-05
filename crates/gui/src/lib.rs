@@ -6,6 +6,7 @@
 #![warn(clippy::pedantic)]
 
 mod formats;
+mod pair;
 mod set;
 mod thumbs;
 mod window;
@@ -25,6 +26,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(set::commands::SetState::default())
         .manage(thumbs::ThumbState::default())
+        .manage(pair::PairState::default())
         // Thumbnails for admitted files only, never by path; see `thumbs`.
         .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::serve)
         .setup(|app| {
@@ -46,6 +48,9 @@ pub fn run() {
             set::commands::rescan_set,
             thumbs::commands::admit_media,
             thumbs::commands::describe_media,
+            pair::probe_media,
+            pair::compare_pair,
+            pair::cancel_comparison,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the MediaSim application");
