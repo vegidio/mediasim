@@ -58,6 +58,7 @@
 @theme {
     --color-surface-sunken: #0c0c0e;
     --color-border-strong: #3f3f46;
+    --color-border-subtle: #1f1f23;
     --color-border-hover: #52525b;
     --color-text-disabled: #71717a;
     --color-text-faint: #52525b;

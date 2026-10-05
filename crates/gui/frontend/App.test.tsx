@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
+vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
+vi.mock("@/ipc/formats", () => ({ supportedFormats: vi.fn(() => Promise.resolve([])) }));
 
 describe("App", () => {
     it("renders the header", () => {

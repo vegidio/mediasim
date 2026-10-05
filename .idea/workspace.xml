@@ -17,26 +17,30 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add start screen layout and shell to `gui` crate">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Implement functional &quot;Find similar in a set&quot; card">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/capabilities/default.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/capabilities/default.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/components/ui/button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/components/ui/button.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/main.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/main.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/shell.test.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/shell.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/AddToSetMenu.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/AddToSetMenu.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/AddToSetMenu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/AddToSetMenu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/FormatsFooter.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/FormatsFooter.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/FormatsFooter.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/FormatsFooter.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/start.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/start.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/start.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/start.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/style.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/pnpm-lock.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/tauri.conf.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/design.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/proposal.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/proposal.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/specs/gui-start/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/specs/gui-start/spec.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/tasks.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/kind.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/kind.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/mediasim/src/media/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-2-set/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-2-set/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-2-set/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-2-set/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -452,7 +456,14 @@
       <option name="presentableId" value="LOCAL−00026" />
       <updated>1791191455681</updated>
     </task>
-    <option name="localTasksCounter" value="27" />
+    <task id="LOCAL−00027" summary="feat: Implement functional &quot;Find similar in a set&quot; card">
+      <option name="closed" value="true" />
+      <created>1791194929505</created>
+      <option name="number" value="LOCAL−00027" />
+      <option name="presentableId" value="LOCAL−00027" />
+      <updated>1791194929505</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -460,7 +471,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="fix: Refine `calculate_diff` normalization and max-distance constants" />
     <MESSAGE value="feat: Add `Media` struct for media management with icon-based frame signatures" />
     <MESSAGE value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
     <MESSAGE value="feat: Add `from_dir` method for recursive image loading and tests" />
@@ -485,7 +495,8 @@
     <MESSAGE value="feat: Add GUI scaffold with Tauri 2 + React and integrate with workspace" />
     <MESSAGE value="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration" />
     <MESSAGE value="feat: Add start screen layout and shell to `gui` crate" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add start screen layout and shell to `gui` crate" />
+    <MESSAGE value="feat: Implement functional &quot;Find similar in a set&quot; card" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Implement functional &quot;Find similar in a set&quot; card" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

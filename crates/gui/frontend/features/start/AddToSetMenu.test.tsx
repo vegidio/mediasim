@@ -1,11 +1,37 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { pickFiles, pickFolders } from "@/ipc/dialog";
+import { addToSet } from "@/ipc/set";
+import { useStartStore } from "@/stores/start";
 import { SetCard } from "./SetCard";
+
+vi.mock("@/ipc/dialog", () => ({ pickFiles: vi.fn(), pickFolders: vi.fn() }));
+vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
+vi.mock("@/ipc/formats", () => ({
+    supportedFormats: vi.fn(() => Promise.resolve([{ type: "image", extensions: ["jpg"] }])),
+}));
+vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
+
+const mockedPickFiles = pickFiles as Mock;
+const mockedPickFolders = pickFolders as Mock;
+const mockedAddToSet = addToSet as Mock;
 
 // Exercised through the set card, which owns the drop area that opens it.
 const dropArea = () => screen.getByRole("button", { name: /Drop files or folders here/ });
 
+/** Open the menu and choose the item named `name`. */
+const choose = async (name: RegExp) => {
+    fireEvent.click(dropArea(), { detail: 1 });
+    const menu = await screen.findByRole("menu", { name: "Add to set" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name }));
+};
+
 describe("AddToSetMenu", () => {
+    beforeEach(() => {
+        useStartStore.setState(useStartStore.getInitialState(), true);
+        mockedAddToSet.mockResolvedValue({ revision: 1, sources: [], total: 0 });
+    });
+
     it("is closed until the drop area is clicked", () => {
         render(<SetCard />);
 
@@ -13,7 +39,7 @@ describe("AddToSetMenu", () => {
         expect(dropArea()).toHaveAttribute("aria-expanded", "false");
     });
 
-    it("opens at the click point with Files… and Folder… disabled", async () => {
+    it("opens at the click point with Files… and Folder…", async () => {
         render(<SetCard />);
 
         fireEvent.click(dropArea(), { detail: 1, clientX: 120, clientY: 80 });
@@ -25,7 +51,7 @@ describe("AddToSetMenu", () => {
             "Folder…Add everything in a folder",
         ]);
         for (const item of items) {
-            expect(item).toHaveAttribute("aria-disabled", "true");
+            expect(item).not.toHaveAttribute("aria-disabled");
         }
         // The open menu is modal, so the rest of the page is hidden from assistive technology meanwhile.
         expect(screen.getByRole("button", { name: /Drop files or folders here/, hidden: true })).toHaveAttribute(
@@ -73,5 +99,39 @@ describe("AddToSetMenu", () => {
         await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
         expect(dropArea()).toHaveFocus();
         expect(dropArea()).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("adds the files picked from Files…, filtered to the supported formats", async () => {
+        mockedPickFiles.mockResolvedValue(["/a.jpg", "/b.jpg"]);
+        render(<SetCard />);
+
+        await choose(/Files…/);
+
+        await waitFor(() => expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/a.jpg", "/b.jpg"], true));
+        expect(mockedPickFiles).toHaveBeenCalledExactlyOnceWith([{ type: "image", extensions: ["jpg"] }]);
+    });
+
+    it("adds the folders picked from Folder…", async () => {
+        mockedPickFolders.mockResolvedValue(["/Pictures"]);
+        render(<SetCard />);
+
+        await choose(/Folder…/);
+
+        await waitFor(() => expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/Pictures"], true));
+    });
+
+    it("adds nothing when a picker is cancelled", async () => {
+        mockedPickFiles.mockResolvedValue([]);
+        mockedPickFolders.mockResolvedValue([]);
+        render(<SetCard />);
+
+        await choose(/Files…/);
+        await waitFor(() => expect(mockedPickFiles).toHaveBeenCalled());
+        await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+        await choose(/Folder…/);
+        await waitFor(() => expect(mockedPickFolders).toHaveBeenCalled());
+
+        expect(mockedAddToSet).not.toHaveBeenCalled();
+        expect(useStartStore.getState().sources).toEqual([]);
     });
 });

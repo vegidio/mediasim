@@ -23,6 +23,7 @@ use crate::{Icon, MediaError};
 
 #[cfg(feature = "cache")]
 pub use cache::DirCache;
+pub use kind::MediaFormat;
 pub use options::LoadOptions;
 
 /// Whether a [`Media`] is a still image or a video.

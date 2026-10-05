@@ -1,15 +1,135 @@
 import { create } from "zustand";
+import { addToSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+
+/** A row added a moment ago, shown until Rust describes it; its kind is not known yet. */
+export type PendingRow = { path: string; name: string; pending: true; kind?: undefined };
+
+/** A row of the set list: a source as Rust describes it, or one still on its way there. */
+export type SourceRow = SourceView | PendingRow;
+
+/** A pending row together with the request that added it, which clears it when it settles. */
+type Optimistic = PendingRow & { request: number };
 
 /** State of the start screen, kept for as long as the application runs. */
 type StartStore = {
     /** Whether folders added to a set are scanned recursively. */
     scanSubfolders: boolean;
+    /** The set list's rows, in the order they were added. */
+    sources: SourceRow[];
+    /** The distinct media files across every counted source. */
+    total: number;
 
-    toggleScanSubfolders: () => void;
+    /** Add files and folders to the set. */
+    add: (paths: string[]) => Promise<void>;
+    /** Remove the source added as `path`. */
+    remove: (path: string) => Promise<void>;
+    /** Flip "Scan subfolders" and recount every folder to match. */
+    toggleScanSubfolders: () => Promise<void>;
+
+    /** The last view applied from Rust. */
+    view: SetView;
+    /** Rows added but not yet described by any applied view. */
+    optimistic: Optimistic[];
+    /** Rescans still running; while any is, every folder is being recounted. */
+    rescans: number;
 };
 
-export const useStartStore = create<StartStore>()((set) => ({
-    scanSubfolders: true,
+/** The name a path's last component gives, on any platform. */
+const baseName = (path: string) => path.split(/[\\/]/).findLast((part) => part !== "") ?? path;
 
-    toggleScanSubfolders: () => set((state) => ({ scanSubfolders: !state.scanSubfolders })),
-}));
+/**
+ * Rust's rows, then the optimistic rows it does not describe yet. While a rescan runs, every folder shows as being
+ * counted, since a view taken before the rescan started still carries the old counts.
+ */
+const merge = (view: SetView, optimistic: Optimistic[], rescanning: boolean): SourceRow[] => {
+    const known = new Set(view.sources.map((source) => source.path));
+    const sources = rescanning
+        ? view.sources.map((source) => (source.kind === "folder" ? { ...source, pending: true } : source))
+        : view.sources;
+    const pending = optimistic
+        .filter(({ path }, index) => !known.has(path) && optimistic.findIndex((row) => row.path === path) === index)
+        .map(({ path, name }): PendingRow => ({ path, name, pending: true }));
+
+    return [...sources, ...pending];
+};
+
+const EMPTY: SetView = { revision: 0, sources: [], total: 0 };
+
+let requests = 0;
+
+export const useStartStore = create<StartStore>()((set, get) => {
+    /**
+     * Apply a view from Rust, unless one describing a later state of the set is already shown. Responses arrive out of
+     * order, since each waits for its own listing, so the set's revision orders them, not the order they were asked in.
+     */
+    const apply = (view: SetView) =>
+        set((state) => {
+            if (view.revision <= state.view.revision) return {};
+            return { view, total: view.total, sources: merge(view, state.optimistic, state.rescans > 0) };
+        });
+
+    /** Drop the pending rows `request` added, now that it has settled either way. */
+    const settle = (request: number) =>
+        set((state) => {
+            const optimistic = state.optimistic.filter((row) => row.request !== request);
+            return { optimistic, sources: merge(state.view, optimistic, state.rescans > 0) };
+        });
+
+    /** Count a rescan as started or finished, and show the folders as being recounted for as long as one runs. */
+    const rescanning = (delta: 1 | -1) =>
+        set((state) => {
+            const rescans = state.rescans + delta;
+            return { rescans, sources: merge(state.view, state.optimistic, rescans > 0) };
+        });
+
+    const report = (action: string) => (error: unknown) => console.error(`could not ${action}`, error);
+
+    return {
+        scanSubfolders: true,
+        sources: [],
+        total: 0,
+        view: EMPTY,
+        optimistic: [],
+        rescans: 0,
+
+        add: async (paths) => {
+            const request = ++requests;
+            set((state) => {
+                const optimistic = [
+                    ...state.optimistic,
+                    ...paths.map((path): Optimistic => ({ path, name: baseName(path), pending: true, request })),
+                ];
+                return { optimistic, sources: merge(state.view, optimistic, state.rescans > 0) };
+            });
+
+            try {
+                apply(await addToSet(paths, get().scanSubfolders));
+            } catch (error) {
+                report("add to the set")(error);
+            } finally {
+                settle(request);
+            }
+        },
+
+        remove: async (path) => {
+            set((state) => {
+                const optimistic = state.optimistic.filter((row) => row.path !== path);
+                return { optimistic, sources: merge(state.view, optimistic, state.rescans > 0) };
+            });
+
+            await removeFromSet(path).then(apply, report("remove from the set"));
+        },
+
+        toggleScanSubfolders: async () => {
+            const scanSubfolders = !get().scanSubfolders;
+            set({ scanSubfolders });
+            rescanning(1);
+
+            try {
+                await rescanSet(scanSubfolders).then(apply, report("rescan the set"));
+            } finally {
+                rescanning(-1);
+            }
+        },
+    };
+});

@@ -18,9 +18,16 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+mediasim = { path = "../mediasim", features = ["serde"] }
+serde.workspace = true
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 tauri-plugin-os = "2"
+thiserror.workspace = true
 
 [dev-dependencies]
+# `mk_temp_dir` fixtures for the set tests in src/set.rs.
+rust-sak.workspace = true
+serde_json.workspace = true
 # `tauri::test::mock_builder`, for the window tests in src/window.rs.
 tauri = { version = "2", features = ["test"] }
