@@ -1,5 +1,6 @@
 # Rust
 /target/
+/build/
 **/*.rs.bk
 *.pdb
 
