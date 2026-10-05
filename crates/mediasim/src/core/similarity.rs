@@ -32,24 +32,6 @@ impl Media {
     ///
     /// Returns [`CompareError::MediaTypeMismatch`] if one is an image and the other a video.
     pub fn similarity_with(&self, other: &Media, options: CompareOptions) -> Result<f64, CompareError> {
-        Ok(self.scores(other, options)?.fold(0.0, f64::max))
-    }
-
-    /// Whether `self` and `other` score at least `threshold` under `options`, stopping at the first orientation that
-    /// does.
-    pub(crate) fn matches(&self, other: &Media, options: CompareOptions, threshold: f64) -> Result<bool, CompareError> {
-        Ok(self.scores(other, options)?.any(|score| score >= threshold))
-    }
-
-    /// The score of `self` against each orientation of `other` that `options` enables, in order and computed lazily.
-    ///
-    /// Only `other` is oriented. The orientation sets are closed under inverses and [`euc_metric`](crate::euc_metric)
-    /// does not depend on pixel order, so the best score is bit-identical in either order.
-    fn scores<'a>(
-        &'a self,
-        other: &'a Media,
-        options: CompareOptions,
-    ) -> Result<impl Iterator<Item = f64> + 'a, CompareError> {
         if self.media_type != other.media_type {
             return Err(CompareError::MediaTypeMismatch {
                 left: self.path.clone(),
@@ -59,10 +41,27 @@ impl Media {
             });
         }
 
+        Ok(self.scores(other, options).fold(0.0, f64::max))
+    }
+
+    /// Whether `self` and `other`, which must be of the same type, score at least `threshold` under `options`,
+    /// stopping at the first orientation that does.
+    pub(crate) fn matches(&self, other: &Media, options: CompareOptions, threshold: f64) -> bool {
+        self.scores(other, options).any(|score| score >= threshold)
+    }
+
+    /// The score of `self` against each orientation of `other` that `options` enables, in order and computed lazily.
+    /// Both must be of the same type.
+    ///
+    /// Only `other` is oriented. The orientation sets are closed under inverses and [`euc_metric`](crate::euc_metric)
+    /// does not depend on pixel order, so the best score is bit-identical in either order.
+    fn scores<'a>(&'a self, other: &'a Media, options: CompareOptions) -> impl Iterator<Item = f64> + 'a {
+        debug_assert_eq!(self.media_type, other.media_type, "only media of the same type are scored");
+
         // Reused by every orientation; only allocated once one other than the identity is reached.
         let mut oriented: Vec<Icon> = Vec::new();
 
-        Ok(options.orientations().iter().map(move |&orientation| {
+        options.orientations().iter().map(move |&orientation| {
             if orientation == Orientation::Identity {
                 return self.score(&other.frames);
             }
@@ -73,7 +72,7 @@ impl Media {
                 orientation.apply_into(frame, out);
             }
             self.score(&oriented)
-        }))
+        })
     }
 
     /// Scores `self`'s frames against `frames`, which belong to media of the same type.
@@ -202,17 +201,6 @@ mod tests {
         assert!(trimmed > other, "trimmed {trimmed} <= unrelated {other}");
     }
 
-    const ALL_ORIENTATIONS: [Orientation; 8] = [
-        Orientation::Identity,
-        Orientation::FlipH,
-        Orientation::FlipV,
-        Orientation::Rotate90,
-        Orientation::Rotate180,
-        Orientation::Rotate270,
-        Orientation::Transpose,
-        Orientation::AntiTranspose,
-    ];
-
     /// The four combinations of the two options.
     fn all_options() -> [CompareOptions; 4] {
         let opts = CompareOptions::new();
@@ -246,7 +234,7 @@ mod tests {
     fn an_oriented_copy_scores_one_only_with_an_option_that_covers_it() {
         let original = image("a.png", Icon::textured(7));
 
-        for orientation in ALL_ORIENTATIONS {
+        for orientation in Orientation::ALL {
             let copy = oriented(&original, orientation);
             for options in all_options() {
                 let score = original.similarity_with(&copy, options).unwrap();
@@ -342,7 +330,7 @@ mod tests {
 
         let score = original.similarity_with(&mixed, both).unwrap();
 
-        let best_whole_video = ALL_ORIENTATIONS
+        let best_whole_video = Orientation::ALL
             .into_iter()
             .map(|o| original.similarity(&oriented(&mixed, o)).unwrap())
             .fold(0.0, f64::max);
@@ -366,11 +354,7 @@ mod tests {
             for options in all_options() {
                 let score = a.similarity_with(&b, options).unwrap();
                 for threshold in [0.0, score / 2.0, score, score.midpoint(1.0), 1.0] {
-                    assert_eq!(
-                        a.matches(&b, options, threshold).unwrap(),
-                        score >= threshold,
-                        "{options:?} at {threshold}"
-                    );
+                    assert_eq!(a.matches(&b, options, threshold), score >= threshold, "{options:?} at {threshold}");
                 }
             }
         }

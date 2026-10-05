@@ -110,14 +110,11 @@ mod tests {
 
     /// A deterministic pseudo-random matrix (xorshift64), so tests need no RNG crate.
     fn random_matrix(rows: usize, cols: usize, seed: u64) -> Vec<Vec<f64>> {
-        let mut state = seed;
+        let mut state = crate::core::xorshift(seed);
         let mut next = move || {
-            state ^= state << 13;
-            state ^= state >> 7;
-            state ^= state << 17;
             // The top 53 bits map exactly onto an `f64` in [0, 1).
             #[allow(clippy::cast_precision_loss)]
-            let v = (state >> 11) as f64 / (1u64 << 53) as f64;
+            let v = (state() >> 11) as f64 / (1u64 << 53) as f64;
             v
         };
         (0..rows).map(|_| (0..cols).map(|_| next()).collect()).collect()

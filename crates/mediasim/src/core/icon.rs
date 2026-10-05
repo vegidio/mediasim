@@ -74,15 +74,8 @@ impl Icon {
     /// but the identity leaves it unchanged.
     #[cfg(test)]
     pub(crate) fn textured(seed: u64) -> Self {
-        let mut state = seed.max(1);
-        let pixels = (0..NUM_PIX * 3)
-            .map(|_| {
-                state ^= state << 13;
-                state ^= state >> 7;
-                state ^= state << 17;
-                u16::try_from(state % 65_026).unwrap()
-            })
-            .collect();
+        let mut next = super::xorshift(seed);
+        let pixels = (0..NUM_PIX * 3).map(|_| u16::try_from(next() % 65_026).unwrap()).collect();
         Self::from_raw(pixels)
     }
 }

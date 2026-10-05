@@ -9,6 +9,8 @@ serde = ["dep:serde", "dep:jiff"]
 # Adds `DirCache` and `Media::from_files_cached`, which keep a directory's decoded media on disk so a restarted load
 # resumes where the last one stopped.
 cache = ["rust-sak/memo", "dep:serde"]
+# Adds `Media::stub`, a file-free constructor for front ends' unit tests. Not part of the supported API.
+test-support = []
 
 [dependencies]
 image.workspace = true

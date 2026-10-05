@@ -1,18 +1,17 @@
 //! Helpers shared by the unit tests.
 
-use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use mediasim::{Media, MediaType};
 
-/// A loaded fixture image with its path, size and type replaced, since `Media` cannot be built from parts outside
-/// `mediasim`.
+/// A media with no file behind it: a video if it has a duration in `seconds`, otherwise an image.
 pub fn media(path: &str, width: u32, height: u32, seconds: Option<u64>) -> Media {
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/test1.png");
-    let mut media = Media::from_file(fixture).unwrap();
-    media.path = path.into();
-    (media.width, media.height) = (width, height);
-    media.duration = seconds.map(Duration::from_secs);
-    media.media_type = if seconds.is_some() { MediaType::Video } else { MediaType::Image };
-    media
+    let media_type = if seconds.is_some() { MediaType::Video } else { MediaType::Image };
+    Media::stub(path, media_type, width, height, seconds.map(Duration::from_secs))
+}
+
+/// The paths named `names`, in order.
+pub fn paths(names: &[&str]) -> Vec<PathBuf> {
+    names.iter().map(PathBuf::from).collect()
 }

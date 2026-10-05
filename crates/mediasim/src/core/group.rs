@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 use super::dsu::Dsu;
-use crate::{CompareError, CompareOptions, Media};
+use crate::{CompareOptions, Media};
 
 /// Groups media whose similarity reaches a threshold, one media at a time.
 ///
@@ -79,12 +79,7 @@ impl Grouper {
         }
 
         let (threshold, options) = (self.threshold, self.options);
-        let is_match = |earlier: &&Media| match earlier.matches(&media, options, threshold) {
-            Ok(matched) => matched,
-            Err(err @ CompareError::MediaTypeMismatch { .. }) => {
-                unreachable!("only media of the same type are compared: {err}")
-            }
-        };
+        let is_match = |earlier: &&Media| earlier.matches(&media, options, threshold);
         let matched: Vec<usize> = groups
             .into_par_iter()
             .filter(|(_, members)| members.par_iter().any(is_match))

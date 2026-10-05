@@ -9,11 +9,10 @@ mod spring;
 
 use std::io::{Write, stdout};
 use std::iter::once;
-use std::path::PathBuf;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::{Duration, Instant};
 
-use mediasim::{DirCache, Media, MediaError, MediaStream};
+use mediasim::{Media, MediaError, MediaStream};
 use ratatui::buffer::Buffer;
 use ratatui::crossterm::cursor::{MoveTo, Show};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -25,7 +24,7 @@ use ratatui::widgets::Widget;
 use ratatui::{DefaultTerminal, TerminalOptions, Viewport};
 
 use crate::error::CliError;
-use crate::output::{GRAY, GREEN, MAGENTA};
+use crate::output::{GRAY, GREEN, MAGENTA, Ui};
 use bar::GradientBar;
 use eta::{Eta, format_eta};
 use spring::Spring;
@@ -45,40 +44,43 @@ pub struct Loaded<C> {
     pub skipped: Vec<MediaError>,
 }
 
-/// Loads `paths` into `sink`, through `cache` if there is one, and returns it: through the progress display, labelled
-/// `label`, when `interactive`, otherwise silently. The first error ends the load, unless `ignore_errors`, in which
-/// case files that fail to load are skipped and returned with the sink.
+/// Drains `stream`, which yields `total` results, into `sink` and returns it: through the progress display, labelled
+/// `label`, when `ui` is interactive, otherwise silently. The first error ends the load, unless `ignore_errors`, in
+/// which case files that fail to load are skipped and returned with the sink.
 ///
-/// On success, the stream has been exhausted, so the cache can be finished.
+/// On success, the stream has been exhausted.
 pub fn load<C>(
-    paths: &[PathBuf],
-    cache: Option<&DirCache>,
+    stream: MediaStream,
+    total: usize,
     label: &str,
     mut sink: C,
     ignore_errors: bool,
-    interactive: bool,
-    color: bool,
+    ui: Ui,
 ) -> Result<Loaded<C>, CliError>
 where
     C: Extend<Media> + Send + 'static,
 {
-    let stream = match cache {
-        Some(cache) => Media::from_files_cached(paths.to_vec(), cache),
-        None => Media::from_files(paths.to_vec()),
-    };
-    if interactive {
-        return run(stream, paths.len(), label, sink, ignore_errors, color);
+    if ui.interactive {
+        return run(stream, total, label, sink, ignore_errors, ui.color);
     }
 
     let mut skipped = Vec::new();
     for result in stream {
-        match result {
-            Ok(media) => sink.extend(once(media)),
-            Err(err) if ignore_errors => skipped.push(err),
-            Err(err) => return Err(err.into()),
-        }
+        settle(result.map(|media| sink.extend(once(media))), ignore_errors, &mut skipped)?;
     }
     Ok(Loaded { sink, skipped })
+}
+
+/// Applies the outcome of one file: a failure is added to `skipped` if `ignore_errors`, and otherwise ends the load.
+fn settle(tick: Result<(), MediaError>, ignore_errors: bool, skipped: &mut Vec<MediaError>) -> Result<(), CliError> {
+    match tick {
+        Ok(()) => Ok(()),
+        Err(err) if ignore_errors => {
+            skipped.push(err);
+            Ok(())
+        }
+        Err(err) => Err(err.into()),
+    }
 }
 
 /// Shows the progress display, labelled `label`, while `stream` yields `total` results, feeds each loaded media to
@@ -130,12 +132,10 @@ where
         let mut disconnected = false;
         loop {
             match rx.try_recv() {
-                Ok(Ok(())) => completed += 1,
-                Ok(Err(err)) if ignore_errors => {
-                    skipped.push(err);
+                Ok(tick) => {
+                    settle(tick, ignore_errors, &mut skipped)?;
                     completed += 1;
                 }
-                Ok(Err(err)) => return Err(err.into()),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
                     disconnected = true;
@@ -230,16 +230,15 @@ struct ProgressLine<'a> {
     color: bool,
 }
 
-impl ProgressLine<'_> {
-    fn style(&self, (r, g, b): (u8, u8, u8)) -> Style {
-        if self.color { Style::new().fg(Color::Rgb(r, g, b)) } else { Style::new() }
-    }
+/// A style with `foreground` when `color`, and plain otherwise.
+fn fg(foreground: impl Into<Color>, color: bool) -> Style {
+    if color { Style::new().fg(foreground.into()) } else { Style::new() }
 }
 
 impl Widget for ProgressLine<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let digits = self.total.to_string().len();
-        let gray = self.style(GRAY);
+        let gray = fg(GRAY, self.color);
 
         let left = Line::from(vec![
             Span::raw(format!("{}   ", self.label)),
@@ -253,9 +252,9 @@ impl Widget for ProgressLine<'_> {
         let percent = (fraction(self.completed, self.total) * 1000.0).floor() / 10.0;
         let right = Line::from(vec![
             Span::raw("  "),
-            Span::styled(format!("{percent:5.1}%"), self.style(GREEN)),
+            Span::styled(format!("{percent:5.1}%"), fg(GREEN, self.color)),
             Span::raw("   "),
-            Span::styled(format!("ETA {}", format_eta(self.eta)), self.style(MAGENTA)),
+            Span::styled(format!("ETA {}", format_eta(self.eta)), fg(MAGENTA, self.color)),
         ]);
 
         let left_width = u16::try_from(left.width()).unwrap_or(u16::MAX);

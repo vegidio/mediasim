@@ -36,6 +36,18 @@ pub(crate) enum Orientation {
 }
 
 impl Orientation {
+    /// All 8 orientations, the identity first.
+    pub(crate) const ALL: [Orientation; 8] = [
+        Orientation::Identity,
+        Orientation::FlipH,
+        Orientation::FlipV,
+        Orientation::Rotate90,
+        Orientation::Rotate180,
+        Orientation::Rotate270,
+        Orientation::Transpose,
+        Orientation::AntiTranspose,
+    ];
+
     /// Where this orientation moves the pixel at `(x, y)`.
     const fn target(self, x: usize, y: usize) -> (usize, usize) {
         const LAST: usize = ICON_SIZE - 1;
@@ -77,17 +89,6 @@ impl Orientation {
 mod tests {
     use super::*;
     use crate::core::consts::NUM_PIX;
-
-    const ALL: [Orientation; 8] = [
-        Orientation::Identity,
-        Orientation::FlipH,
-        Orientation::FlipV,
-        Orientation::Rotate90,
-        Orientation::Rotate180,
-        Orientation::Rotate270,
-        Orientation::Transpose,
-        Orientation::AntiTranspose,
-    ];
 
     /// An icon that is `0` everywhere except at `(x, y)`, which holds `1`, `2` and `3` in the three channels.
     fn marked(x: usize, y: usize) -> Icon {
@@ -131,7 +132,7 @@ mod tests {
     #[test]
     fn only_the_identity_keeps_an_asymmetric_icon() {
         let icon = asymmetric();
-        for o in ALL {
+        for o in Orientation::ALL {
             assert_eq!(o.apply(&icon) == icon, o == Orientation::Identity, "{o:?}");
         }
     }
@@ -139,7 +140,7 @@ mod tests {
     #[test]
     fn every_orientation_undone_by_its_inverse_is_the_identity() {
         let icon = asymmetric();
-        for o in ALL {
+        for o in Orientation::ALL {
             assert_eq!(inverse(o).apply(&o.apply(&icon)), icon, "{o:?}");
         }
     }
@@ -168,7 +169,7 @@ mod tests {
         let icon = Icon::from_image(&img);
 
         let mut worst = 0.0_f64;
-        for o in ALL {
+        for o in Orientation::ALL {
             let oriented_img = match o {
                 Orientation::Identity => img.clone(),
                 Orientation::FlipH => imageops::flip_horizontal(&img),
@@ -193,7 +194,7 @@ mod tests {
     fn apply_into_overwrites_a_reused_buffer() {
         let icon = asymmetric();
         let mut out = marked(0, 0);
-        for o in ALL {
+        for o in Orientation::ALL {
             o.apply_into(&icon, &mut out);
             assert_eq!(out, o.apply(&icon), "{o:?}");
         }

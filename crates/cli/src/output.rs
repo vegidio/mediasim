@@ -9,6 +9,8 @@ use std::path::Path;
 use mediasim::{Media, MediaError, MediaType};
 use ratatui::crossterm::style::{Color, Stylize};
 
+use crate::args::OutputFormat;
+
 pub const GRAY: (u8, u8, u8) = (0x68, 0x68, 0x68);
 pub const GREEN: (u8, u8, u8) = (0x00, 0xc2, 0x02);
 pub const MAGENTA: (u8, u8, u8) = (0xc7, 0x92, 0xe9);
@@ -31,6 +33,21 @@ pub fn color_for(stream: &impl IsTerminal) -> bool {
     use_color(stream.is_terminal(), std::env::var_os("NO_COLOR").as_deref())
 }
 
+/// How a command draws on stdout: whether it shows the interactive report and progress display, and in colour.
+#[derive(Debug, Clone, Copy)]
+pub struct Ui {
+    pub interactive: bool,
+    pub color: bool,
+}
+
+impl Ui {
+    /// Interactive with [`OutputFormat::Term`] on a terminal, and coloured per [`color_for`].
+    pub fn for_stdout(format: OutputFormat) -> Self {
+        let stdout = std::io::stdout();
+        Self { interactive: format == OutputFormat::Term && stdout.is_terminal(), color: color_for(&stdout) }
+    }
+}
+
 /// `⏳ Calculating similarity in <files> files`, with the count in green.
 pub fn header(files: usize, color: bool) -> String {
     format!("⏳ Calculating similarity in {} files", paint(files, GREEN, color))
@@ -42,8 +59,8 @@ pub fn dir_header(dir: &Path, color: bool) -> String {
 }
 
 /// `🧮 Similarity score between the files is <score>`, with the score in magenta.
-pub fn report(score: &str, color: bool) -> String {
-    format!("🧮 Similarity score between the files is {}", paint(score, MAGENTA, color))
+pub fn report(score: f64, color: bool) -> String {
+    format!("🧮 Similarity score between the files is {}", paint(format_score(score), MAGENTA, color))
 }
 
 /// `🔎 Grouping media with at least <threshold> similarity threshold...`, with the threshold formatted like a score
@@ -245,7 +262,7 @@ mod tests {
         for line in [
             header(2, false),
             dir_header(Path::new("photos"), false),
-            report("0.5", false),
+            report(0.5, false),
             error("boom", false),
             threshold(0.8, false),
             groups(&two_groups(), false),
@@ -259,7 +276,7 @@ mod tests {
         for line in [
             header(2, true),
             dir_header(Path::new("photos"), true),
-            report("0.5", true),
+            report(0.5, true),
             error("boom", true),
             threshold(0.8, true),
         ] {
@@ -271,7 +288,7 @@ mod tests {
     fn lines_carry_their_values() {
         assert_eq!(header(2, false), "⏳ Calculating similarity in 2 files");
         assert_eq!(dir_header(Path::new("photos"), false), "⏳ Calculating similarity in the directory photos");
-        assert_eq!(report("0.5", false), "🧮 Similarity score between the files is 0.5");
+        assert_eq!(report(0.5, false), "🧮 Similarity score between the files is 0.5");
         assert_eq!(error("boom", false), "🧨 boom");
     }
 }

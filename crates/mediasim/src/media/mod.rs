@@ -116,6 +116,31 @@ impl Media {
         Self::load(path.as_ref(), |path, media_type, _| decode(path, media_type))
     }
 
+    /// A media with the given metadata, no frames and no file behind it, so a front end's unit tests can build one
+    /// without decoding anything. Its size is `0` and it has no timestamps. It cannot be compared.
+    #[cfg(feature = "test-support")]
+    #[doc(hidden)]
+    #[must_use]
+    pub fn stub(
+        path: impl Into<PathBuf>,
+        media_type: MediaType,
+        width: u32,
+        height: u32,
+        duration: Option<Duration>,
+    ) -> Self {
+        Self {
+            path: path.into(),
+            media_type,
+            width,
+            height,
+            size: 0,
+            duration,
+            created: None,
+            modified: None,
+            frames: Vec::new(),
+        }
+    }
+
     /// Loads `path` as [`from_file`](Self::from_file) does, with `decode` extracting its contents once its type is
     /// known and its metadata read.
     fn load<D>(path: &Path, decode: D) -> Result<Self, MediaError>

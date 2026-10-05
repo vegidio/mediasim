@@ -54,13 +54,13 @@ impl CompareOptions {
     /// The orientations to compare, the identity first. With both options on, these are all 8 orientations of a
     /// square, including the two diagonal mirrors that a flip combined with a quarter turn gives.
     pub(crate) fn orientations(self) -> &'static [Orientation] {
-        use Orientation::{AntiTranspose, FlipH, FlipV, Identity, Rotate90, Rotate180, Rotate270, Transpose};
+        use Orientation::{FlipH, FlipV, Identity, Rotate90, Rotate180, Rotate270};
 
         match (self.flip, self.rotate) {
             (false, false) => &[Identity],
             (true, false) => &[Identity, FlipH, FlipV],
             (false, true) => &[Identity, Rotate90, Rotate180, Rotate270],
-            (true, true) => &[Identity, FlipH, FlipV, Rotate90, Rotate180, Rotate270, Transpose, AntiTranspose],
+            (true, true) => &Orientation::ALL,
         }
     }
 }

@@ -2,7 +2,7 @@
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::Color;
 use ratatui::widgets::Widget;
 
 const GRADIENT_START: (u8, u8, u8) = (0x5a, 0x56, 0xe0);
@@ -32,8 +32,7 @@ impl Widget for GradientBar {
             } else {
                 (EMPTY_SYMBOL, EMPTY)
             };
-            let style = if self.color { Style::new().fg(color) } else { Style::new() };
-            buf[(area.x + i, area.y)].set_symbol(symbol).set_style(style);
+            buf[(area.x + i, area.y)].set_symbol(symbol).set_style(super::fg(color, self.color));
         }
     }
 }

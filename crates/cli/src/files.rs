@@ -5,24 +5,21 @@ use std::path::PathBuf;
 
 use mediasim::CompareOptions;
 
-use crate::args::OutputFormat;
+use crate::args::{GroupArgs, OutputFormat};
 use crate::error::CliError;
 use crate::{group, output};
 
-/// Groups every distinct file at `threshold` under `options` and prints the groups in `format`, skipping files that
-/// fail to load if `ignore_errors`, as [`group::run`] does.
+/// Groups every distinct file as `group` sets under `options` and prints the groups in `format`, as [`group::run`]
+/// does.
 pub fn run(
     files: Vec<PathBuf>,
-    threshold: f64,
+    group: &GroupArgs,
     options: CompareOptions,
-    ignore_errors: bool,
     format: OutputFormat,
 ) -> Result<(), CliError> {
     let paths = distinct(files);
 
-    group::run(&paths, None, threshold, options, ignore_errors, format, |color| {
-        output::header(paths.len(), color)
-    })
+    group::run(&paths, None, group, options, format, |color| output::header(paths.len(), color))
 }
 
 /// Drops repeated paths, keeping the first occurrence of each. Paths are compared exactly as typed.
@@ -34,10 +31,7 @@ fn distinct(files: Vec<PathBuf>) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn paths(names: &[&str]) -> Vec<PathBuf> {
-        names.iter().map(PathBuf::from).collect()
-    }
+    use crate::test_support::paths;
 
     #[test]
     fn repeated_paths_are_dropped_in_order() {

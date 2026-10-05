@@ -2,71 +2,74 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 use mediasim::{CompareOptions, DirCache, Grouper, Media, MediaError};
 
-use crate::args::OutputFormat;
+use crate::args::{GroupArgs, OutputFormat};
 use crate::error::CliError;
+use crate::output::Ui;
 use crate::{machine, output, progress};
 
-/// Loads `paths`, groups the ones scoring at least `threshold` against each other under `options`, and prints the
-/// groups in `format`.
+/// Loads `paths`, groups the ones scoring at least `group`'s threshold against each other under `options`, and prints
+/// the groups in `format`.
 ///
 /// With [`OutputFormat::Term`] on a terminal it prints `header` (called with the colour flag), the threshold, the
 /// progress display and a report of the groups, and otherwise only the grouped paths, so the output can be used in
 /// scripts. CSV and JSON print only their document.
 ///
-/// If `ignore_errors`, files that fail to load are skipped, and once loading ends they are reported on stderr, in
-/// every format, in the order of `paths`. JSON lists them in its document too.
+/// If `group` ignores errors, files that fail to load are skipped, and once loading ends they are reported on stderr,
+/// in every format, in the order of `paths`. JSON lists them in its document too.
 ///
 /// With a `cache`, the files load through it. Once every file has finished loading (skipped ones included), the cache
 /// is deleted, before anything is printed; on any error, including Ctrl+C, it is kept for the next run.
 pub fn run(
     paths: &[PathBuf],
     cache: Option<DirCache>,
-    threshold: f64,
+    group: &GroupArgs,
     options: CompareOptions,
-    ignore_errors: bool,
     format: OutputFormat,
     header: impl FnOnce(bool) -> String,
 ) -> Result<(), CliError> {
-    let stdout = std::io::stdout();
-    let (interactive, color) = (format == OutputFormat::Term && stdout.is_terminal(), output::color_for(&stdout));
+    let ui = Ui::for_stdout(format);
 
-    if interactive {
+    if ui.interactive {
         println!();
-        println!("{}", header(color));
-        println!("{}", output::threshold(threshold, color));
+        println!("{}", header(ui.color));
+        println!("{}", output::threshold(group.threshold, ui.color));
     }
-    let grouper = Grouper::with_options(threshold, options);
+    let stream = match &cache {
+        Some(cache) => Media::from_files_cached(paths.to_vec(), cache),
+        None => Media::from_files(paths.to_vec()),
+    };
+    let grouper = Grouper::with_options(group.threshold, options);
     let progress::Loaded { sink, mut skipped } =
-        progress::load(paths, cache.as_ref(), "Processing", grouper, ignore_errors, interactive, color)?;
+        progress::load(stream, paths.len(), "Processing", grouper, group.ignore_errors, ui)?;
     if let Some(cache) = cache {
         cache.finish();
     }
     let mut groups = sink.finish();
-    for group in &mut groups {
-        group.sort_by(best_first);
+    for members in &mut groups {
+        members.sort_by(best_first);
     }
-    in_path_order(&mut groups, paths);
+    let positions = positions(paths);
+    in_path_order(&mut groups, &positions);
 
     if !skipped.is_empty() {
-        skipped_in_path_order(&mut skipped, paths);
-        if interactive {
+        skipped_in_path_order(&mut skipped, &positions);
+        if ui.interactive {
             eprintln!();
         }
         eprintln!("{}", output::skipped(&skipped, output::color_for(&std::io::stderr())));
     }
 
     match format {
-        OutputFormat::Term if interactive => {
+        OutputFormat::Term if ui.interactive => {
             if groups.is_empty() {
                 println!();
                 println!("{}", output::NO_MATCHES);
             } else {
-                println!("{}", output::groups(&groups, color));
+                println!("{}", output::groups(&groups, ui.color));
             }
         }
         OutputFormat::Term => {
@@ -74,15 +77,15 @@ pub fn run(
                 println!("{}", output::plain_groups(&groups));
             }
         }
-        OutputFormat::Csv => machine::groups_csv(&mut stdout.lock(), &groups)?,
-        OutputFormat::Json => machine::groups_json(&mut stdout.lock(), &groups, &skipped)?,
+        OutputFormat::Csv => machine::groups_csv(&mut std::io::stdout().lock(), &groups)?,
+        OutputFormat::Json => machine::groups_json(&mut std::io::stdout().lock(), &groups, &skipped)?,
     }
 
     Ok(())
 }
 
 /// Each path's position in `paths`, for putting media that loaded in completion order back in input order.
-pub fn positions(paths: &[PathBuf]) -> HashMap<&Path, usize> {
+fn positions(paths: &[PathBuf]) -> HashMap<&Path, usize> {
     paths.iter().enumerate().map(|(i, path)| (path.as_path(), i)).collect()
 }
 
@@ -97,11 +100,9 @@ fn best_first(a: &Media, b: &Media) -> Ordering {
         .then_with(|| a.path.cmp(&b.path))
 }
 
-/// Orders the groups by the earliest position in `paths` among their members, so the output does not depend on the
-/// order the files finished loading in.
-fn in_path_order(groups: &mut [Vec<Media>], paths: &[PathBuf]) {
-    let positions = positions(paths);
-
+/// Orders the groups by the earliest of their members' [`positions`], so the output does not depend on the order the
+/// files finished loading in.
+fn in_path_order(groups: &mut [Vec<Media>], positions: &HashMap<&Path, usize>) {
     groups.sort_by_cached_key(|group| {
         group
             .iter()
@@ -111,22 +112,16 @@ fn in_path_order(groups: &mut [Vec<Media>], paths: &[PathBuf]) {
     });
 }
 
-/// Orders the errors of skipped files by their path's position in `paths`, so the report does not depend on the order
-/// the files failed in.
-fn skipped_in_path_order(errors: &mut [MediaError], paths: &[PathBuf]) {
-    let positions = positions(paths);
-
+/// Orders the errors of skipped files by their path's [`positions`], so the report does not depend on the order the
+/// files failed in.
+fn skipped_in_path_order(errors: &mut [MediaError], positions: &HashMap<&Path, usize>) {
     errors.sort_by_key(|err| positions.get(err.path()).copied().unwrap_or(usize::MAX));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support;
-
-    fn paths(names: &[&str]) -> Vec<PathBuf> {
-        names.iter().map(PathBuf::from).collect()
-    }
+    use crate::test_support::{self, paths};
 
     fn media(path: &str) -> Media {
         test_support::media(path, 1, 1, None)
@@ -141,7 +136,7 @@ mod tests {
         let args = paths(&["a", "b", "c", "d"]);
         let mut groups = vec![vec![media("d"), media("b")], vec![media("c"), media("a")]];
 
-        in_path_order(&mut groups, &args);
+        in_path_order(&mut groups, &positions(&args));
 
         assert_eq!(names(&groups), [paths(&["c", "a"]), paths(&["d", "b"])]);
     }
@@ -152,8 +147,8 @@ mod tests {
         let mut forward = vec![vec![media("a"), media("c")], vec![media("b"), media("d")]];
         let mut backward = vec![vec![media("b"), media("d")], vec![media("a"), media("c")]];
 
-        in_path_order(&mut forward, &args);
-        in_path_order(&mut backward, &args);
+        in_path_order(&mut forward, &positions(&args));
+        in_path_order(&mut backward, &positions(&args));
 
         assert_eq!(names(&forward), names(&backward));
         assert_eq!(names(&forward), [paths(&["a", "c"]), paths(&["b", "d"])]);
@@ -212,7 +207,7 @@ mod tests {
         let mut errors: Vec<_> =
             ["d", "a", "c"].into_iter().map(|path| MediaError::Unsupported { path: path.into() }).collect();
 
-        skipped_in_path_order(&mut errors, &args);
+        skipped_in_path_order(&mut errors, &positions(&args));
 
         let order: Vec<_> = errors.iter().map(MediaError::path).collect();
         assert_eq!(order, [Path::new("a"), Path::new("c"), Path::new("d")]);
