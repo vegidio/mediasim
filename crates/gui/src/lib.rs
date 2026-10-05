@@ -5,6 +5,8 @@
 
 #![warn(clippy::pedantic)]
 
+mod window;
+
 /// Build and run the application. Blocks until it exits.
 ///
 /// # Panics
@@ -12,6 +14,14 @@
 /// If the Tauri application cannot be built or started.
 pub fn run() {
     tauri::Builder::default()
+        // Injects the platform into the webview so the frontend can read it synchronously at first render.
+        .plugin(tauri_plugin_os::init())
+        .setup(|app| {
+            // The window ships hidden and is shown by `window_ready`; this shows it anyway if the frontend never reports.
+            window::reveal_when_late(app.handle());
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![window::window_ready])
         .run(tauri::generate_context!())
         .expect("error while running the MediaSim application");
 }

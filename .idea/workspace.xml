@@ -17,16 +17,26 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/mediasim.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/mediasim.iml" afterDir="false" />
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add start screen layout and shell to `gui` crate">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Justfile" beforeDir="false" afterPath="$PROJECT_DIR$/Justfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/design.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/specs/gui-app/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/specs/gui-app/spec.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-scaffold/tasks.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/capabilities/default.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/capabilities/default.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/components/ui/button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/components/ui/button.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/main.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/main.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/shell.test.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/shell.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/style.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/tauri.conf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/proposal.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/proposal.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/specs/gui-start/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/specs/gui-start/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-1-layout/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,7 +44,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="107" />
+    <option name="cachedIndexableFilesCount" value="214" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
@@ -82,61 +92,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0006861580409547" />
-      <entry key="MS500" value="1.318857557229194" />
-      <entry key="S2" value="2.8901228644345105" />
-      <entry key="S5" value="3.9354428418135385" />
-      <entry key="S10" value="4.421312059169176" />
-      <entry key="S30" value="4.795683021297835" />
-      <entry key="S60" value="4.896338302250991" />
-      <entry key="M2" value="4.947787896674965" />
-      <entry key="M5" value="4.987087830363414" />
-      <entry key="M10" value="5.229426595749913" />
-      <entry key="M15" value="5.792463997548036" />
-      <entry key="M30" value="9.097310975961467" />
-      <entry key="H1" value="26.502585391379412" />
-      <entry key="H2" value="78.73942900978781" />
-      <entry key="H4" value="174.98100001762288" />
-      <entry key="D1" value="429.67086188359394" />
-      <entry key="W1" value="514.0286107847145" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0000861110366386" />
+      <entry key="S2" value="1.2372662352526689" />
+      <entry key="S5" value="3.367835141307426" />
+      <entry key="S10" value="7.130079109936164" />
+      <entry key="S30" value="13.386944278011777" />
+      <entry key="S60" value="15.904449618174894" />
+      <entry key="M2" value="17.37169798833238" />
+      <entry key="M5" value="18.3291174944579" />
+      <entry key="M10" value="18.73233263274255" />
+      <entry key="M15" value="19.104941622807264" />
+      <entry key="M30" value="21.064088849142617" />
+      <entry key="H1" value="31.910636914632835" />
+      <entry key="H2" value="74.04963517376812" />
+      <entry key="H4" value="165.33297880462834" />
+      <entry key="D1" value="436.0604830392632" />
+      <entry key="W1" value="530.8459073011209" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
       <entry key="S5" value="0.0" />
-      <entry key="S10" value="6.459106879341898E-197" />
-      <entry key="S30" value="4.012276218268903E-66" />
-      <entry key="S60" value="2.003066800744451E-33" />
-      <entry key="M2" value="4.476549954290119E-17" />
-      <entry key="M5" value="2.985747337213434E-7" />
-      <entry key="M10" value="6.369806093870539E-4" />
-      <entry key="M15" value="0.00876318852275299" />
-      <entry key="M30" value="0.12966376082196743" />
-      <entry key="H1" value="0.5537938878397064" />
-      <entry key="H2" value="1.557914901753377" />
-      <entry key="H4" value="4.0800107480703085" />
-      <entry key="D1" value="13.055916778237094" />
-      <entry key="W1" value="16.362744916008744" />
+      <entry key="S10" value="1.140568603573763E-308" />
+      <entry key="S30" value="2.2509912363822E-103" />
+      <entry key="S60" value="4.744461460659902E-52" />
+      <entry key="M2" value="2.178658597683138E-26" />
+      <entry key="M5" value="5.622783370325565E-11" />
+      <entry key="M10" value="8.741286627303186E-6" />
+      <entry key="M15" value="5.022981602302308E-4" />
+      <entry key="M30" value="0.031043332047827856" />
+      <entry key="H1" value="0.2709711262081686" />
+      <entry key="H2" value="1.0897607467358144" />
+      <entry key="H4" value="3.4123614082770826" />
+      <entry key="D1" value="12.672812000179565" />
+      <entry key="W1" value="16.293275140014586" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9599177820928263" />
-      <entry key="MS500" value="1.3074300369882195" />
-      <entry key="S2" value="2.8827970961346483" />
-      <entry key="S5" value="3.9312343806203485" />
-      <entry key="S10" value="4.418904558805712" />
-      <entry key="S30" value="4.794801937775672" />
-      <entry key="S60" value="4.895887150340471" />
-      <entry key="M2" value="4.947559605506402" />
-      <entry key="M5" value="4.9869960783756655" />
-      <entry key="M10" value="5.230015808007466" />
-      <entry key="M15" value="5.801188200314751" />
-      <entry key="M30" value="9.226901716420748" />
-      <entry key="H1" value="27.056208114658002" />
-      <entry key="H2" value="80.29697172314955" />
-      <entry key="H4" value="179.0603447841532" />
-      <entry key="D1" value="442.7263619132142" />
-      <entry key="W1" value="530.3912798639874" />
+      <entry key="MS100" value="0.9726549474122855" />
+      <entry key="MS500" value="0.9945553437029926" />
+      <entry key="S2" value="1.235377389535354" />
+      <entry key="S5" value="3.365394182366271" />
+      <entry key="S10" value="7.127346088563627" />
+      <entry key="S30" value="13.38517876819711" />
+      <entry key="S60" value="15.903393257028686" />
+      <entry key="M2" value="17.371119053030487" />
+      <entry key="M5" value="18.32887264541484" />
+      <entry key="M10" value="18.7322159970031" />
+      <entry key="M15" value="19.105358018962207" />
+      <entry key="M30" value="21.095072603682603" />
+      <entry key="H1" value="32.18150317660833" />
+      <entry key="H2" value="75.13912500166764" />
+      <entry key="H4" value="168.74477792125103" />
+      <entry key="D1" value="448.73288963727606" />
+      <entry key="W1" value="547.1391068003065" />
     </decayedShown>
   </component>
   <component name="OptimizeOnSaveOptions">
@@ -162,37 +172,38 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Run cli.executor&quot;: &quot;Run&quot;,
-    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;rust&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/vegidio/Development/Source/mediasim/fixtures&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;actions.on.save&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Run cli.executor": "Run",
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "rust",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/vegidio/Development/Source/mediasim/fixtures",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "actions.on.save",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "/Users/vegidio/Development/Source/mediasim/crates/gui/node_modules/.pnpm/@typescript+typescript-darwin-arm64@7.0.2/node_modules/@typescript/typescript-darwin-arm64/lib"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/fixtures" />
@@ -434,7 +445,14 @@
       <option name="presentableId" value="LOCAL−00025" />
       <updated>1791186446611</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL−00026" summary="feat: Add start screen layout and shell to `gui` crate">
+      <option name="closed" value="true" />
+      <created>1791191455681</created>
+      <option name="number" value="LOCAL−00026" />
+      <option name="presentableId" value="LOCAL−00026" />
+      <updated>1791191455681</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -442,7 +460,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="refactor: Replace `image` crate with `rust-sak` for image decoding and errors" />
     <MESSAGE value="fix: Refine `calculate_diff` normalization and max-distance constants" />
     <MESSAGE value="feat: Add `Media` struct for media management with icon-based frame signatures" />
     <MESSAGE value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
@@ -467,7 +484,8 @@
     <MESSAGE value="refactor: Add `Media::stub` for unit tests, refactor orientation constants, and improve CLI output handling" />
     <MESSAGE value="feat: Add GUI scaffold with Tauri 2 + React and integrate with workspace" />
     <MESSAGE value="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Scaffold `gui` crate with Tauri 2 + React shell, strict TypeScript config, and Justfile integration" />
+    <MESSAGE value="feat: Add start screen layout and shell to `gui` crate" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add start screen layout and shell to `gui` crate" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

@@ -19,3 +19,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-os = "2"
+
+[dev-dependencies]
+# `tauri::test::mock_builder`, for the window tests in src/window.rs.
+tauri = { version = "2", features = ["test"] }
