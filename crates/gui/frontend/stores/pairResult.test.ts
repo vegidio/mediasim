@@ -206,4 +206,49 @@ describe("usePairResultStore", () => {
         expect(usePairStore.getState()).toBe(before);
         expect(usePairStore.getState()).toMatchObject({ a: A, b: B });
     });
+
+    describe("marks", () => {
+        beforeEach(() => {
+            mockedProbe.mockReturnValue(new Promise(() => {}));
+            mockedCompare.mockReturnValue(new Promise(() => {}));
+        });
+
+        it("starts with neither file marked", () => {
+            expect(state().marked).toEqual({ a: false, b: false });
+        });
+
+        it("marks and unmarks one file, leaving the other", () => {
+            state().toggleMark("b");
+            expect(state().marked).toEqual({ a: false, b: true });
+
+            state().toggleMark("b");
+            expect(state().marked).toEqual({ a: false, b: false });
+        });
+
+        it("marks both files at once", () => {
+            state().toggleMark("a");
+            state().toggleMark("b");
+
+            expect(state().marked).toEqual({ a: true, b: true });
+        });
+
+        it("resets the marks when a pair opens", () => {
+            state().open(A, B);
+            state().toggleMark("a");
+            state().toggleMark("b");
+
+            state().open(A, B);
+
+            expect(state().marked).toEqual({ a: false, b: false });
+        });
+
+        it("keeps the marks through a retry", () => {
+            state().open(A, B);
+            state().toggleMark("b");
+
+            state().retry();
+
+            expect(state().marked).toEqual({ a: false, b: true });
+        });
+    });
 });

@@ -49,6 +49,7 @@ const videoInfo: MediaInfo = {
 
 const ready = (info: MediaInfo): Details => ({ status: "ready", info });
 const LOADING: Details = { status: "loading" };
+const UNMARKED = { marked: false, onToggleMark: () => {} };
 
 const pane = (name: string) => screen.getByRole("article", { name });
 
@@ -63,15 +64,15 @@ const picture = (container: HTMLElement) => container.querySelector("img") as HT
 
 describe("MediaPane", () => {
     it("shows the badge and the full name, truncated with a title", () => {
-        render(<MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} />);
+        render(<MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} {...UNMARKED} />);
 
-        expect(within(pane("File A")).getByText("A")).toBeInTheDocument();
+        expect(within(pane("File A")).getByText("A", { ignore: ".sr-only" })).toBeInTheDocument();
         expect(within(pane("File A")).getByText("IMG_2041.jpg")).toHaveAttribute("title", "IMG_2041.jpg");
         expect(within(pane("File A")).getByText("IMG_2041.jpg")).toHaveClass("truncate");
     });
 
     it("lists an image's details in order", () => {
-        render(<MediaPane slot="a" file={IMAGE} details={ready(imageInfo())} other={LOADING} />);
+        render(<MediaPane slot="a" file={IMAGE} details={ready(imageInfo())} other={LOADING} {...UNMARKED} />);
 
         expect(details("File A")).toEqual([
             ["Resolution", "4032 × 3024"],
@@ -82,7 +83,7 @@ describe("MediaPane", () => {
     });
 
     it("lists a video's details in order", () => {
-        render(<MediaPane slot="b" file={VIDEO} details={ready(videoInfo)} other={LOADING} />);
+        render(<MediaPane slot="b" file={VIDEO} details={ready(videoInfo)} other={LOADING} {...UNMARKED} />);
 
         expect(details("File B")).toEqual([
             ["Duration", "0:42"],
@@ -93,13 +94,15 @@ describe("MediaPane", () => {
     });
 
     it("shows a placeholder for every value while loading", () => {
-        render(<MediaPane slot="a" file={VIDEO} details={LOADING} other={LOADING} />);
+        render(<MediaPane slot="a" file={VIDEO} details={LOADING} other={LOADING} {...UNMARKED} />);
 
         expect(within(pane("File A")).getAllByTestId("detail-placeholder")).toHaveLength(4);
     });
 
     it("shows Unknown for every value after a failed probe", () => {
-        render(<MediaPane slot="a" file={IMAGE} details={{ status: "failed" }} other={ready(imageInfo())} />);
+        render(
+            <MediaPane slot="a" file={IMAGE} details={{ status: "failed" }} other={ready(imageInfo())} {...UNMARKED} />,
+        );
 
         expect(details("File A").map(([, value]) => value)).toEqual(["Unknown", "Unknown", "Unknown", "Unknown"]);
         expect(within(pane("File A")).queryAllByTestId("detail-placeholder")).toHaveLength(0);
@@ -107,7 +110,7 @@ describe("MediaPane", () => {
 
     it("puts each badge after its value", () => {
         const other = imageInfo({ width: 2048, height: 1536, created: new Date(2025, 7, 2).toISOString() });
-        render(<MediaPane slot="a" file={IMAGE} details={ready(imageInfo())} other={ready(other)} />);
+        render(<MediaPane slot="a" file={IMAGE} details={ready(imageInfo())} other={ready(other)} {...UNMARKED} />);
 
         const resolution = within(pane("File A")).getByText("Resolution").nextElementSibling as HTMLElement;
         expect(resolution).toHaveTextContent("4032 × 3024Higher");
@@ -116,7 +119,9 @@ describe("MediaPane", () => {
     });
 
     it("asks for the 2048 rendition, fitted whole", () => {
-        const { container } = render(<MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} />);
+        const { container } = render(
+            <MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} {...UNMARKED} />,
+        );
 
         expect(picture(container)).toHaveAttribute("src", "thumb://localhost/0123456789abcdef?size=2048");
         expect(picture(container)).toHaveAttribute("alt", "");
@@ -124,7 +129,9 @@ describe("MediaPane", () => {
     });
 
     it("shows the kind icon until the picture loads", () => {
-        const { container } = render(<MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} />);
+        const { container } = render(
+            <MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} {...UNMARKED} />,
+        );
 
         expect(picture(container)).toHaveClass("invisible");
         expect(container.querySelector(".lucide-image")).toBeInTheDocument();
@@ -136,7 +143,9 @@ describe("MediaPane", () => {
     });
 
     it("keeps the kind icon, name and details when the picture can't be produced", () => {
-        const { container } = render(<MediaPane slot="b" file={VIDEO} details={ready(videoInfo)} other={LOADING} />);
+        const { container } = render(
+            <MediaPane slot="b" file={VIDEO} details={ready(videoInfo)} other={LOADING} {...UNMARKED} />,
+        );
 
         fireEvent.error(picture(container));
 
@@ -147,8 +156,80 @@ describe("MediaPane", () => {
     });
 
     it("plays nothing for a video", () => {
-        const { container } = render(<MediaPane slot="b" file={VIDEO} details={ready(videoInfo)} other={LOADING} />);
+        const { container } = render(
+            <MediaPane slot="b" file={VIDEO} details={ready(videoInfo)} other={LOADING} {...UNMARKED} />,
+        );
 
         expect(container.querySelector("video")).not.toBeInTheDocument();
+    });
+
+    describe("marking", () => {
+        const wash = (container: HTMLElement) => container.querySelector("[data-testid='mark-wash']");
+
+        it("puts the mark button in the header, after the name", () => {
+            render(<MediaPane slot="b" file={IMAGE} details={LOADING} other={LOADING} {...UNMARKED} />);
+
+            const name = within(pane("File B")).getByText("IMG_2041.jpg");
+            const button = within(pane("File B")).getByRole("button", { name: "Mark B for deletion" });
+            expect(name.nextElementSibling).toBe(button);
+            expect(name).toHaveClass("flex-1", "truncate");
+        });
+
+        it("calls onToggleMark from the button", () => {
+            const onToggleMark = vi.fn();
+            render(
+                <MediaPane
+                    slot="a"
+                    file={IMAGE}
+                    details={LOADING}
+                    other={LOADING}
+                    marked={false}
+                    onToggleMark={onToggleMark}
+                />,
+            );
+
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+
+            expect(onToggleMark).toHaveBeenCalledOnce();
+        });
+
+        it("shows no wash and no pill while unmarked", () => {
+            const { container } = render(
+                <MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} {...UNMARKED} />,
+            );
+
+            expect(wash(container)).not.toBeInTheDocument();
+            expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+        });
+
+        it("washes the picture red with a hidden Delete pill while marked, click-through", () => {
+            const { container } = render(
+                <MediaPane slot="a" file={IMAGE} details={LOADING} other={LOADING} marked onToggleMark={() => {}} />,
+            );
+            fireEvent.load(picture(container));
+
+            // Inside the picture's own frame, so the dotted space beside the picture stays clear.
+            expect(screen.getByTestId("picture-frame")).toContainElement(wash(container) as HTMLElement);
+            expect(wash(container)).toHaveClass(
+                "pointer-events-none",
+                "inset-0",
+                "bg-[rgba(69,10,10,.62)]",
+                "shadow-[inset_0_0_0_2px_#EF4444]",
+            );
+            const pill = within(wash(container) as HTMLElement).getByText("Delete");
+            expect(pill).toHaveAttribute("aria-hidden", "true");
+            expect(pill.querySelector(".lucide-trash-2")).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "A Marked · Undo" })).toBeInTheDocument();
+        });
+
+        it("paints nothing until the picture loads, showing the kind icon unwashed", () => {
+            const { container } = render(
+                <MediaPane slot="b" file={VIDEO} details={LOADING} other={LOADING} marked onToggleMark={() => {}} />,
+            );
+
+            expect(container.querySelector(".lucide-video")).toBeInTheDocument();
+            expect(wash(container)).not.toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "B Marked · Undo" })).toBeInTheDocument();
+        });
     });
 });

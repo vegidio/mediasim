@@ -52,4 +52,35 @@ describe("App", () => {
         expect(within(header).getByRole("button", { name: "Settings" })).toBeDisabled();
         expect(screen.queryByRole("heading", { name: "What do you want to compare?" })).not.toBeInTheDocument();
     });
+
+    describe("deletion footer", () => {
+        const footer = () => screen.queryByRole("region", { name: "Deletion" });
+
+        it("is absent on the start screen", () => {
+            render(<App />);
+
+            expect(footer()).not.toBeInTheDocument();
+        });
+
+        it("sits below main on the pair screen, not inside it, as a fixed-height bar", () => {
+            render(<App />);
+            act(() => useScreenStore.getState().show("pair"));
+
+            const main = screen.getByRole("main");
+            expect(footer()).toBeInTheDocument();
+            expect(main).not.toContainElement(footer());
+            expect(main.nextElementSibling).toBe(footer());
+            expect(footer()).toHaveClass("shrink-0", "h-[68px]");
+            expect(main).toHaveClass("flex-1", "overflow-y-auto");
+        });
+
+        it("leaves with the pair screen", () => {
+            render(<App />);
+            act(() => useScreenStore.getState().show("pair"));
+
+            act(() => useScreenStore.getState().show("start"));
+
+            expect(footer()).not.toBeInTheDocument();
+        });
+    });
 });

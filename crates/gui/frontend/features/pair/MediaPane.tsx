@@ -1,7 +1,10 @@
+import { Trash2Icon } from "lucide-react";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { DetailValue } from "./DetailValue";
 import { type Details, detailRows } from "./details";
+import { MarkButton } from "./MarkButton";
+import { MarkWash } from "./MarkWash";
 import { Picture } from "./Picture";
 
 type MediaPaneProps = {
@@ -10,10 +13,16 @@ type MediaPaneProps = {
     details: Details;
     /** The other file's details, which decide this pane's badges. */
     other: Details;
+    /** Whether the file is marked for deletion. */
+    marked: boolean;
+    onToggleMark: () => void;
 };
 
-/** One file of the pair: its badge and name, its picture, and its details with the badges it earns. */
-export const MediaPane = ({ slot, file, details, other }: MediaPaneProps) => {
+/**
+ * One file of the pair: its badge, name and mark button, its picture, washed red while marked, and its details with the
+ * badges it earns.
+ */
+export const MediaPane = ({ slot, file, details, other, marked, onToggleMark }: MediaPaneProps) => {
     const badge = slot.toUpperCase();
 
     return (
@@ -26,13 +35,36 @@ export const MediaPane = ({ slot, file, details, other }: MediaPaneProps) => {
                 <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary font-semibold text-xs">
                     {badge}
                 </span>
-                <span title={file.name} className="truncate font-mono text-[13px]">
+                {/* Grows and shortens first, so a long name gives way before the button does. */}
+                <span title={file.name} className="min-w-0 flex-1 truncate font-mono text-[13px]">
                     {file.name}
                 </span>
+                <MarkButton slot={slot} marked={marked} onToggle={onToggleMark} variant="pane" />
             </div>
 
-            {/* Keyed so another file starts loading afresh rather than showing as loaded. */}
-            <Picture key={file.identity} file={file} className="min-h-0 flex-1" />
+            <div className="relative min-h-0 flex-1">
+                {/* Keyed so another file starts loading afresh rather than showing as loaded. */}
+                <Picture
+                    key={file.identity}
+                    file={file}
+                    className="absolute inset-0"
+                    // Over the picture alone, not the dotted space beside it.
+                    overlay={
+                        marked && (
+                            <MarkWash>
+                                {/* The button already states the mark. */}
+                                <span
+                                    aria-hidden="true"
+                                    className="absolute top-3 right-3 flex h-[22px] items-center gap-1 rounded-full bg-[#DC2626] px-2 font-semibold text-[11px] text-white"
+                                >
+                                    <Trash2Icon className="size-[11px]" />
+                                    Delete
+                                </span>
+                            </MarkWash>
+                        )
+                    }
+                />
+            </div>
 
             <dl className="shrink-0 border-border border-t bg-card px-4 py-1">
                 {detailRows(file.type, details, other).map(({ key, ...row }) => (

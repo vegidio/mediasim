@@ -15,6 +15,8 @@ export const PairResultScreen = () => {
     const comparison = usePairResultStore((state) => state.comparison);
     const retry = usePairResultStore((state) => state.retry);
     const leave = usePairResultStore((state) => state.leave);
+    const marked = usePairResultStore((state) => state.marked);
+    const toggleMark = usePairResultStore((state) => state.toggleMark);
     const mode = usePairViewStore((state) => state.mode);
     const setMode = usePairViewStore((state) => state.setMode);
     const position = usePairViewStore((state) => state.position);
@@ -46,8 +48,22 @@ export const PairResultScreen = () => {
             {files && (
                 <>
                     <TabsContent value="side" className="grid min-h-[360px] flex-1 grid-cols-2 gap-5">
-                        <MediaPane slot="a" file={files.a} details={details.a} other={details.b} />
-                        <MediaPane slot="b" file={files.b} details={details.b} other={details.a} />
+                        <MediaPane
+                            slot="a"
+                            file={files.a}
+                            details={details.a}
+                            other={details.b}
+                            marked={marked.a}
+                            onToggleMark={() => toggleMark("a")}
+                        />
+                        <MediaPane
+                            slot="b"
+                            file={files.b}
+                            details={details.b}
+                            other={details.a}
+                            marked={marked.b}
+                            onToggleMark={() => toggleMark("b")}
+                        />
                     </TabsContent>
                     <TabsContent value="slider" className="flex min-h-[360px] flex-1 flex-col">
                         <SliderPane
@@ -55,6 +71,8 @@ export const PairResultScreen = () => {
                             details={details}
                             position={position}
                             onPositionChange={setPosition}
+                            marked={marked}
+                            onToggleMark={toggleMark}
                         />
                     </TabsContent>
                 </>

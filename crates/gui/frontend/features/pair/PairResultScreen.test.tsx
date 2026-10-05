@@ -37,6 +37,9 @@ const compare = () => screen.getByRole("button", { name: "Compare" });
 const back = () => screen.getByRole("button", { name: "New comparison" });
 const tab = (name: string) => screen.getByRole("tab", { name });
 const handle = () => screen.getByRole("slider", { name: "Drag to compare A and B" });
+/** The score panel's status; the deletion footer has its own. */
+const scoreStatus = () => within(screen.getByRole("main")).getByRole("status");
+const footer = () => screen.getByRole("region", { name: "Deletion" });
 const panes = () => screen.getAllByRole("article").map((pane) => pane.getAttribute("aria-label"));
 
 /** Selects a view-mode tab the way a click does: Radix tabs activate on mouse down. */
@@ -75,7 +78,7 @@ describe("PairResultScreen", () => {
         expect(panes.map((pane) => pane.getAttribute("aria-label"))).toEqual(["File A", "File B"]);
         expect(within(panes[0] as HTMLElement).getByText("IMG_2041.jpg")).toBeInTheDocument();
         expect(within(panes[1] as HTMLElement).getByText("IMG_2041-edit.jpg")).toBeInTheDocument();
-        expect(screen.getByRole("status")).toHaveTextContent("Comparing…");
+        expect(scoreStatus()).toHaveTextContent("Comparing…");
         expect(screen.getByRole("banner")).toHaveTextContent("Compare two files");
         expect(mockedCompare).toHaveBeenCalledExactlyOnceWith(A.path, B.path);
         expect(back()).toHaveFocus();
@@ -103,7 +106,7 @@ describe("PairResultScreen", () => {
 
         fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Try again" }));
 
-        expect(screen.getByRole("status")).toHaveTextContent("Comparing…");
+        expect(scoreStatus()).toHaveTextContent("Comparing…");
         expect(mockedCompare).toHaveBeenCalledTimes(2);
     });
 
@@ -120,6 +123,7 @@ describe("PairResultScreen", () => {
         expect(compare()).toBeEnabled();
         expect(compare()).toHaveFocus();
         expect(mockedCancel).toHaveBeenCalledOnce();
+        expect(screen.queryByRole("region", { name: "Deletion" })).not.toBeInTheDocument();
     });
 
     it("shows a replaced File B when comparing again", () => {
@@ -133,7 +137,7 @@ describe("PairResultScreen", () => {
         fireEvent.click(compare());
 
         expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent("other.jpg");
-        expect(screen.getByRole("status")).toHaveTextContent("Comparing…");
+        expect(scoreStatus()).toHaveTextContent("Comparing…");
         expect(mockedCompare).toHaveBeenLastCalledWith(A.path, C.path);
     });
 
@@ -182,7 +186,7 @@ describe("PairResultScreen", () => {
             expect(tab("Slider")).toHaveAttribute("aria-selected", "true");
             expect(panes()).toEqual(["Files A and B"]);
             expect(handle()).toBeInTheDocument();
-            expect(screen.getByRole("status")).toHaveTextContent("Comparing…");
+            expect(scoreStatus()).toHaveTextContent("Comparing…");
             expect(mockedCompare).toHaveBeenCalledOnce();
 
             comparison.resolve(0.94522);
@@ -258,6 +262,100 @@ describe("PairResultScreen", () => {
             fireEvent.click(compare());
 
             expect(handle()).toHaveAttribute("aria-valuenow", "50");
+        });
+    });
+
+    describe("marking for deletion", () => {
+        it("marks B side by side, and keeps the mark in the slider with its tag", () => {
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+
+            fireEvent.click(
+                within(screen.getByRole("article", { name: "File B" })).getByRole("button", {
+                    name: "Mark B for deletion",
+                }),
+            );
+
+            expect(screen.getByRole("button", { name: "B Marked · Undo" })).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
+            expect(within(footer()).getByRole("status")).toHaveTextContent("1 file marked for deletion");
+
+            select("Slider");
+
+            expect(screen.getByRole("button", { name: "B Marked · Undo" })).toHaveTextContent("Marked · Undo");
+            expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
+            expect(screen.getByTestId("delete-tag-b")).toHaveTextContent("B · Delete");
+            expect(screen.queryByTestId("delete-tag-a")).not.toBeInTheDocument();
+        });
+
+        it("undoes a mark, and marks both files", () => {
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            fireEvent.click(screen.getByRole("button", { name: "B Marked · Undo" }));
+
+            expect(screen.getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
+            expect(screen.queryByTestId("mark-wash")).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            // The wash covers a picture once it has loaded.
+            for (const picture of document.querySelectorAll("img")) fireEvent.load(picture);
+
+            expect(screen.getAllByTestId("mark-wash")).toHaveLength(2);
+            expect(within(footer()).getByRole("status")).toHaveTextContent("2 files marked for deletion");
+        });
+
+        it("marks while comparing without touching the comparison, whose result still shows", async () => {
+            const comparison = deferred<number>();
+            mockedCompare.mockReturnValue(comparison.promise);
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+
+            expect(screen.getByRole("button", { name: "A Marked · Undo" })).toBeInTheDocument();
+            expect(scoreStatus()).toHaveTextContent("Comparing…");
+            expect(mockedCompare).toHaveBeenCalledOnce();
+
+            comparison.resolve(0.94522);
+            await settle();
+
+            expect(screen.getByRole("region", { name: "Similarity result" })).toHaveTextContent("95%");
+            expect(screen.getByRole("button", { name: "A Marked · Undo" })).toBeInTheDocument();
+        });
+
+        it("marks after the comparison failed", async () => {
+            mockedCompare.mockRejectedValue({ kind: "load", path: B.path, message: "failed to load image" });
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+            await settle();
+
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+
+            expect(screen.getByRole("alert")).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "B Marked · Undo" })).toBeInTheDocument();
+        });
+
+        it("starts the next pair unmarked, with focus on New comparison", () => {
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+
+            fireEvent.click(back());
+            fireEvent.click(compare());
+
+            expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
+            expect(screen.queryByTestId("mark-wash")).not.toBeInTheDocument();
+            expect(within(footer()).getByRole("status")).toHaveTextContent("Nothing marked yet.");
+            expect(back()).toHaveFocus();
         });
     });
 });

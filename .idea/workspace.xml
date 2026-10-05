@@ -17,14 +17,25 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add pair result screen with similarity score, bands, and file details; implement cancellable media loads">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.test.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/style.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/test/setup.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/test/setup.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/specs/gui-pair/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/specs/gui-pair/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -475,7 +486,14 @@
       <option name="presentableId" value="LOCAL−00031" />
       <updated>1791213728017</updated>
     </task>
-    <option name="localTasksCounter" value="32" />
+    <task id="LOCAL−00032" summary="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button">
+      <option name="closed" value="true" />
+      <created>1791228831158</created>
+      <option name="number" value="LOCAL−00032" />
+      <option name="presentableId" value="LOCAL−00032" />
+      <updated>1791228831158</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -483,7 +501,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="build: Update dependencies in `Cargo.lock` and pin `rust-sak` to version `26.10.1`" />
     <MESSAGE value="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata" />
     <MESSAGE value="feat: Add `Media`-level similarity API with DTW and error handling for mixed types" />
     <MESSAGE value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
@@ -508,7 +525,8 @@
     <MESSAGE value="feat: Enable &quot;Compare two files&quot; card with file selection, drag-and-drop, and mismatch warnings" />
     <MESSAGE value="feat: Add `Media::probe` for fast media metadata extraction without decoding frames, supporting GUI &quot;Compare&quot; details" />
     <MESSAGE value="feat: Add pair result screen with similarity score, bands, and file details; implement cancellable media loads" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add pair result screen with similarity score, bands, and file details; implement cancellable media loads" />
+    <MESSAGE value="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

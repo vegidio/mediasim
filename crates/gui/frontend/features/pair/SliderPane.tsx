@@ -2,6 +2,7 @@ import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { DetailsTable } from "./DetailsTable";
 import type { Details } from "./details";
+import { MarkButton } from "./MarkButton";
 import { SliderStage } from "./SliderStage";
 
 type SliderPaneProps = {
@@ -10,6 +11,9 @@ type SliderPaneProps = {
     /** The share of the stage showing A, from 0 to 100. */
     position: number;
     onPositionChange: (position: number) => void;
+    /** Which files are marked for deletion. */
+    marked: Record<Slot, boolean>;
+    onToggleMark: (slot: Slot) => void;
 };
 
 const Badge = ({ slot }: { slot: Slot }) => (
@@ -24,8 +28,11 @@ const Name = ({ file }: { file: MediaFile }) => (
     </span>
 );
 
-/** Both files of the pair in one pane: A over B under a slider, then their details side by side in a table. */
-export const SliderPane = ({ files, details, position, onPositionChange }: SliderPaneProps) => (
+/**
+ * Both files of the pair in one pane: their mark buttons beside their names, A over B under a slider, then their
+ * details side by side in a table.
+ */
+export const SliderPane = ({ files, details, position, onPositionChange, marked, onToggleMark }: SliderPaneProps) => (
     <article
         aria-label="Files A and B"
         // No background of its own: the stage draws its own dots, matched by A's layer; only the bars are cards.
@@ -34,12 +41,14 @@ export const SliderPane = ({ files, details, position, onPositionChange }: Slide
         <div className="flex h-[52px] shrink-0 items-center gap-2.5 border-border border-b bg-card px-4">
             <Badge slot="a" />
             <Name file={files.a} />
+            <MarkButton slot="a" marked={marked.a} onToggle={() => onToggleMark("a")} variant="slider" />
             <span className="flex-1" />
+            <MarkButton slot="b" marked={marked.b} onToggle={() => onToggleMark("b")} variant="slider" />
             <Name file={files.b} />
             <Badge slot="b" />
         </div>
 
-        <SliderStage a={files.a} b={files.b} position={position} onPositionChange={onPositionChange} />
+        <SliderStage a={files.a} b={files.b} position={position} onPositionChange={onPositionChange} marked={marked} />
 
         <DetailsTable files={files} details={details} />
     </article>

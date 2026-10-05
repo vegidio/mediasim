@@ -18,6 +18,8 @@ type PairResultStore = {
     files?: { a: MediaFile; b: MediaFile };
     details: Record<Slot, Details>;
     comparison: Comparison;
+    /** Which files the user has marked for deletion; neither when a pair opens. */
+    marked: Record<Slot, boolean>;
 
     /** Show the result screen for `a` and `b`, read both files' details and compare them. */
     open: (a: MediaFile, b: MediaFile) => void;
@@ -25,9 +27,12 @@ type PairResultStore = {
     retry: () => void;
     /** Cancel the comparison, if it is still running, and return to the start screen. */
     leave: () => void;
+    /** Mark `slot`'s file for deletion, or unmark it. */
+    toggleMark: (slot: Slot) => void;
 };
 
 const LOADING: Details = { status: "loading" };
+const UNMARKED: Record<Slot, boolean> = { a: false, b: false };
 
 export const usePairResultStore = create<PairResultStore>()((set, get) => {
     /**
@@ -68,10 +73,11 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
     return {
         details: { a: LOADING, b: LOADING },
         comparison: { status: "comparing" },
+        marked: UNMARKED,
 
         open: (a, b) => {
             const run = ++opened;
-            set({ files: { a, b }, details: { a: LOADING, b: LOADING } });
+            set({ files: { a, b }, details: { a: LOADING, b: LOADING }, marked: UNMARKED });
             // Each pair's slider starts in the middle; the view mode carries over.
             usePairViewStore.getState().resetPosition();
             useScreenStore.getState().show("pair");
@@ -92,5 +98,7 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             cancelComparison().catch((error: unknown) => console.error("could not cancel the comparison", error));
             useScreenStore.getState().show("start");
         },
+
+        toggleMark: (slot) => set((state) => ({ marked: { ...state.marked, [slot]: !state.marked[slot] } })),
     };
 });

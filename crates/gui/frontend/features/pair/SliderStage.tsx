@@ -1,7 +1,10 @@
 import type { KeyboardEvent } from "react";
 import { ChevronsLeftRightIcon } from "lucide-react";
 import { Slider } from "radix-ui";
+import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import { cn } from "@/lib/utils";
+import { MarkWash } from "./MarkWash";
 import { Picture } from "./Picture";
 
 /**
@@ -27,13 +30,29 @@ type SliderStageProps = {
     /** The share of the stage showing A, from 0 to 100. */
     position: number;
     onPositionChange: (position: number) => void;
+    /** Which files are marked for deletion, each tagged in its corner. */
+    marked: Record<Slot, boolean>;
 };
+
+/** A marked file's tag, in its own corner of the stage. Hidden from assistive technology: the header's buttons state the mark. */
+const DeleteTag = ({ slot }: { slot: Slot }) => (
+    <span
+        aria-hidden="true"
+        data-testid={`delete-tag-${slot}`}
+        className={cn(
+            "pointer-events-none absolute top-2.5 rounded-md bg-[#DC2626] px-[9px] py-[3px] font-semibold text-white text-xs",
+            slot === "a" ? "left-2.5" : "right-2.5",
+        )}
+    >
+        {slot.toUpperCase()} · Delete
+    </span>
+);
 
 /**
  * A over B in one frame that fills the view, A showing left of the handle and B right of it. Each is fitted inside it
  * whole and centred. Pressing or dragging anywhere on the stage, edge to edge, moves the handle.
  */
-export const SliderStage = ({ a, b, position, onPositionChange }: SliderStageProps) => {
+export const SliderStage = ({ a, b, position, onPositionChange, marked }: SliderStageProps) => {
     const onKeyDown = (event: KeyboardEvent) => {
         const move = KEY_MOVES[event.key];
         if (!move) return;
@@ -47,14 +66,18 @@ export const SliderStage = ({ a, b, position, onPositionChange }: SliderStagePro
         // Opaque, with its own dots, so A's layer can repeat them exactly: both are this same box.
         <div data-testid="slider-stage" className="relative min-h-0 flex-1 overflow-hidden bg-background bg-dots">
             {/* Keyed so another file starts loading afresh rather than showing as loaded. */}
-            <Picture key={b.identity} file={b} className="absolute inset-0" />
+            {/*
+             * Each wash covers its own picture alone, in its file's own layer, so it tints only that picture's part on
+             * that file's side of the handle.
+             */}
+            <Picture key={b.identity} file={b} className="absolute inset-0" overlay={marked.b && <MarkWash />} />
             <div
                 data-testid="slider-a"
                 style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
                 // Opaque, so B never shows left of the handle where A's picture doesn't cover, or hasn't loaded.
                 className="absolute inset-0 bg-background bg-dots"
             >
-                <Picture key={a.identity} file={a} className="absolute inset-0" />
+                <Picture key={a.identity} file={a} className="absolute inset-0" overlay={marked.a && <MarkWash />} />
             </div>
 
             <div
@@ -87,6 +110,10 @@ export const SliderStage = ({ a, b, position, onPositionChange }: SliderStagePro
                     </span>
                 </Slider.Thumb>
             </Slider.Root>
+
+            {/* Above every layer and outside A's clip, so each stays whole and put; click-through to the Root. */}
+            {marked.a && <DeleteTag slot="a" />}
+            {marked.b && <DeleteTag slot="b" />}
         </div>
     );
 };
