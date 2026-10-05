@@ -7,7 +7,10 @@
 
 mod formats;
 mod set;
+mod thumbs;
 mod window;
+
+use tauri::Manager;
 
 /// Build and run the application. Blocks until it exits.
 ///
@@ -21,7 +24,16 @@ pub fn run() {
         // The native file and folder pickers behind the "Add to set" menu.
         .plugin(tauri_plugin_dialog::init())
         .manage(set::commands::SetState::default())
+        .manage(thumbs::ThumbState::default())
+        // Thumbnails for admitted files only, never by path; see `thumbs`.
+        .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::serve)
         .setup(|app| {
+            // Off the main thread so a slow cache open never delays the window; thumbnail requests wait for it.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let dir = handle.path().app_cache_dir().ok().map(|dir| dir.join("thumbnails"));
+                handle.state::<thumbs::ThumbState>().open_cache(dir.as_deref());
+            });
             // The window ships hidden and is shown by `window_ready`; this shows it anyway if the frontend never reports.
             window::reveal_when_late(app.handle());
             Ok(())
@@ -32,6 +44,7 @@ pub fn run() {
             set::commands::add_to_set,
             set::commands::remove_from_set,
             set::commands::rescan_set,
+            thumbs::commands::admit_media,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the MediaSim application");

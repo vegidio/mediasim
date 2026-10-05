@@ -18,7 +18,14 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# `DynamicImage`, which a preview is rendered to and the `thumb` scheme encodes. Already in the build through
+# `mediasim`, at the same version.
+image.workspace = true
 mediasim = { path = "../mediasim", features = ["serde"] }
+# A video's preview frame, extracted at the thumbnail's size by `Resolution::Fit`.
+media.workspace = true
+# `memo` is the thumbnail cache and `crypto` the XXH3-64 behind an admitted file's identity.
+rust-sak = { workspace = true, features = ["memo", "crypto"] }
 serde.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
@@ -26,8 +33,6 @@ tauri-plugin-os = "2"
 thiserror.workspace = true
 
 [dev-dependencies]
-# `mk_temp_dir` fixtures for the set tests in src/set.rs.
-rust-sak.workspace = true
 serde_json.workspace = true
 # `tauri::test::mock_builder`, for the window tests in src/window.rs.
 tauri = { version = "2", features = ["test"] }
