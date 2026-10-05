@@ -63,6 +63,8 @@
     --color-text-disabled: #71717a;
     --color-text-faint: #52525b;
     --color-text-label: #e4e4e7;
+    /* Amber, for fixable input states; the destructive red stays reserved for deletion. */
+    --color-warning: #fbbf24;
 }
 
 /* The design's zinc and lime palette, under shadcn's names so components added later pick it up unedited. */

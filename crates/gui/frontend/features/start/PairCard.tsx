@@ -1,47 +1,91 @@
-import { useId } from "react";
-import { Columns2Icon, UploadIcon } from "lucide-react";
+import { useRef } from "react";
+import { Columns2Icon, TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { dropTargetClassName, ModeCard } from "@/features/start/ModeCard";
+import { EmptySlot } from "@/features/start/EmptySlot";
+import { FilledSlot } from "@/features/start/FilledSlot";
+import { ModeCard } from "@/features/start/ModeCard";
+import { route, type Slot } from "@/features/start/routePairDrop";
+import { hits, type Point, useDropTarget } from "@/features/start/useDropTarget";
 import { cn } from "@/lib/utils";
+import { selectCanCompare, selectMismatch, usePairStore } from "@/stores/pair";
 
-/** An empty, not-yet-operable slot for one of the two files. */
-const FileSlot = ({ label }: { label: string }) => {
-    const labelId = useId();
-    const hintId = useId();
+const SLOTS: Slot[] = ["a", "b"];
+
+/** The "Compare two files" mode card: two slots to choose or drop a file into, and Compare. */
+export const PairCard = () => {
+    const a = usePairStore((state) => state.a);
+    const b = usePairStore((state) => state.b);
+    const drop = usePairStore((state) => state.drop);
+    const mismatch = usePairStore(selectMismatch);
+    const canCompare = usePairStore(selectCanCompare);
+    const cardRef = useRef<HTMLElement>(null);
+    const slotRefs = { a: useRef<HTMLDivElement>(null), b: useRef<HTMLDivElement>(null) };
+    // The slot whose file was just removed, whose empty button takes focus as it mounts.
+    const focusNext = useRef<Slot>(undefined);
+
+    /** The slot under a position in CSS pixels, or `undefined` outside both. */
+    const slotAt = (position: Point) => SLOTS.find((slot) => hits(slotRefs[slot].current, position));
+
+    // The whole card is the one drop target, and resolves which slot the drop landed on itself.
+    const { isOver, position, count } = useDropTarget(cardRef, (paths, at) => drop(paths, slotAt(at)));
+    // While dragging, every dragged path counts: only the drop itself knows which ones can be placed.
+    const highlighted = isOver && position ? route(count, slotAt(position), { a: !!a, b: !!b }) : [];
+    const files = { a, b };
 
     return (
-        <button
-            type="button"
-            disabled
-            aria-labelledby={labelId}
-            aria-describedby={hintId}
-            className={cn(dropTargetClassName, "h-[210px] w-full")}
+        <ModeCard
+            ref={cardRef}
+            icon={<Columns2Icon aria-hidden="true" />}
+            title="Compare two files"
+            description="Get one similarity score for two images or two videos."
         >
-            <UploadIcon aria-hidden="true" />
-            <span id={labelId} className="font-medium text-foreground text-sm">
-                {label}
-            </span>
-            <span id={hintId}>Drop or click to choose</span>
-        </button>
+            <div className="grid grid-cols-2 gap-3">
+                {SLOTS.map((slot) => {
+                    const file = files[slot];
+
+                    return (
+                        <div key={slot} ref={slotRefs[slot]} className="min-w-0">
+                            {file ? (
+                                <FilledSlot
+                                    slot={slot}
+                                    file={file}
+                                    highlighted={highlighted.includes(slot)}
+                                    onRemove={() => {
+                                        focusNext.current = slot;
+                                    }}
+                                />
+                            ) : (
+                                <EmptySlot
+                                    slot={slot}
+                                    highlighted={highlighted.includes(slot)}
+                                    ref={(button) => {
+                                        if (button && focusNext.current === slot) {
+                                            focusNext.current = undefined;
+                                            button.focus();
+                                        }
+                                    }}
+                                />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="mt-auto flex items-center justify-between gap-4">
+                {/* The hint's text is the same either way, so the hidden prefix is what makes the region announce. */}
+                <div aria-live="polite" className="text-[13px]">
+                    {mismatch && <span className="sr-only">Warning: </span>}
+                    <span
+                        className={cn("flex items-center gap-1.5", mismatch ? "text-warning" : "text-muted-foreground")}
+                    >
+                        {mismatch && <TriangleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />}
+                        Both files must be images, or both videos.
+                    </span>
+                </div>
+                {/* No destination until the pair result exists; enabled as the design draws it for a valid pair. */}
+                <Button disabled={!canCompare} className="h-10 px-[18px] text-sm">
+                    Compare
+                </Button>
+            </div>
+        </ModeCard>
     );
 };
-
-/** The "Compare two files" mode card, in its empty state. */
-export const PairCard = () => (
-    <ModeCard
-        icon={<Columns2Icon aria-hidden="true" />}
-        title="Compare two files"
-        description="Get one similarity score for two images or two videos."
-    >
-        <div className="grid grid-cols-2 gap-3">
-            <FileSlot label="File A" />
-            <FileSlot label="File B" />
-        </div>
-        <div className="mt-auto flex items-center justify-between gap-4">
-            <span className="text-[13px] text-muted-foreground">Both files must be images, or both videos.</span>
-            <Button disabled className="h-10 px-[18px] text-sm">
-                Compare
-            </Button>
-        </div>
-    </ModeCard>
-);

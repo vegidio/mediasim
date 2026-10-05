@@ -193,7 +193,7 @@ mod tests {
 
     /// Admits `path` into `state` and returns its identity.
     fn admit(state: &ThumbState, path: &Path) -> String {
-        let (identity, entry) = admit_one(path).unwrap();
+        let (identity, entry, _) = admit_one(path).unwrap();
         state.admit([(identity.clone(), entry)]);
         identity
     }

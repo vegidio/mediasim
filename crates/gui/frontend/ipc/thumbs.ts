@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import type { MediaType } from "./formats";
 
 /** The URI scheme `crates/gui/src/thumbs/mod.rs` serves thumbnails over. */
 const SCHEME = "thumb";
@@ -12,6 +13,27 @@ export const admitMedia = async (paths: string[]): Promise<(string | undefined)[
     const identities = await invoke<unknown[]>("admit_media", { paths });
 
     return identities.map((identity) => (typeof identity === "string" ? identity : undefined));
+};
+
+/** An admitted file, as `crates/gui/src/thumbs/commands.rs` describes it. */
+export type MediaFile = {
+    path: string;
+    name: string;
+    type: MediaType;
+    /** In bytes. */
+    size: number;
+    /** For {@link renditionUrl}. */
+    identity: string;
+};
+
+/**
+ * Admit files for thumbnails, like {@link admitMedia}, and describe them. Resolves, in the same order, to each one's
+ * path, name, media type, size and identity, or `undefined` for a path `admitMedia` gives no identity.
+ */
+export const describeMedia = async (paths: string[]): Promise<(MediaFile | undefined)[]> => {
+    const files = await invoke<(MediaFile | null)[]>("describe_media", { paths });
+
+    return files.map((file) => file ?? undefined);
 };
 
 /**

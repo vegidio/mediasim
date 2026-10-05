@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { describe, expect, it, type Mock, vi } from "vitest";
-import { pickFiles, pickFolders } from "./dialog";
+import { pickFile, pickFiles, pickFolders } from "./dialog";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
@@ -27,6 +27,30 @@ describe("pickFiles", () => {
         mockedOpen.mockResolvedValue(null);
 
         await expect(pickFiles([])).resolves.toEqual([]);
+    });
+});
+
+describe("pickFile", () => {
+    it("opens a single-file picker with the same filter and returns the picked file", async () => {
+        mockedOpen.mockResolvedValue("/a.JPG");
+
+        const picked = await pickFile([
+            { type: "image", extensions: ["jpg"] },
+            { type: "video", extensions: ["mov"] },
+        ]);
+
+        expect(picked).toBe("/a.JPG");
+        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith({
+            multiple: false,
+            directory: false,
+            filters: [{ name: "Images and videos", extensions: ["jpg", "JPG", "mov", "MOV"] }],
+        });
+    });
+
+    it("returns undefined when cancelled", async () => {
+        mockedOpen.mockResolvedValue(null);
+
+        await expect(pickFile([])).resolves.toBeUndefined();
     });
 });
 

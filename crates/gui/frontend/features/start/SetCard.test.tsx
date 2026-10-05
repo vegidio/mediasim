@@ -115,24 +115,21 @@ describe("SetCard", () => {
         expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     });
 
-    it("adds what is dropped onto the drop area, in CSS pixels", () => {
-        vi.stubGlobal("devicePixelRatio", 2);
+    it("adds what is dropped onto the drop area", () => {
         render(<SetCard />);
         placeAt(dropArea(), 100, 100, 400, 210);
 
-        // (600, 400) physical is (300, 200) CSS: inside the drop area.
-        drag({ type: "drop", paths: ["/Pictures", "/photo.jpg"], position: { x: 600, y: 400 } } as DragDropEvent);
+        drag({ type: "drop", paths: ["/Pictures", "/photo.jpg"], position: { x: 300, y: 200 } } as DragDropEvent);
 
         expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/Pictures", "/photo.jpg"], true);
     });
 
     it("ignores a drop outside the drop area", () => {
-        vi.stubGlobal("devicePixelRatio", 2);
         render(<SetCard />);
         placeAt(dropArea(), 100, 100, 400, 210);
 
-        // (300, 400) CSS is below the drop area, on the other card or the footer.
-        drag({ type: "drop", paths: ["/photo.jpg"], position: { x: 600, y: 800 } } as DragDropEvent);
+        // Below the drop area, on the other card or the footer.
+        drag({ type: "drop", paths: ["/photo.jpg"], position: { x: 300, y: 400 } } as DragDropEvent);
 
         expect(mockedAddToSet).not.toHaveBeenCalled();
     });

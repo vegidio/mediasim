@@ -5,3 +5,6 @@ import { platform } from "@tauri-apps/plugin-os";
 // than a module constant so jsdom, where the plugin's global does not exist, only fails inside a call a test can mock.
 /** Whether the application is running on macOS. */
 export const isMacOs = () => platform() === "macos";
+
+/** Whether the application is running on Windows. */
+export const isWindows = () => platform() === "windows";

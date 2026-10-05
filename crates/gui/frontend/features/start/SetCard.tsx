@@ -31,7 +31,7 @@ export const SetCard = () => {
 
     const empty = sources.length === 0;
     // One drop target: the drop area while the set is empty, the list's box once it is not.
-    const isOver = useDropTarget(empty ? dropAreaRef : listRef, add);
+    const { isOver } = useDropTarget(empty ? dropAreaRef : listRef, add);
     const counting = sources.some((row) => row.pending);
 
     return (

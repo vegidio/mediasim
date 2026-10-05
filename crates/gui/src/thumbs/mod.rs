@@ -1,9 +1,10 @@
 //! Thumbnails: which files the window may see, and how small pictures of them reach it.
 //!
-//! The window admits files with [`commands::admit_media`] and gets back an *identity* for each: a hash of the file's
-//! path, size and modification time. It then loads `thumb://localhost/<identity>?size=<bound>` in an `<img>`, which
-//! [`serve`] answers with a rendition from [`cache`], rendered by [`preview`]. A request names an identity, never a path, so the window can
-//! only reach files that were admitted.
+//! The window admits files with [`commands::admit_media`] (or [`commands::describe_media`]) and gets back an
+//! *identity* for each: a hash of the file's path, size and modification time. It then loads
+//! `thumb://localhost/<identity>?size=<bound>` in an `<img>`, which [`serve`] answers with a rendition from [`cache`],
+//! rendered by [`preview`]. A request names an identity, never a path, so the window can only reach files that were
+//! admitted.
 
 mod cache;
 pub mod commands;
@@ -77,12 +78,13 @@ impl ThumbState {
     }
 }
 
-/// Stats `path` and returns its identity and what was recorded, or `None` when it is not an existing file of a
-/// supported media type. The file is never opened: one that exists and won't decode is admitted, and its requests
-/// are answered as gone.
-fn admit_one(path: &Path) -> Option<(String, Admitted)> {
+/// Stats `path` and returns its identity, what was recorded and its media type, or `None` when it is not an existing
+/// file of a supported media type. The file is never opened: one that exists and won't decode is admitted, and its
+/// requests are answered as gone.
+fn admit_one(path: &Path) -> Option<(String, Admitted, MediaType)> {
+    let media_type = MediaType::from_path(path)?;
     // `media-rs` takes a video's input as `&str`, so a video whose path isn't Unicode could never be rendered.
-    if MediaType::from_path(path)? == MediaType::Video && path.to_str().is_none() {
+    if media_type == MediaType::Video && path.to_str().is_none() {
         return None;
     }
 
@@ -94,7 +96,7 @@ fn admit_one(path: &Path) -> Option<(String, Admitted)> {
     let modified = metadata.modified().ok()?;
     let identity = identity(&std::fs::canonicalize(path).ok()?, metadata.len(), modified);
 
-    Some((identity, Admitted { path: path.to_path_buf(), size: metadata.len(), modified }))
+    Some((identity, Admitted { path: path.to_path_buf(), size: metadata.len(), modified }, media_type))
 }
 
 /// XXH3-64 of the canonical path's bytes, the size and the modification time in nanoseconds since the Unix epoch,
@@ -146,7 +148,7 @@ pub(crate) mod tests {
 
     #[test]
     fn an_identity_is_sixteen_lowercase_hex_characters() {
-        let (identity, _) = admit_one(&fixture("test1.png")).unwrap();
+        let (identity, ..) = admit_one(&fixture("test1.png")).unwrap();
 
         assert_eq!(identity.len(), 16);
         assert!(identity.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)), "{identity}");
@@ -251,7 +253,7 @@ pub(crate) mod tests {
     #[test]
     fn re_admitting_keeps_the_first_entry() {
         let state = ThumbState::default();
-        let (identity, entry) = admit_one(&fixture("test1.png")).unwrap();
+        let (identity, entry, _) = admit_one(&fixture("test1.png")).unwrap();
 
         state.admit([(identity.clone(), entry.clone())]);
         state.admit([(identity.clone(), Admitted { path: "elsewhere.png".into(), ..entry.clone() })]);

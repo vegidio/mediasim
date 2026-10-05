@@ -16,3 +16,16 @@ rust-sak = { git = "https://github.com/vegidio/rust-sak", tag = "26.10.7", featu
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+
+# Development builds decode, resample and encode media at a usable speed. At Cargo's default `opt-level = 0`, a
+# thumbnail of a 1440×3098 PNG took 0.95s to render, against 0.02s released.
+#
+# Two entries: `package."*"` covers the dependencies, where the codecs and the resampler live. `profile.dev` itself
+# reaches generic code such as `rust_sak::image::encode_writer`, which is monomorphized into this workspace's crates
+# and compiled at their level. The cost is one full rebuild of the dependency tree the first time, and a debugger
+# that steps less faithfully through the workspace's own crates.
+[profile.dev]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 3

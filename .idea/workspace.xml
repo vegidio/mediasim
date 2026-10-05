@@ -17,18 +17,30 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add thumbnail pipeline to `gui` for media previews">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Enable &quot;Compare two files&quot; card with file selection, drag-and-drop, and mismatch warnings">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/ModeCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/ModeCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/PairCard.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/PairCard.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/PairCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/PairCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/SetCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/start/useDropTarget.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/start/useDropTarget.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/dialog.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/dialog.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/dialog.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/dialog.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/dragDrop.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/dragDrop.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/dragDrop.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/dragDrop.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/os.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/os.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/os.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/os.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/thumbs.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/thumbs.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/thumbs.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/thumbs.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/style.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/tauri.conf.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/design.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/proposal.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/proposal.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/specs/gui-thumbnails/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/specs/gui-thumbnails/spec.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/specs/media-loading/spec.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-3-thumbnails/tasks.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/thumbs/commands.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/thumbs/commands.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/thumbs/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/thumbs/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/thumbs/serve.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/thumbs/serve.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-4-pair/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-4-pair/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-start-4-pair/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-start-4-pair/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -458,7 +470,14 @@
       <option name="presentableId" value="LOCAL−00028" />
       <updated>1791198660772</updated>
     </task>
-    <option name="localTasksCounter" value="29" />
+    <task id="LOCAL−00029" summary="feat: Enable &quot;Compare two files&quot; card with file selection, drag-and-drop, and mismatch warnings">
+      <option name="closed" value="true" />
+      <created>1791201813311</created>
+      <option name="number" value="LOCAL−00029" />
+      <option name="presentableId" value="LOCAL−00029" />
+      <updated>1791201813311</updated>
+    </task>
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -466,7 +485,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="feat: Enable parallel media decoding with `from_files` and Rayon integration" />
     <MESSAGE value="feat: Add `from_dir` method for recursive image loading and tests" />
     <MESSAGE value="chore: Add `.gitkeep` and initialize `openspec` directory structure with `config.yaml`" />
     <MESSAGE value="build: Update dependencies in `Cargo.lock` and pin `rust-sak` to version `26.10.1`" />
@@ -491,7 +509,8 @@
     <MESSAGE value="feat: Add start screen layout and shell to `gui` crate" />
     <MESSAGE value="feat: Implement functional &quot;Find similar in a set&quot; card" />
     <MESSAGE value="feat: Add thumbnail pipeline to `gui` for media previews" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add thumbnail pipeline to `gui` for media previews" />
+    <MESSAGE value="feat: Enable &quot;Compare two files&quot; card with file selection, drag-and-drop, and mismatch warnings" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Enable &quot;Compare two files&quot; card with file selection, drag-and-drop, and mismatch warnings" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

@@ -1,12 +1,13 @@
-//! The Tauri command that admits files for thumbnails.
+//! The Tauri commands that admit files for thumbnails.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use mediasim::MediaType;
 use serde::{Serialize, Serializer};
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
-use super::{ThumbState, admit_one};
+use super::{Admitted, ThumbState, admit_one};
 
 /// Admitting failed for a reason other than a path, which only ever gets no identity.
 #[derive(Debug, thiserror::Error)]
@@ -35,13 +36,69 @@ pub async fn admit_media(state: State<'_, ThumbState>, paths: Vec<PathBuf>) -> R
 }
 
 async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, ThumbError> {
+    let admitted = admit_all(state, paths).await?;
+
+    Ok(admitted.into_iter().map(|entry| entry.map(|(identity, ..)| identity)).collect())
+}
+
+/// A file admitted for thumbnails, with what a slot of the "Compare two files" card shows about it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MediaFile {
+    path: String,
+    name: String,
+    r#type: MediaType,
+    /// In bytes.
+    size: u64,
+    identity: String,
+}
+
+/// Admits files for thumbnails, like [`admit_media`], and returns, in the same order, each one's path, name, media
+/// type, size and identity, or `None` for a path [`admit_media`] gives no identity.
+///
+/// # Errors
+///
+/// If the blocking admission task fails to finish.
+#[tauri::command]
+pub async fn describe_media(
+    state: State<'_, ThumbState>,
+    paths: Vec<PathBuf>,
+) -> Result<Vec<Option<MediaFile>>, ThumbError> {
+    describe(&state, paths).await
+}
+
+async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, ThumbError> {
+    let admitted = admit_all(state, paths).await?;
+
+    Ok(admitted
+        .into_iter()
+        .map(|entry| {
+            entry.map(|(identity, Admitted { path, size, .. }, media_type)| MediaFile {
+                name: file_name(&path),
+                path: path.to_string_lossy().into_owned(),
+                r#type: media_type,
+                size,
+                identity,
+            })
+        })
+        .collect())
+}
+
+/// Admits `paths` and returns what [`admit_one`] gave for each, in the same order.
+async fn admit_all(
+    state: &ThumbState,
+    paths: Vec<PathBuf>,
+) -> Result<Vec<Option<(String, Admitted, MediaType)>>, ThumbError> {
     // Stats run off the lock and off the async runtime; the registry is locked only to record the results.
     let admitted: Vec<_> = spawn_blocking(move || paths.iter().map(|path| admit_one(path)).collect()).await?;
 
-    let identities = admitted.iter().map(|entry| entry.as_ref().map(|(identity, _)| identity.clone())).collect();
-    state.admit(admitted.into_iter().flatten());
+    state.admit(admitted.iter().flatten().map(|(identity, entry, _)| (identity.clone(), entry.clone())));
 
-    Ok(identities)
+    Ok(admitted)
+}
+
+/// The last component of `path`, or the whole path when it has none.
+fn file_name(path: &Path) -> String {
+    path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
 }
 
 #[cfg(test)]
@@ -65,6 +122,54 @@ mod tests {
         for identity in identities.iter().flatten() {
             assert!(state.lookup(identity).is_some(), "{identity} was returned but not admitted");
         }
+    }
+
+    #[test]
+    fn describing_a_mixed_list_returns_files_and_nothing_in_input_order() {
+        let dir = rust_sak::fs::mk_temp_dir("mediasim-thumbs-").unwrap();
+        let notes = dir.path().join("notes.txt");
+        std::fs::write(&notes, b"not media").unwrap();
+        let state = state();
+        let paths = vec![fixture("test1.png"), fixture("missing.jpg"), fixture("test3.mp4"), dir.path().into(), notes];
+
+        let files = tauri::async_runtime::block_on(describe(&state, paths)).unwrap();
+
+        assert_eq!(files.len(), 5);
+        assert_eq!(files[1], None);
+        assert_eq!(files[3], None);
+        assert_eq!(files[4], None);
+        for (file, name, media_type) in
+            [(&files[0], "test1.png", MediaType::Image), (&files[2], "test3.mp4", MediaType::Video)]
+        {
+            let file = file.as_ref().expect("a media file is described");
+            let path = fixture(name);
+            let identity = tauri::async_runtime::block_on(admit(&state, vec![path.clone()])).unwrap();
+
+            assert_eq!(file.path, path.to_string_lossy());
+            assert_eq!(file.name, name);
+            assert_eq!(file.r#type, media_type);
+            assert_eq!(file.size, std::fs::metadata(&path).unwrap().len());
+            assert_eq!(Some(&file.identity), identity[0].as_ref());
+            assert!(state.lookup(&file.identity).is_some(), "{name} was described but not admitted");
+        }
+    }
+
+    #[test]
+    fn a_media_file_serializes_with_a_lowercase_type() {
+        let file = MediaFile {
+            path: "/a/b.mov".into(),
+            name: "b.mov".into(),
+            r#type: MediaType::Video,
+            size: 3,
+            identity: "0123456789abcdef".into(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(&file).unwrap(),
+            serde_json::json!({
+                "path": "/a/b.mov", "name": "b.mov", "type": "video", "size": 3, "identity": "0123456789abcdef"
+            })
+        );
     }
 
     #[test]

@@ -1,16 +1,28 @@
 import { type RefObject, useEffect, useEffectEvent, useState } from "react";
-import { type DragDropEvent, onDragDrop } from "@/ipc/dragDrop";
+import { type DragDropEvent, onDragDrop, type Point } from "@/ipc/dragDrop";
 
-/** Whether a position in physical pixels from the webview's corner falls inside `element`. */
-const hits = (element: HTMLElement | null, { x, y }: { x: number; y: number }) => {
+export type { Point };
+
+/** Whether a position in CSS pixels falls inside `element`. */
+export const hits = (element: HTMLElement | null, { x, y }: Point) => {
     if (!element) return false;
 
-    const ratio = window.devicePixelRatio || 1;
-    const [left, top] = [x / ratio, y / ratio];
     const rect = element.getBoundingClientRect();
 
-    return left >= rect.left && left <= rect.right && top >= rect.top && top <= rect.bottom;
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 };
+
+/** What is being dragged over a drop target. */
+export type DropTargetState = {
+    /** Whether something is being dragged over the target, for its highlight. */
+    isOver: boolean;
+    /** Where the drag is, in CSS pixels, while it is over the target. */
+    position?: Point;
+    /** How many paths are being dragged, while a drag is over the window. */
+    count: number;
+};
+
+const IDLE: DropTargetState = { isOver: false, count: 0 };
 
 /**
  * Make the element in `ref` a target for files dragged from the operating system.
@@ -19,29 +31,38 @@ const hits = (element: HTMLElement | null, { x, y }: { x: number; y: number }) =
  * share the window and a drop elsewhere reaches none of them. `ref` is read on each event, so it may point at a
  * different element from one render to the next.
  *
- * @returns whether something is being dragged over the target, for its highlight.
+ * @param onDrop called with the dropped paths and where they were dropped, in CSS pixels.
+ * @returns what is being dragged over the target.
  */
-export const useDropTarget = (ref: RefObject<HTMLElement | null>, onDrop: (paths: string[]) => void) => {
-    const [isOver, setIsOver] = useState(false);
+export const useDropTarget = (
+    ref: RefObject<HTMLElement | null>,
+    onDrop: (paths: string[], position: Point) => void,
+) => {
+    const [state, setState] = useState<DropTargetState>(IDLE);
 
     const handle = useEffectEvent((event: DragDropEvent) => {
         if (event.type === "leave") {
-            setIsOver(false);
+            setState(IDLE);
             return;
         }
 
-        const inside = hits(ref.current, event.position);
+        const { position } = event;
+        const inside = hits(ref.current, position);
 
         if (event.type === "drop") {
-            setIsOver(false);
-            if (inside) onDrop(event.paths);
+            setState(IDLE);
+            if (inside) onDrop(event.paths, position);
             return;
         }
 
-        setIsOver(inside);
+        // Only `enter` carries the paths; `over` keeps the count it gave.
+        setState((previous) => {
+            const count = event.type === "enter" ? event.paths.length : previous.count;
+            return inside ? { isOver: true, position, count } : { isOver: false, count };
+        });
     });
 
     useEffect(() => onDragDrop((event) => handle(event)), []);
 
-    return isOver;
+    return state;
 };

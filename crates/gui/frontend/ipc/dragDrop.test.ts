@@ -1,8 +1,10 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { onDragDrop } from "./dragDrop";
+import { isWindows } from "./os";
 
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: vi.fn() }));
+vi.mock("./os", () => ({ isWindows: vi.fn(() => false) }));
 
 /** A webview whose registration resolves when the test says so. */
 const webview = () => {
@@ -21,6 +23,10 @@ const webview = () => {
 };
 
 describe("onDragDrop", () => {
+    beforeEach(() => {
+        vi.stubGlobal("devicePixelRatio", 2);
+    });
+
     it("hands each event's payload to the handler", () => {
         const view = webview();
         const handler = vi.fn();
@@ -29,6 +35,37 @@ describe("onDragDrop", () => {
         view.emit({ type: "leave" });
 
         expect(handler).toHaveBeenCalledExactlyOnceWith({ type: "leave" });
+    });
+
+    it("keeps positions as they are on macOS and Linux, which report points", () => {
+        const view = webview();
+        const handler = vi.fn();
+
+        onDragDrop(handler);
+        view.emit({ type: "enter", paths: ["/a.jpg"], position: { x: 300, y: 200 } });
+        view.emit({ type: "over", position: { x: 310, y: 210 } });
+        view.emit({ type: "drop", paths: ["/a.jpg"], position: { x: 320, y: 220 } });
+
+        expect(handler.mock.calls).toEqual([
+            [{ type: "enter", paths: ["/a.jpg"], position: { x: 300, y: 200 } }],
+            [{ type: "over", position: { x: 310, y: 210 } }],
+            [{ type: "drop", paths: ["/a.jpg"], position: { x: 320, y: 220 } }],
+        ]);
+    });
+
+    it("turns physical pixels into CSS pixels on Windows", () => {
+        (isWindows as Mock).mockReturnValue(true);
+        const view = webview();
+        const handler = vi.fn();
+
+        onDragDrop(handler);
+        view.emit({ type: "drop", paths: ["/a.jpg"], position: { x: 600, y: 400 } });
+
+        expect(handler).toHaveBeenCalledExactlyOnceWith({
+            type: "drop",
+            paths: ["/a.jpg"],
+            position: { x: 300, y: 200 },
+        });
     });
 
     it("stops listening once registered", async () => {

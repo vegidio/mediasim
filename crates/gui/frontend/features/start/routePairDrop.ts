@@ -1,0 +1,23 @@
+/** One of the two slots of the "Compare two files" card. */
+export type Slot = "a" | "b";
+
+/**
+ * The slots a drop onto the pair card fills, in file order: the first file goes to the first slot returned.
+ *
+ * - No file: none.
+ * - Two or more files: A and B, wherever they were dropped; the rest are ignored.
+ * - One file onto a slot: that slot, replacing what it holds.
+ * - One file onto the card outside the slots: the first empty slot, A before B, or none when both are filled.
+ *
+ * @param count the number of files that can be placed in a slot.
+ * @param target the slot under the drop, or `undefined` outside both.
+ * @param filled which slots hold a file.
+ */
+export const route = (count: number, target: Slot | undefined, filled: { a: boolean; b: boolean }): Slot[] => {
+    if (count === 0) return [];
+    if (count >= 2) return ["a", "b"];
+    if (target) return [target];
+    if (!filled.a) return ["a"];
+    if (!filled.b) return ["b"];
+    return [];
+};
