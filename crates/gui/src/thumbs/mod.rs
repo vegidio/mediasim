@@ -20,6 +20,7 @@ use mediasim::MediaType;
 
 use cache::Renditions;
 pub use serve::serve;
+pub(crate) use serve::{Refusal, locate};
 
 // Must stay in sync with `tauri.conf.json`'s `img-src`, which needs both platform forms of it.
 /// The URI scheme thumbnails are served over. Registered in `src/lib.rs`.
@@ -30,7 +31,8 @@ pub const SCHEME: &str = "thumb";
 pub(crate) struct Admitted {
     /// The path as admitted, which is what is read to render it.
     pub(crate) path: PathBuf,
-    size: u64,
+    /// The size in bytes as admitted, which [`locate`] checks the file still has.
+    pub(crate) size: u64,
     modified: SystemTime,
 }
 

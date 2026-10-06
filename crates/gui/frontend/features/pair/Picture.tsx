@@ -14,13 +14,27 @@ type PictureProps = {
     className?: string;
     /** Drawn over the picture's own rectangle, not the box around it, and only once the picture has loaded. */
     overlay?: ReactNode;
+    /** Drawn in the picture's own rectangle, over the picture and under `overlay`, whether it has loaded or not. */
+    media?: ReactNode;
+    /**
+     * Drawn above everything, along the picture's bottom edge, 12 px inside it, but never narrower than 280 px or the
+     * box, whichever is less. Along the box's bottom edge until the picture's shape is known.
+     */
+    bar?: ReactNode;
 };
+
+/** Where `bar` sits once the picture's shape is known, from the same `cq` arithmetic as the frame. */
+const barStyle = (ratio: number) => ({
+    width: `clamp(min(280px, 100cqw), min(100cqw, ${ratio} * 100cqh) - 24px, 100cqw)`,
+    bottom: `calc((100cqh - min(100cqh, 100cqw / ${ratio})) / 2 + 12px)`,
+});
 
 /**
  * The file's whole picture, scaled to fit and centred, over its kind icon. The icon shows until the picture has
- * loaded, and stays when it can't be produced. A video's picture is a still frame; nothing plays.
+ * loaded, and stays when it can't be produced. A video's picture is a still frame, which `media` can draw a player
+ * over.
  */
-export const Picture = ({ file, className, overlay }: PictureProps) => {
+export const Picture = ({ file, className, overlay, media, bar }: PictureProps) => {
     const [loaded, setLoaded] = useState(false);
     /** The picture's width over its height, known once it has loaded. */
     const [ratio, setRatio] = useState<number>();
@@ -61,8 +75,22 @@ export const Picture = ({ file, className, overlay }: PictureProps) => {
                     }}
                     className={cn("absolute inset-0 size-full object-contain", !loaded && "invisible")}
                 />
+                {media}
                 {loaded && overlay}
             </div>
+            {/*
+             * Outside the frame, so a narrow portrait picture still gets a usable bar. The class places it where a
+             * webview can't read `cq` units and drops the inline style.
+             */}
+            {bar && (
+                <div
+                    data-testid="picture-bar"
+                    style={ratio ? barStyle(ratio) : undefined}
+                    className="absolute bottom-3 left-1/2 w-[max(calc(100%-24px),min(280px,100%))] max-w-full -translate-x-1/2"
+                >
+                    {bar}
+                </div>
+            )}
         </div>
     );
 };

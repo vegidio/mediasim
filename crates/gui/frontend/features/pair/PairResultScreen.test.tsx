@@ -18,6 +18,7 @@ vi.mock("@/ipc/thumbs", () => ({
     describeMedia: vi.fn(),
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
+vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
 
@@ -681,6 +682,128 @@ describe("PairResultScreen", () => {
             fireEvent.click(compare());
 
             expect(screen.queryByRole("button", { name: /^Undo moving/ })).not.toBeInTheDocument();
+        });
+    });
+
+    describe("playing videos", () => {
+        const VA = media("VID_0714.mov", "video");
+        const VB = media("VID_0714-copy.mp4", "video");
+
+        /** The `<video>` in a pane, which has no accessible role. */
+        const videoOf = (pane: string) =>
+            screen.getByRole("article", { name: pane }).querySelector("video") as HTMLVideoElement;
+        const button = (name: string) => screen.getByRole("button", { name });
+
+        /** Opens a pair of videos side by side, each knowing its duration, and plays A. */
+        const openAndPlayA = () => {
+            usePairStore.setState({ a: VA, b: VB });
+            render(<App />);
+            fireEvent.click(compare());
+            act(() => {
+                // Read-only to the type, as the element sets it; the test setup's stub lets a test stand for that.
+                Object.assign(videoOf("File A"), { duration: 42 });
+                Object.assign(videoOf("File B"), { duration: 42 });
+            });
+            fireEvent.click(button("Play VID_0714.mov"));
+        };
+
+        it("plays and unmutes A alone, leaving B paused and muted", () => {
+            openAndPlayA();
+            fireEvent.click(button("Unmute VID_0714.mov"));
+
+            expect(videoOf("File A").paused).toBe(false);
+            expect(videoOf("File A").muted).toBe(false);
+            expect(videoOf("File B").paused).toBe(true);
+            expect(videoOf("File B").muted).toBe(true);
+            expect(button("Play VID_0714-copy.mp4")).toBeInTheDocument();
+            expect(button("Unmute VID_0714-copy.mp4")).toBeInTheDocument();
+        });
+
+        it("stops A when the slider is selected, which shows stills with no player bar", () => {
+            openAndPlayA();
+            fireEvent.click(button("Unmute VID_0714.mov"));
+            const playing = videoOf("File A");
+
+            select("Slider");
+
+            expect(playing.paused).toBe(true);
+            expect(playing).not.toHaveAttribute("src");
+            expect(document.querySelector("video")).not.toBeInTheDocument();
+            expect(screen.queryByRole("group", { name: /^Player for/ })).not.toBeInTheDocument();
+            expect(screen.getByTestId("slider-stage").querySelectorAll("img")).toHaveLength(2);
+        });
+
+        it("starts A again paused at its beginning and muted back side by side", () => {
+            openAndPlayA();
+            fireEvent.click(button("Unmute VID_0714.mov"));
+            act(() => {
+                videoOf("File A").currentTime = 30;
+            });
+
+            select("Slider");
+            select("Side by side");
+
+            expect(button("Play VID_0714.mov")).toBeInTheDocument();
+            expect(button("Unmute VID_0714.mov")).toBeInTheDocument();
+            expect(screen.getByRole("group", { name: "Player for VID_0714.mov" })).toHaveTextContent(/^0:00 \//);
+            expect(videoOf("File A").paused).toBe(true);
+            expect(videoOf("File A").muted).toBe(true);
+            expect(videoOf("File A")).toHaveClass("invisible");
+        });
+
+        it("stops B when it is moved to the Trash while playing, showing its placeholder", async () => {
+            mockedTrash.mockReset().mockResolvedValue([{ status: "trashed" }]);
+            usePairStore.setState({ a: VA, b: VB });
+            render(<App />);
+            fireEvent.click(compare());
+            fireEvent.click(button("Play VID_0714-copy.mp4"));
+            const playing = videoOf("File B");
+            expect(playing.paused).toBe(false);
+
+            fireEvent.click(button("Mark B for deletion"));
+            fireEvent.click(within(footer()).getByRole("button", { name: /Move \d to Trash…/ }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            await settle();
+
+            expect(playing.paused).toBe(true);
+            expect(playing).not.toHaveAttribute("src");
+            expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent("Moved to Trash");
+            expect(videoOf("File A").paused).toBe(true);
+        });
+
+        it("stops B when it is deleted permanently while playing, showing its placeholder", async () => {
+            useSettingsStore.setState({ deletionMode: "permanent" });
+            (deleteMedia as Mock).mockReset().mockResolvedValue([{ status: "deleted" }]);
+            usePairStore.setState({ a: VA, b: VB });
+            render(<App />);
+            fireEvent.click(compare());
+            fireEvent.click(button("Play VID_0714-copy.mp4"));
+            const playing = videoOf("File B");
+            expect(playing.paused).toBe(false);
+
+            fireEvent.click(button("Mark B for deletion"));
+            fireEvent.click(within(footer()).getByRole("button", { name: "Delete 1 permanently…" }));
+            fireEvent.click(
+                within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }),
+            );
+            await settle();
+
+            expect(playing.paused).toBe(true);
+            expect(playing).not.toHaveAttribute("src");
+            expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent("Deleted permanently");
+            expect(videoOf("File A").paused).toBe(true);
+        });
+
+        it("stops both on New comparison", () => {
+            openAndPlayA();
+            fireEvent.click(button("Play VID_0714-copy.mp4"));
+            const [a, b] = [videoOf("File A"), videoOf("File B")];
+
+            fireEvent.click(back());
+
+            expect(a.paused).toBe(true);
+            expect(b.paused).toBe(true);
+            expect(document.querySelector("video")).not.toBeInTheDocument();
         });
     });
 });

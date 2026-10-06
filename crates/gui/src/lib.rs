@@ -10,6 +10,7 @@ mod pair;
 mod set;
 mod thumbs;
 mod trash;
+mod video;
 mod window;
 
 use tauri::Manager;
@@ -31,6 +32,8 @@ pub fn run() {
         .manage(<trash::TrashState>::default())
         // Thumbnails for admitted files only, never by path; see `thumbs`.
         .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::serve)
+        // Byte ranges of admitted videos, by identity like `thumb`; see `video`.
+        .register_asynchronous_uri_scheme_protocol(video::SCHEME, video::serve)
         .setup(|app| {
             // Off the main thread so a slow cache open never delays the window; thumbnail requests wait for it.
             let handle = app.handle().clone();

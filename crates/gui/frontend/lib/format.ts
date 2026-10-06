@@ -16,3 +16,13 @@ export const formatSize = (bytes: number) => {
 
     return `${value.toFixed(1)} ${UNITS[unit]}`;
 };
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+/** A duration as `M:SS` below an hour and `H:MM:SS` from an hour, with the seconds rounded down. */
+export const formatDuration = (seconds: number) => {
+    const whole = Math.floor(seconds);
+    const [h, m, s] = [Math.floor(whole / 3600), Math.floor((whole % 3600) / 60), whole % 60];
+
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+};

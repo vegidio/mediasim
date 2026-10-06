@@ -9,6 +9,7 @@ import { type Details, detailRows } from "./details";
 import { MarkButton } from "./MarkButton";
 import { MarkWash } from "./MarkWash";
 import { Picture } from "./Picture";
+import { VideoPlayer } from "./VideoPlayer";
 
 type MediaPaneProps = {
     slot: Slot;
@@ -70,6 +71,8 @@ export const MediaPane = (props: MediaPaneProps) => {
 
     const { slot, file, details, other, marked, onToggleMark } = props;
     const badge = slot.toUpperCase();
+    // A video plays in its picture's place, with its player bar over the wash.
+    const Media = file.type === "video" ? VideoPlayer : Picture;
 
     return (
         <article
@@ -90,7 +93,7 @@ export const MediaPane = (props: MediaPaneProps) => {
 
             <div className="relative min-h-0 flex-1">
                 {/* Keyed so another file starts loading afresh rather than showing as loaded. */}
-                <Picture
+                <Media
                     key={file.identity}
                     file={file}
                     className="absolute inset-0"

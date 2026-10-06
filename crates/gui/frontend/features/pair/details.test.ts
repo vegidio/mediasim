@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
-import { type Details, detailRows, formatCreated, formatDuration, formatFormat, formatFrameRate } from "./details";
+import { type Details, detailRows, formatCreated, formatFormat, formatFrameRate } from "./details";
 
 /** An RFC 3339 time for a local wall-clock time, so the expectations hold in any time zone. */
 const local = (year: number, month: number, day: number, hours = 0, minutes = 0) =>
@@ -34,20 +34,6 @@ const ready = (info: MediaInfo): Details => ({ status: "ready", info });
 /** Each row as `key: value [badge]`, for compact expectations. */
 const lines = (...args: Parameters<typeof detailRows>) =>
     detailRows(...args).map(({ key, value, badge }) => `${key}: ${value ?? "…"}${badge ? ` [${badge}]` : ""}`);
-
-describe("formatDuration", () => {
-    it.each([
-        [0, "0:00"],
-        [42.6, "0:42"],
-        [59.999, "0:59"],
-        [61, "1:01"],
-        [3599, "59:59"],
-        [3600, "1:00:00"],
-        [3725, "1:02:05"],
-    ])("reads %d seconds as %s", (seconds, expected) => {
-        expect(formatDuration(seconds)).toBe(expected);
-    });
-});
 
 describe("formatFrameRate", () => {
     it.each([

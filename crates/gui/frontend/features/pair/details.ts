@@ -1,6 +1,6 @@
 import type { MediaType } from "@/ipc/formats";
 import type { MediaInfo } from "@/ipc/pair";
-import { formatSize } from "@/lib/format";
+import { formatDuration, formatSize } from "@/lib/format";
 
 /** What is known of a file's details: still being read, read, or unreadable. */
 export type Details = { status: "loading" } | { status: "ready"; info: MediaInfo } | { status: "failed" };
@@ -22,14 +22,6 @@ const UNKNOWN = "Unknown";
 const SRGB = "sRGB IEC61966-2.1";
 
 const pad = (value: number) => String(value).padStart(2, "0");
-
-/** A duration as `M:SS` below an hour and `H:MM:SS` from an hour, with the seconds rounded down. */
-export const formatDuration = (seconds: number) => {
-    const whole = Math.floor(seconds);
-    const [h, m, s] = [Math.floor(whole / 3600), Math.floor((whole % 3600) / 60), whole % 60];
-
-    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-};
 
 /** Frames per second with at most two decimals and no trailing zeros: `29.97 fps`, `30 fps`. */
 export const formatFrameRate = (fps: number) => `${fps.toFixed(2).replace(/\.?0+$/, "")} fps`;

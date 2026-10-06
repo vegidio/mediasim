@@ -29,9 +29,9 @@ struct Asked {
     bound: NonZeroU32,
 }
 
-/// Why a request was not answered with a picture.
+/// Why a request was not answered with a picture. Shared with the `video` scheme, which refuses the same way.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Refusal {
+pub(crate) enum Refusal {
     /// A malformed request, or an identity that was never admitted.
     NotFound,
     /// An admitted file that has been removed or changed since, or that can't be decoded.
@@ -63,8 +63,8 @@ fn parse(uri: &Uri) -> Option<Asked> {
 /// The admitted file behind `identity`, if it is still the file that was admitted.
 ///
 /// Runs before the cache, so a file that was removed or changed stops being served even while a rendition of it is
-/// still cached.
-fn locate(state: &ThumbState, identity: &str) -> Result<Admitted, Refusal> {
+/// still cached. Shared with the `video` scheme, which re-checks it on every range.
+pub(crate) fn locate(state: &ThumbState, identity: &str) -> Result<Admitted, Refusal> {
     let admitted = state.lookup(identity).ok_or(Refusal::NotFound)?;
     let metadata = std::fs::metadata(&admitted.path).map_err(|_| Refusal::Gone)?;
 
