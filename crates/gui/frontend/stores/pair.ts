@@ -13,6 +13,8 @@ type PairStore = {
     drop: (paths: string[], target: Slot | undefined) => Promise<void>;
     /** Empty `slot`. */
     remove: (slot: Slot) => void;
+    /** Put `file` back in `slot`, as after a restore from the Trash, only if the slot is empty. */
+    refill: (slot: Slot, file: MediaFile) => void;
 };
 
 /** Whether one slot holds an image and the other a video. */
@@ -76,6 +78,12 @@ export const usePairStore = create<PairStore>()((set, get) => {
         remove: (slot) => {
             owners[slot] = ++actions;
             set((state) => put(state, slot), true);
+        },
+
+        refill: (slot, file) => {
+            if (get()[slot]) return;
+            owners[slot] = ++actions;
+            set((state) => put(state, slot, file), true);
         },
     };
 });

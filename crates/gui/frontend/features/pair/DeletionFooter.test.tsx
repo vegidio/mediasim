@@ -95,6 +95,15 @@ describe("DeletionFooter", () => {
         expect(move()).toBeDisabled();
     });
 
+    it("says nothing is marked yet once the moved file is restored", () => {
+        usePairResultStore.setState({ trashed: { a: false, b: true } });
+        render(<DeletionFooter />);
+
+        act(() => usePairResultStore.setState({ trashed: { a: false, b: false } }));
+
+        expect(status()).toHaveTextContent(/^Nothing marked yet\. Mark the file you don't need\.$/);
+    });
+
     it("counts only the file still there once the other is moved", () => {
         usePairResultStore.setState({ trashed: { a: false, b: true } });
         render(<DeletionFooter />);

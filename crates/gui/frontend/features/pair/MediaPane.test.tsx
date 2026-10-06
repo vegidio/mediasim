@@ -237,7 +237,7 @@ describe("MediaPane", () => {
         const EDIT: MediaFile = { ...IMAGE, name: "IMG_2041-edit.jpg", size: 1_100_000, identity: "fedcba9876543210" };
         const smaller = imageInfo({ width: 2048, height: 1536, created: new Date(2025, 7, 2).toISOString() });
 
-        const both = () =>
+        const both = ({ onRestore = () => {}, restoring = false } = {}) =>
             render(
                 <>
                     <MediaPane
@@ -254,6 +254,8 @@ describe("MediaPane", () => {
                         other={ready(imageInfo())}
                         {...UNMARKED}
                         trashed
+                        onRestore={onRestore}
+                        restoring={restoring}
                     />
                 </>,
             );
@@ -263,9 +265,10 @@ describe("MediaPane", () => {
 
             const gone = pane("File B");
             expect(gone).toHaveClass("border-dashed");
-            expect(gone).toHaveTextContent("IMG_2041-edit.jpgMoved to Trash · 1.1 MB freed");
+            expect(gone).toHaveTextContent("IMG_2041-edit.jpgMoved to Trash · 1.1 MB freedUndo");
             expect(gone.querySelector(".lucide-trash-2")).toHaveAttribute("aria-hidden", "true");
-            expect(within(gone).queryByRole("button")).not.toBeInTheDocument();
+            expect(within(gone).getAllByRole("button")).toHaveLength(1);
+            expect(within(gone).queryByRole("button", { name: /^Mark/ })).not.toBeInTheDocument();
             expect(gone.querySelector("img")).not.toBeInTheDocument();
             expect(gone.querySelector("dl")).not.toBeInTheDocument();
         });
@@ -278,6 +281,34 @@ describe("MediaPane", () => {
             expect(kept.querySelector("img")).toBeInTheDocument();
             expect(details("File A")[0]).toEqual(["Resolution", "4032 × 3024Higher"]);
             expect(details("File A")[3]).toEqual(["Created", "2025-07-14 20:41Older"]);
+        });
+
+        it("offers Undo under the Moved to Trash line, named with the file", () => {
+            both();
+
+            const undo = within(pane("File B")).getByRole("button", { name: "Undo moving IMG_2041-edit.jpg to Trash" });
+            expect(undo).toHaveTextContent(/^Undo$/);
+            expect(undo).toBeEnabled();
+        });
+
+        it("calls onRestore from Undo", () => {
+            const onRestore = vi.fn();
+            both({ onRestore });
+
+            fireEvent.click(screen.getByRole("button", { name: "Undo moving IMG_2041-edit.jpg to Trash" }));
+
+            expect(onRestore).toHaveBeenCalledOnce();
+        });
+
+        it("disables Undo while restoring", () => {
+            const onRestore = vi.fn();
+            both({ onRestore, restoring: true });
+
+            const undo = screen.getByRole("button", { name: "Undo moving IMG_2041-edit.jpg to Trash" });
+            fireEvent.click(undo);
+
+            expect(undo).toBeDisabled();
+            expect(onRestore).not.toHaveBeenCalled();
         });
     });
 });

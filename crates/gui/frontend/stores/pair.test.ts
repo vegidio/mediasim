@@ -103,6 +103,35 @@ describe("usePairStore", () => {
         expect(state().b).toEqual(media("b.jpg"));
     });
 
+    it("refills an empty slot and leaves the other alone", () => {
+        usePairStore.setState({ a: media("a.jpg") });
+
+        state().refill("b", media("b.jpg"));
+
+        expect(state().a).toEqual(media("a.jpg"));
+        expect(state().b).toEqual(media("b.jpg"));
+    });
+
+    it("never refills a slot that holds a file", () => {
+        usePairStore.setState({ b: media("other.jpg") });
+
+        state().refill("b", media("b.jpg"));
+
+        expect(state().b).toEqual(media("other.jpg"));
+    });
+
+    it("lets a refill beat an earlier slow drop into the same slot", async () => {
+        const slow = deferred<(MediaFile | undefined)[]>();
+        mockedDescribe.mockReturnValueOnce(slow.promise);
+
+        const placing = state().place("a", "/media/big.mov");
+        state().refill("a", media("a.jpg"));
+        slow.resolve([media("big.mov", "video")]);
+        await placing;
+
+        expect(state().a).toEqual(media("a.jpg"));
+    });
+
     it("keeps an in-flight pick when a later drop routes nowhere", async () => {
         const pick = deferred<(MediaFile | undefined)[]>();
         mockedDescribe.mockReturnValueOnce(pick.promise).mockResolvedValueOnce([undefined]);

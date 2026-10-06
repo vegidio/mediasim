@@ -99,6 +99,15 @@ describe("ScorePanel", () => {
         expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
     });
 
+    it("offers Try again again once both files are back", () => {
+        const failed = { status: "failed", error: { kind: "load", path: "/media/b.mp4", message: "boom" } } as const;
+        const { rerender } = render(<ScorePanel comparison={failed} onRetry={() => {}} canRetry={false} />);
+
+        rerender(<ScorePanel comparison={failed} onRetry={() => {}} canRetry />);
+
+        expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    });
+
     it("names a Windows path's file", () => {
         render(
             <ScorePanel

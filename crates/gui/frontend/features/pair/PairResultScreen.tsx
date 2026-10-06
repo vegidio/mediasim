@@ -2,8 +2,10 @@ import { useEffect, useRef } from "react";
 import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Slot } from "@/features/start/routePairDrop";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
+import { focusDismiss } from "./DeletionNotice";
 import { MediaPane } from "./MediaPane";
 import { ScorePanel } from "./ScorePanel";
 import { SliderPane } from "./SliderPane";
@@ -18,6 +20,8 @@ export const PairResultScreen = () => {
     const marked = usePairResultStore((state) => state.marked);
     const toggleMark = usePairResultStore((state) => state.toggleMark);
     const trashed = usePairResultStore((state) => state.trashed);
+    const restoring = usePairResultStore((state) => state.deletion.status === "restoring");
+    const restore = usePairResultStore((state) => state.restore);
     const mode = usePairViewStore((state) => state.mode);
     const setMode = usePairViewStore((state) => state.setMode);
     const position = usePairViewStore((state) => state.position);
@@ -26,6 +30,9 @@ export const PairResultScreen = () => {
 
     // Compare, which opened this screen, is gone, so focus lands on the way back.
     useEffect(() => back.current?.focus(), []);
+
+    // The gone pane's Undo goes as its pane comes back, so focus moves to the notice reporting the restore.
+    const undo = (slot: Slot) => () => restore([slot]).then(focusDismiss);
 
     return (
         <Tabs
@@ -57,6 +64,8 @@ export const PairResultScreen = () => {
                             marked={marked.a}
                             onToggleMark={() => toggleMark("a")}
                             trashed={trashed.a}
+                            onRestore={undo("a")}
+                            restoring={restoring}
                         />
                         <MediaPane
                             slot="b"
@@ -66,6 +75,8 @@ export const PairResultScreen = () => {
                             marked={marked.b}
                             onToggleMark={() => toggleMark("b")}
                             trashed={trashed.b}
+                            onRestore={undo("b")}
+                            restoring={restoring}
                         />
                     </TabsContent>
                     <TabsContent value="slider" className="flex min-h-[360px] flex-1 flex-col">

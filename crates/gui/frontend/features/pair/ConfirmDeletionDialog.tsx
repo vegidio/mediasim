@@ -13,7 +13,7 @@ import type { Slot } from "@/features/start/routePairDrop";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
 import { formatSize } from "@/lib/format";
 import { usePairResultStore } from "@/stores/pairResult";
-import { DISMISS_ID } from "./DeletionNotice";
+import { focusDismiss } from "./DeletionNotice";
 
 const SLOTS: readonly Slot[] = ["a", "b"];
 
@@ -58,8 +58,8 @@ type ConfirmDeletionDialogProps = {
 
 /**
  * Asks to confirm moving the marked files to the Trash, listing each with its thumbnail, name and size, then moves
- * them. Open while the pair result store's deletion isn't idle; it can't be closed by a press outside, nor at all
- * while the files are moving.
+ * them. Open while the pair result store's deletion is confirming or moving, never for a restore; it can't be closed by
+ * a press outside, nor at all while the files are moving.
  */
 export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) => {
     const files = usePairResultStore((state) => state.files);
@@ -89,7 +89,7 @@ export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) 
 
     return (
         <AlertDialog
-            open={deletion.status !== "idle"}
+            open={deletion.status === "confirming" || moving}
             onOpenChange={(open) => (open ? confirmDeletion() : cancelDeletion())}
         >
             <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
@@ -102,7 +102,7 @@ export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) 
                     if (!moved.current) return;
                     moved.current = false;
                     event.preventDefault();
-                    document.getElementById(DISMISS_ID)?.focus();
+                    focusDismiss();
                 }}
                 className="block w-[520px] max-w-[calc(100%-32px)] gap-0 rounded-[16px] border border-[#27272A] bg-[#0F0F11] p-0 shadow-[0_24px_64px_rgba(0,0,0,.6)] ring-0 data-[size=default]:max-w-[calc(100%-32px)] data-[size=default]:sm:max-w-[calc(100%-32px)]"
             >

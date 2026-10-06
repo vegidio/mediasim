@@ -2,18 +2,19 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import type { MediaType } from "@/ipc/formats";
 import { cancelComparison, comparePair, type MediaInfo, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { type TrashOutcome, trashMedia } from "@/ipc/trash";
+import { type RestoreOutcome, restoreMedia, type TrashOutcome, trashMedia } from "@/ipc/trash";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { useScreenStore } from "@/stores/screen";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
-vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
 
 const mockedProbe = probeMedia as Mock;
 const mockedCompare = comparePair as Mock;
 const mockedCancel = cancelComparison as Mock;
 const mockedTrash = trashMedia as Mock;
+const mockedRestore = restoreMedia as Mock;
 
 const media = (name: string, type: MediaType = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -333,7 +334,7 @@ describe("usePairResultStore", () => {
 
             expect(state().trashed).toEqual({ a: false, b: true });
             expect(state().marked).toEqual({ a: false, b: false });
-            expect(state().notice).toEqual({ moved: ["b"], failed: [] });
+            expect(state().notice).toEqual({ action: "trash", done: ["b"], failed: [] });
             expect(usePairStore.getState().a).toEqual(A);
             expect(usePairStore.getState().b).toBeUndefined();
         });
@@ -344,7 +345,8 @@ describe("usePairResultStore", () => {
             expect(state().trashed).toEqual({ a: false, b: true });
             expect(state().marked).toEqual({ a: true, b: false });
             expect(state().notice).toEqual({
-                moved: ["b"],
+                action: "trash",
+                done: ["b"],
                 failed: [{ slot: "a", message: "the folder is read-only" }],
             });
             expect(usePairStore.getState().a).toEqual(A);
@@ -371,7 +373,8 @@ describe("usePairResultStore", () => {
             expect(state().trashed).toEqual({ a: false, b: false });
             expect(state().marked).toEqual({ a: true, b: true });
             expect(state().notice).toEqual({
-                moved: [],
+                action: "trash",
+                done: [],
                 failed: [
                     { slot: "a", message: "command trash_media not found" },
                     { slot: "b", message: "command trash_media not found" },
@@ -421,6 +424,145 @@ describe("usePairResultStore", () => {
             state().leave();
 
             expect(state().notice).toBeUndefined();
+        });
+
+        describe("restore", () => {
+            const restored = (identity: string): RestoreOutcome => ({ status: "restored", identity });
+            const occupied: RestoreOutcome = {
+                status: "failed",
+                reason: "occupied",
+                message: "a file with its name is already in its folder",
+            };
+
+            beforeEach(() => {
+                mockedRestore.mockReset();
+            });
+
+            it("restores nothing that isn't in the Trash", async () => {
+                await state().restore(["a", "b"]);
+
+                expect(mockedRestore).not.toHaveBeenCalled();
+                expect(state().deletion).toEqual({ status: "idle" });
+            });
+
+            it("is restoring while the call is pending, and no move can start then", async () => {
+                await move(["b"], [TRASHED]);
+                state().toggleMark("a");
+                const pending = deferred<RestoreOutcome[]>();
+                mockedRestore.mockReturnValue(pending.promise);
+
+                const run = state().restore(["b"]);
+
+                expect(state().deletion).toEqual({ status: "restoring" });
+                state().confirmDeletion();
+                expect(state().deletion).toEqual({ status: "restoring" });
+                pending.resolve([restored("id-new")]);
+                await run;
+                expect(state().deletion).toEqual({ status: "idle" });
+            });
+
+            it("puts a restored file back in place, unmarked, under its new identity, and refills its start slot", async () => {
+                await move(["b"], [TRASHED]);
+                mockedRestore.mockResolvedValue([restored("id-new")]);
+
+                await state().restore(["b"]);
+
+                expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([B.identity]);
+                expect(state().trashed).toEqual({ a: false, b: false });
+                expect(state().marked).toEqual({ a: false, b: false });
+                expect(state().files?.b).toEqual({ ...B, identity: "id-new" });
+                expect(state().files?.a).toEqual(A);
+                expect(state().notice).toEqual({ action: "restore", done: ["b"], failed: [] });
+                expect(usePairStore.getState().b).toEqual({ ...B, identity: "id-new" });
+            });
+
+            it("keeps a file placed in the start slot since", async () => {
+                await move(["b"], [TRASHED]);
+                const other = media("other.jpg");
+                usePairStore.setState({ b: other });
+                mockedRestore.mockResolvedValue([restored("id-new")]);
+
+                await state().restore(["b"]);
+
+                expect(usePairStore.getState().b).toEqual(other);
+            });
+
+            it("keeps a file that fails gone, restores the other, and lists both", async () => {
+                await move(["a", "b"], [TRASHED, TRASHED]);
+                mockedRestore.mockResolvedValue([occupied, restored(B.identity)]);
+
+                await state().restore(["a", "b"]);
+
+                expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([A.identity, B.identity]);
+                expect(state().trashed).toEqual({ a: true, b: false });
+                expect(state().notice).toEqual({
+                    action: "restore",
+                    done: ["b"],
+                    failed: [{ slot: "a", message: occupied.message }],
+                });
+                expect(usePairStore.getState().a).toBeUndefined();
+                expect(usePairStore.getState().b).toEqual(B);
+            });
+
+            it("restores only the slots asked for", async () => {
+                await move(["a", "b"], [TRASHED, TRASHED]);
+                mockedRestore.mockResolvedValue([restored(A.identity)]);
+
+                await state().restore(["a"]);
+
+                expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([A.identity]);
+                expect(state().trashed).toEqual({ a: false, b: true });
+            });
+
+            it("fails every file when the call rejects", async () => {
+                await move(["a", "b"], [TRASHED, TRASHED]);
+                mockedRestore.mockRejectedValue("command restore_media not found");
+
+                await state().restore(["a", "b"]);
+
+                expect(state().trashed).toEqual({ a: true, b: true });
+                expect(state().deletion).toEqual({ status: "idle" });
+                expect(state().notice).toEqual({
+                    action: "restore",
+                    done: [],
+                    failed: [
+                        { slot: "a", message: "command restore_media not found" },
+                        { slot: "b", message: "command restore_media not found" },
+                    ],
+                });
+            });
+
+            it.each([
+                ["leaving", () => state().leave()],
+                ["opening a new pair", () => state().open(A, B)],
+            ])("ignores a restore that finishes after %s", async (_, interrupt) => {
+                await move(["b"], [TRASHED]);
+                const pending = deferred<RestoreOutcome[]>();
+                mockedRestore.mockReturnValue(pending.promise);
+                const run = state().restore(["b"]);
+
+                interrupt();
+                const before = state();
+                pending.resolve([restored("id-new")]);
+                await run;
+
+                expect(state().trashed).toEqual(before.trashed);
+                expect(state().files).toEqual(before.files);
+                expect(state().notice).toBeUndefined();
+                expect(usePairStore.getState().b).toBeUndefined();
+            });
+
+            it("leaves the details and the comparison as they were", async () => {
+                await move(["b"], [TRASHED]);
+                const { details, comparison } = state();
+                mockedRestore.mockResolvedValue([restored("id-new")]);
+
+                await state().restore(["b"]);
+
+                expect(state().details).toBe(details);
+                expect(state().comparison).toBe(comparison);
+                expect(mockedCompare).toHaveBeenCalledTimes(1);
+            });
         });
     });
 });

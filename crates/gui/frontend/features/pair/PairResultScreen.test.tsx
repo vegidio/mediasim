@@ -4,7 +4,7 @@ import App from "@/App";
 import type { MediaType } from "@/ipc/formats";
 import { cancelComparison, comparePair, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { trashMedia } from "@/ipc/trash";
+import { restoreMedia, trashMedia } from "@/ipc/trash";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
@@ -18,12 +18,13 @@ vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
-vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
 
 const mockedProbe = probeMedia as Mock;
 const mockedCompare = comparePair as Mock;
 const mockedCancel = cancelComparison as Mock;
 const mockedTrash = trashMedia as Mock;
+const mockedRestore = restoreMedia as Mock;
 
 const media = (name: string, type: MediaType = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -460,6 +461,178 @@ describe("PairResultScreen", () => {
             expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
             expect(screen.getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
             expect(screen.queryByText(/Moved to Trash/)).not.toBeInTheDocument();
+        });
+    });
+
+    describe("undoing a move", () => {
+        const dismiss = () => screen.getByRole("button", { name: "Dismiss" });
+        const notice = () => dismiss().closest('[role="status"]') as HTMLElement;
+        const paneUndo = () => screen.getByRole("button", { name: `Undo moving ${B.name} to Trash` });
+
+        /** Opens the pair, marks B, and moves it to the Trash. */
+        const moveB = async () => {
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            fireEvent.click(within(footer()).getByRole("button", { name: "Move 1 to Trash…" }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            await settle();
+        };
+
+        beforeEach(() => {
+            mockedTrash.mockReset().mockResolvedValue([{ status: "trashed" }]);
+            mockedRestore.mockReset().mockResolvedValue([{ status: "restored", identity: B.identity }]);
+        });
+
+        it("brings B back in place from its pane, reports it, and moves focus to Dismiss", async () => {
+            await moveB();
+
+            fireEvent.click(paneUndo());
+            await settle();
+
+            expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([B.identity]);
+            const pane = screen.getByRole("article", { name: "File B" });
+            expect(pane).not.toHaveTextContent("Moved to Trash");
+            expect(pane.querySelector("img")).toBeInTheDocument();
+            expect(pane.querySelector("dl")).toBeInTheDocument();
+            expect(within(pane).getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
+            expect(notice()).toHaveTextContent(/^1 file restored$/);
+            await waitFor(() => expect(dismiss()).toHaveFocus());
+        });
+
+        it("keeps B in place in the slider, with the handle", async () => {
+            await moveB();
+            fireEvent.click(paneUndo());
+            await settle();
+
+            select("Slider");
+
+            const slider = screen.getByRole("article", { name: "Files A and B" });
+            expect(within(slider).queryByText("In Trash")).not.toBeInTheDocument();
+            expect(handle()).toBeInTheDocument();
+        });
+
+        it("restores from the notice in the slider", async () => {
+            await moveB();
+            select("Slider");
+
+            fireEvent.click(screen.getByRole("button", { name: "Undo moving 1 file to Trash" }));
+            await settle();
+
+            const slider = screen.getByRole("article", { name: "Files A and B" });
+            expect(within(slider).getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
+            expect(handle()).toBeInTheDocument();
+            expect(notice()).toHaveTextContent("1 file restored");
+        });
+
+        it("disables every Undo and starts no move while restoring", async () => {
+            await moveB();
+            mockedRestore.mockReturnValue(new Promise(() => {}));
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+
+            fireEvent.click(paneUndo());
+
+            expect(paneUndo()).toBeDisabled();
+            expect(screen.getByRole("button", { name: "Undo moving 1 file to Trash" })).toBeDisabled();
+            fireEvent.click(within(footer()).getByRole("button", { name: "Move 1 to Trash…" }));
+            expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        });
+
+        it("puts the footer back to its first text", async () => {
+            await moveB();
+            expect(within(footer()).getByRole("status")).toHaveTextContent("Nothing marked for deletion.");
+
+            fireEvent.click(paneUndo());
+            await settle();
+
+            expect(within(footer()).getByRole("status")).toHaveTextContent(
+                "Nothing marked yet. Mark the file you don't need.",
+            );
+        });
+
+        it("offers Try again again after a failed comparison", async () => {
+            mockedCompare.mockRejectedValue({ kind: "load", path: B.path, message: "boom" });
+            await moveB();
+            expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+
+            fireEvent.click(paneUndo());
+            await settle();
+
+            expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+        });
+
+        it("keeps the score, starting no new comparison", async () => {
+            mockedCompare.mockResolvedValue(0.94);
+            await moveB();
+            const result = () => screen.getByRole("region", { name: "Similarity result" });
+            expect(result()).toHaveTextContent("94%");
+
+            fireEvent.click(paneUndo());
+            await settle();
+
+            expect(result()).toHaveTextContent("94%");
+            expect(mockedCompare).toHaveBeenCalledOnce();
+        });
+
+        it("returns to the start screen with both slots filled", async () => {
+            await moveB();
+            fireEvent.click(paneUndo());
+            await settle();
+
+            fireEvent.click(back());
+
+            const card = screen.getByRole("region", { name: "Compare two files" });
+            expect(card).toHaveTextContent(A.name);
+            expect(card).toHaveTextContent(B.name);
+            expect(compare()).toBeEnabled();
+        });
+
+        it("keeps B gone with its Undo when the restore fails", async () => {
+            mockedRestore.mockResolvedValue([
+                { status: "failed", reason: "gone", message: "it is no longer in the Trash" },
+            ]);
+            await moveB();
+
+            fireEvent.click(paneUndo());
+            await settle();
+
+            expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent("Moved to Trash");
+            expect(paneUndo()).toBeEnabled();
+            expect(notice()).toHaveTextContent(`Couldn't restore ${B.name}: it is no longer in the Trash`);
+        });
+
+        it("replaces the move's notice when one of two moved files is restored from its pane", async () => {
+            mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+            mockedRestore.mockResolvedValue([{ status: "restored", identity: A.identity }]);
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            fireEvent.click(within(footer()).getByRole("button", { name: "Move 2 to Trash…" }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            await settle();
+
+            fireEvent.click(screen.getByRole("button", { name: `Undo moving ${A.name} to Trash` }));
+            await settle();
+
+            expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([A.identity]);
+            expect(notice()).toHaveTextContent(/^1 file restored$/);
+            expect(within(notice()).queryByRole("button", { name: /^Undo moving/ })).not.toBeInTheDocument();
+            expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent("Moved to Trash");
+            expect(paneUndo()).toBeEnabled();
+        });
+
+        it("offers no Undo for a new pair", async () => {
+            const other = media("other.jpg");
+            await moveB();
+            fireEvent.click(back());
+            act(() => usePairStore.setState({ b: other }));
+
+            fireEvent.click(compare());
+
+            expect(screen.queryByRole("button", { name: /^Undo moving/ })).not.toBeInTheDocument();
         });
     });
 });

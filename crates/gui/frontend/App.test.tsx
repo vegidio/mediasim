@@ -1,12 +1,23 @@
 import { act } from "react";
-import { render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { comparePair, probeMedia } from "@/ipc/pair";
+import type { MediaFile } from "@/ipc/thumbs";
+import { restoreMedia, trashMedia } from "@/ipc/trash";
+import { usePairStore } from "@/stores/pair";
+import { usePairResultStore } from "@/stores/pairResult";
 import { useScreenStore } from "@/stores/screen";
 import App from "./App";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
 vi.mock("@/ipc/formats", () => ({ supportedFormats: vi.fn(() => Promise.resolve([])) }));
+vi.mock("@/ipc/thumbs", () => ({
+    describeMedia: vi.fn(),
+    renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
+}));
+vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
 
 describe("App", () => {
     beforeEach(() => {
@@ -112,6 +123,41 @@ describe("App", () => {
             expect(region.parentElement).toBe(main.parentElement);
             expect(main.parentElement).toHaveClass("relative");
             expect(region).toHaveClass("absolute", "bottom-5", "left-1/2", "-translate-x-1/2");
+        });
+
+        it("reports a restore in the same place, with the footer back to its first text", async () => {
+            const media = (name: string): MediaFile => ({
+                path: `/media/${name}`,
+                name,
+                type: "image",
+                size: 1000,
+                identity: `id-${name}`,
+            });
+            const [a, b] = [media("a.jpg"), media("b.jpg")];
+            (probeMedia as Mock).mockReturnValue(new Promise(() => {}));
+            (comparePair as Mock).mockReturnValue(new Promise(() => {}));
+            (trashMedia as Mock).mockResolvedValue([{ status: "trashed" }]);
+            (restoreMedia as Mock).mockResolvedValue([{ status: "restored", identity: b.identity }]);
+            usePairStore.setState(usePairStore.getInitialState(), true);
+            usePairResultStore.setState(usePairResultStore.getInitialState(), true);
+            usePairStore.setState({ a, b });
+            render(<App />);
+            const footer = () => screen.getByRole("region", { name: "Deletion" });
+            fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            fireEvent.click(within(footer()).getByRole("button", { name: "Move 1 to Trash…" }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+            fireEvent.click(screen.getByRole("button", { name: "Undo moving b.jpg to Trash" }));
+            await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+            const main = screen.getByRole("main");
+            expect(notice()).toHaveTextContent(/^1 file restored$/);
+            expect(notice()?.parentElement).toBe(main.parentElement);
+            expect(within(footer()).getByRole("status")).toHaveTextContent(
+                "Nothing marked yet. Mark the file you don't need.",
+            );
         });
     });
 });

@@ -51,7 +51,7 @@ impl ThumbState {
         self.admitted.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn admit(&self, entries: impl IntoIterator<Item = (String, Admitted)>) {
+    pub(crate) fn admit(&self, entries: impl IntoIterator<Item = (String, Admitted)>) {
         let mut admitted = self.admitted();
         for (identity, entry) in entries {
             // Re-admitting a file keeps its first entry, which describes the same file.
@@ -81,7 +81,7 @@ impl ThumbState {
 /// Stats `path` and returns its identity, what was recorded and its media type, or `None` when it is not an existing
 /// file of a supported media type. The file is never opened: one that exists and won't decode is admitted, and its
 /// requests are answered as gone.
-fn admit_one(path: &Path) -> Option<(String, Admitted, MediaType)> {
+pub(crate) fn admit_one(path: &Path) -> Option<(String, Admitted, MediaType)> {
     let media_type = MediaType::from_path(path)?;
     // `media-rs` takes a video's input as `&str`, so a video whose path isn't Unicode could never be rendered.
     if media_type == MediaType::Video && path.to_str().is_none() {

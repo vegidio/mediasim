@@ -4378,7 +4378,7 @@ dependencies = [
 [[package]]
 name = "rust-sak"
 version = "26.10.2"
-source = "git+https://github.com/vegidio/rust-sak?tag=26.10.2#508be95d1f18baf72edc613355a8c5bc62b3a4f3"
+source = "git+https://github.com/vegidio/rust-sak?tag=26.10.2#901a50c26773b87377628a1d1cc84e3173290db3"
 dependencies = [
  "avif-rs",
  "cap-std",
@@ -4388,6 +4388,8 @@ dependencies = [
  "image",
  "liblzma",
  "moka",
+ "objc2",
+ "objc2-foundation",
  "postcard",
  "redb",
  "serde",

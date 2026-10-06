@@ -5,10 +5,15 @@ import { formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePairResultStore } from "@/stores/pairResult";
 
-/** The Dismiss button's id, which the confirmation dialog sends focus to after a move. */
+/** The Dismiss button's id, which focus is sent to after a move or a restore. */
 export const DISMISS_ID = "deletion-notice-dismiss";
 
-/** How long a notice of files all moved stays, in milliseconds, while nothing holds it open. */
+/** Move focus to the notice's Dismiss, once React has rendered the notice a move or a restore just set. */
+export const focusDismiss = () => {
+    requestAnimationFrame(() => document.getElementById(DISMISS_ID)?.focus());
+};
+
+/** How long a notice with no failure stays, in milliseconds, while nothing holds it open. */
 export const HIDE_AFTER = 6000;
 
 /** Whether `element` has focus a keyboard user can see, which is what holds the notice open; a click's doesn't. */
@@ -26,8 +31,9 @@ type DeletionNoticeProps = {
 };
 
 /**
- * The result of the last move to the Trash: how many files moved and the space freed, then each file that couldn't be
- * moved with the reason. A notice of files all moved hides after {@link HIDE_AFTER}, unless the pointer is over it or
+ * The result of the last move to the Trash or restore from it: how many files moved and the space freed, or how many
+ * were restored, then each file it failed for with the reason. A move's notice offers Undo while any file it moved is
+ * still in the Trash. A notice with no failure hides after {@link HIDE_AFTER}, unless the pointer is over it or
  * keyboard focus is in it; one reporting a failure stays until dismissed, so the reason is never lost before it is
  * read. The status region is always there, so what appears in it is announced.
  */
@@ -35,6 +41,9 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
     const files = usePairResultStore((state) => state.files);
     const notice = usePairResultStore((state) => state.notice);
     const dismissNotice = usePairResultStore((state) => state.dismissNotice);
+    const trashed = usePairResultStore((state) => state.trashed);
+    const restoring = usePairResultStore((state) => state.deletion.status === "restoring");
+    const restore = usePairResultStore((state) => state.restore);
     const [hovered, setHovered] = useState(false);
     const [focused, setFocused] = useState(false);
 
@@ -54,8 +63,12 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
         return () => clearTimeout(timer);
     }, [notice, hovered, focused, dismissNotice]);
 
-    const moved = files && notice ? notice.moved.map((slot) => files[slot]) : [];
-    const freed = moved.reduce((total, file) => total + file.size, 0);
+    const done = files && notice ? notice.done.map((slot) => files[slot]) : [];
+    const freed = done.reduce((total, file) => total + file.size, 0);
+    const counted = (count: number) => (count === 1 ? "1 file" : `${count} files`);
+    // What Undo puts back: the files this move moved that are still in the Trash.
+    const undoable = notice?.action === "trash" ? notice.done.filter((slot) => trashed[slot]) : [];
+    const failedVerb = notice?.action === "restore" ? "restore" : "move";
 
     return (
         <div role="status" className={cn("w-max max-w-[min(640px,calc(100%-32px))]", className)}>
@@ -70,27 +83,41 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
                     }}
                     className="flex items-start gap-3 rounded-xl border border-[#3F3F46] bg-[#18181B] py-2.5 pr-2.5 pl-3.5 shadow-[0_12px_32px_rgba(0,0,0,.5)]"
                 >
-                    {moved.length > 0 ? (
+                    {done.length > 0 ? (
                         <CircleCheckIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-[#BEF264]" />
                     ) : (
                         <TriangleAlertIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-[#F87171]" />
                     )}
                     <div className="flex min-w-0 flex-1 flex-col gap-1 py-1 text-sm">
-                        {moved.length > 0 && (
-                            <p className="whitespace-nowrap">
-                                <span className="font-semibold">
-                                    {moved.length === 1 ? "1 file" : `${moved.length} files`}
-                                </span>{" "}
-                                moved to Trash<span className="text-[#A1A1AA]"> · {formatSize(freed)} freed</span>
-                            </p>
-                        )}
+                        {done.length > 0 &&
+                            (notice.action === "trash" ? (
+                                <p className="whitespace-nowrap">
+                                    <span className="font-semibold">{counted(done.length)}</span> moved to Trash
+                                    <span className="text-[#A1A1AA]"> · {formatSize(freed)} freed</span>
+                                </p>
+                            ) : (
+                                <p className="whitespace-nowrap">
+                                    <span className="font-semibold">{counted(done.length)}</span> restored
+                                </p>
+                            ))}
                         {notice.failed.map(({ slot, message }) => (
                             <p key={slot} className="break-words">
-                                Couldn't move <span className="font-mono">{files[slot].name}</span>
+                                Couldn't {failedVerb} <span className="font-mono">{files[slot].name}</span>
                                 <span className="text-[#A1A1AA]">: {message}</span>
                             </p>
                         ))}
                     </div>
+                    {undoable.length > 0 && (
+                        <Button
+                            variant="outline"
+                            aria-label={`Undo moving ${counted(undoable.length)} to Trash`}
+                            disabled={restoring}
+                            onClick={() => restore(undoable).then(focusDismiss)}
+                            className="h-[30px] shrink-0 self-center rounded-[6px] border-[#3F3F46] bg-transparent px-3 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"
+                        >
+                            Undo
+                        </Button>
+                    )}
                     <Button
                         id={DISMISS_ID}
                         variant="ghost"

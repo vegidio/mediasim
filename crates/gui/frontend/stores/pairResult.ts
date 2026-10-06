@@ -3,7 +3,7 @@ import type { Details } from "@/features/pair/details";
 import type { Slot } from "@/features/start/routePairDrop";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { type TrashOutcome, trashMedia } from "@/ipc/trash";
+import { type RestoreOutcome, restoreMedia, type TrashOutcome, trashMedia } from "@/ipc/trash";
 import { usePairStore } from "@/stores/pair";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
@@ -14,11 +14,17 @@ export type Comparison =
     | { status: "done"; similarity: number }
     | { status: "failed"; error: PairFailure };
 
-/** Where the deletion of the marked files stands: not started, awaiting confirmation, or moving them. */
-export type Deletion = { status: "idle" } | { status: "confirming" } | { status: "moving" };
+/**
+ * Where the deletion of the marked files stands: not started, awaiting confirmation, moving them, or restoring files
+ * moved. A move and a restore never run at once.
+ */
+export type Deletion = { status: "idle" } | { status: "confirming" } | { status: "moving" } | { status: "restoring" };
 
-/** The result of the last move to the Trash: the files moved, and each one that wasn't with the reason. */
-export type Notice = { moved: Slot[]; failed: { slot: Slot; message: string }[] };
+/**
+ * The result of the last move to the Trash or restore from it: the files it was done to, and each one it wasn't with
+ * the reason.
+ */
+export type Notice = { action: "trash" | "restore"; done: Slot[]; failed: { slot: Slot; message: string }[] };
 
 /** State of the pair result screen. */
 type PairResultStore = {
@@ -31,7 +37,7 @@ type PairResultStore = {
     /** Which files have been moved to the Trash; neither when a pair opens. */
     trashed: Record<Slot, boolean>;
     deletion: Deletion;
-    /** The result of the last move, until it is dismissed or the screen is left. */
+    /** The result of the last move or restore, until it is dismissed or the screen is left. */
     notice?: Notice;
 
     /** Show the result screen for `a` and `b`, read both files' details and compare them. */
@@ -48,6 +54,8 @@ type PairResultStore = {
     cancelDeletion: () => void;
     /** Move the marked files to the Trash, once confirmed, and record the result. */
     moveToTrash: () => Promise<void>;
+    /** Put the files of `slots` that are in the Trash back where they were, and record the result. */
+    restore: (slots: Slot[]) => Promise<void>;
     /** Close the notice. */
     dismissNotice: () => void;
 };
@@ -164,17 +172,17 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             );
             if (run !== opened) return;
 
-            const notice: Notice = { moved: [], failed: [] };
+            const notice: Notice = { action: "trash", done: [], failed: [] };
             slots.forEach((slot, index) => {
                 const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
-                if (outcome.status === "trashed") notice.moved.push(slot);
+                if (outcome.status === "trashed") notice.done.push(slot);
                 else notice.failed.push({ slot, message: outcome.message });
             });
 
             set((state) => {
                 const trashed = { ...state.trashed };
                 const marked = { ...state.marked };
-                for (const slot of notice.moved) {
+                for (const slot of notice.done) {
                     trashed[slot] = true;
                     marked[slot] = false;
                 }
@@ -184,8 +192,52 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             // A trashed file can't be compared again, so it leaves the start screen's slot, unless that slot has
             // since been given another file.
             const start = usePairStore.getState();
-            for (const slot of notice.moved) {
+            for (const slot of notice.done) {
                 if (start[slot]?.identity === files[slot].identity) start.remove(slot);
+            }
+        },
+
+        restore: async (requested) => {
+            const { files, trashed, deletion } = get();
+            if (!files || deletion.status !== "idle") return;
+
+            const run = opened;
+            const slots = SLOTS.filter((slot) => requested.includes(slot) && trashed[slot]);
+            if (slots.length === 0) return;
+            set({ deletion: { status: "restoring" } });
+
+            // A rejection means nothing was attempted, so every file counts as not restored, with the reason.
+            const outcomes = await restoreMedia(slots.map((slot) => files[slot].identity)).catch(
+                (error: unknown): RestoreOutcome[] =>
+                    slots.map(() => ({ status: "failed", reason: "restore", message: String(error) })),
+            );
+            if (run !== opened) return;
+
+            const notice: Notice = { action: "restore", done: [], failed: [] };
+            // A restored file can come back under a new identity, which `thumb://` and a later move need.
+            const restored: Partial<Record<Slot, MediaFile>> = {};
+            slots.forEach((slot, index) => {
+                const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
+                if (outcome.status === "restored") {
+                    notice.done.push(slot);
+                    restored[slot] = { ...files[slot], identity: outcome.identity };
+                } else {
+                    notice.failed.push({ slot, message: outcome.message });
+                }
+            });
+
+            set((state) => {
+                if (!state.files) return { deletion: IDLE, notice };
+                const trashed = { ...state.trashed };
+                for (const slot of notice.done) trashed[slot] = false;
+                return { files: { ...state.files, ...restored }, trashed, deletion: IDLE, notice };
+            });
+
+            // Back in its start slot, unless that slot has been given another file since.
+            const start = usePairStore.getState();
+            for (const slot of notice.done) {
+                const file = restored[slot];
+                if (file) start.refill(slot, file);
             }
         },
 
