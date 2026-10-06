@@ -9,6 +9,7 @@ mod formats;
 mod pair;
 mod set;
 mod thumbs;
+mod trash;
 mod window;
 
 use tauri::Manager;
@@ -51,6 +52,7 @@ pub fn run() {
             pair::probe_media,
             pair::compare_pair,
             pair::cancel_comparison,
+            trash::trash_media,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the MediaSim application");

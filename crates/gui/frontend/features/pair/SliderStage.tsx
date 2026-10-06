@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from "react";
-import { ChevronsLeftRightIcon } from "lucide-react";
+import { ChevronsLeftRightIcon, Trash2Icon } from "lucide-react";
 import { Slider } from "radix-ui";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
@@ -22,6 +22,8 @@ const KEY_MOVES: Record<string, (position: number) => number> = {
     End: () => 100,
 };
 
+const NONE_GONE: Record<Slot, boolean> = { a: false, b: false };
+
 const clamp = (position: number) => Math.min(100, Math.max(0, position));
 
 type SliderStageProps = {
@@ -32,6 +34,8 @@ type SliderStageProps = {
     onPositionChange: (position: number) => void;
     /** Which files are marked for deletion, each tagged in its corner. */
     marked: Record<Slot, boolean>;
+    /** Which files have been moved to the Trash, neither by default; one gone leaves the other alone, with no handle. */
+    trashed?: Record<Slot, boolean>;
 };
 
 /** A marked file's tag, in its own corner of the stage. Hidden from assistive technology: the header's buttons state the mark. */
@@ -52,7 +56,7 @@ const DeleteTag = ({ slot }: { slot: Slot }) => (
  * A over B in one frame that fills the view, A showing left of the handle and B right of it. Each is fitted inside it
  * whole and centred. Pressing or dragging anywhere on the stage, edge to edge, moves the handle.
  */
-export const SliderStage = ({ a, b, position, onPositionChange, marked }: SliderStageProps) => {
+export const SliderStage = ({ a, b, position, onPositionChange, marked, trashed = NONE_GONE }: SliderStageProps) => {
     const onKeyDown = (event: KeyboardEvent) => {
         const move = KEY_MOVES[event.key];
         if (!move) return;
@@ -61,6 +65,35 @@ export const SliderStage = ({ a, b, position, onPositionChange, marked }: Slider
         event.preventDefault();
         onPositionChange(clamp(move(position)));
     };
+
+    if (trashed.a && trashed.b) {
+        return (
+            <div
+                data-testid="slider-stage"
+                className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2.5 bg-background bg-dots text-[#A1A1AA] text-[13px]"
+            >
+                <Trash2Icon aria-hidden="true" className="size-[22px]" />
+                Both files moved to Trash
+            </div>
+        );
+    }
+
+    // The file still in place, on its own: there is nothing to compare it with, so no handle. `position` is kept.
+    const remaining: Slot | undefined = trashed.a ? "b" : trashed.b ? "a" : undefined;
+    if (remaining) {
+        const file = remaining === "a" ? a : b;
+        return (
+            <div data-testid="slider-stage" className="relative min-h-0 flex-1 overflow-hidden bg-background bg-dots">
+                <Picture
+                    key={file.identity}
+                    file={file}
+                    className="absolute inset-0"
+                    overlay={marked[remaining] && <MarkWash />}
+                />
+                {marked[remaining] && <DeleteTag slot={remaining} />}
+            </div>
+        );
+    }
 
     return (
         // Opaque, with its own dots, so A's layer can repeat them exactly: both are this same box.

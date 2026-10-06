@@ -69,7 +69,8 @@ describe("App", () => {
             const main = screen.getByRole("main");
             expect(footer()).toBeInTheDocument();
             expect(main).not.toContainElement(footer());
-            expect(main.nextElementSibling).toBe(footer());
+            // Below the box that holds main and the notice floating over it.
+            expect(main.parentElement?.nextElementSibling).toBe(footer());
             expect(footer()).toHaveClass("shrink-0", "h-[68px]");
             expect(main).toHaveClass("flex-1", "overflow-y-auto");
         });
@@ -81,6 +82,36 @@ describe("App", () => {
             act(() => useScreenStore.getState().show("start"));
 
             expect(footer()).not.toBeInTheDocument();
+        });
+    });
+
+    describe("deletion notice", () => {
+        /** The notice's status region, the one outside both main and the footer. */
+        const notice = () =>
+            screen
+                .queryAllByRole("status")
+                .find(
+                    (region) =>
+                        !screen.getByRole("main").contains(region) &&
+                        !screen.queryByRole("region", { name: "Deletion" })?.contains(region),
+                );
+
+        it("is absent on the start screen", () => {
+            render(<App />);
+
+            expect(notice()).toBeUndefined();
+        });
+
+        it("floats 20 px above the footer, centred over main's box, outside main and the footer", () => {
+            render(<App />);
+            act(() => useScreenStore.getState().show("pair"));
+
+            const main = screen.getByRole("main");
+            const region = notice() as HTMLElement;
+            expect(region).toBeInTheDocument();
+            expect(region.parentElement).toBe(main.parentElement);
+            expect(main.parentElement).toHaveClass("relative");
+            expect(region).toHaveClass("absolute", "bottom-5", "left-1/2", "-translate-x-1/2");
         });
     });
 });

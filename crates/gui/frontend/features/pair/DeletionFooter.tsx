@@ -3,16 +3,18 @@ import { Button } from "@/components/ui/button";
 import type { Slot } from "@/features/start/routePairDrop";
 import { formatSize } from "@/lib/format";
 import { usePairResultStore } from "@/stores/pairResult";
+import { ConfirmDeletionDialog } from "./ConfirmDeletionDialog";
 
 const SLOTS: Slot[] = ["a", "b"];
 
 /**
  * The bar along the bottom of the pair result screen: what is marked for deletion, the space it frees, and the button
- * that will move it to the Trash. The button does nothing yet.
+ * that asks to confirm moving it to the Trash.
  */
 export const DeletionFooter = () => {
     const files = usePairResultStore((state) => state.files);
     const marked = usePairResultStore((state) => state.marked);
+    const trashed = usePairResultStore((state) => state.trashed);
 
     const chosen = files ? SLOTS.filter((slot) => marked[slot]).map((slot) => files[slot]) : [];
     const count = chosen.length;
@@ -30,7 +32,11 @@ export const DeletionFooter = () => {
             {/* Announced on every change, so a mark or an undo is confirmed. */}
             <p role="status" className="min-w-0 flex-1 truncate text-sm">
                 {count === 0 ? (
-                    "Nothing marked yet. Mark the file you don't need."
+                    trashed.a || trashed.b ? (
+                        "Nothing marked for deletion."
+                    ) : (
+                        "Nothing marked yet. Mark the file you don't need."
+                    )
                 ) : (
                     <>
                         <span className="font-semibold">{count === 1 ? "1 file" : `${count} files`}</span> marked for
@@ -39,14 +45,14 @@ export const DeletionFooter = () => {
                 )}
             </p>
 
-            {/* Inert in this slice; the next one opens the confirmation from here. */}
-            <Button
-                disabled={count === 0}
-                onClick={() => {}}
-                className="h-10 rounded-lg bg-[#DC2626] px-[18px] font-semibold text-sm text-white hover:bg-[#B91C1C] disabled:bg-[#27272A] disabled:text-[#71717A]"
-            >
-                Move {count} to Trash…
-            </Button>
+            <ConfirmDeletionDialog>
+                <Button
+                    disabled={count === 0}
+                    className="h-10 rounded-lg bg-[#DC2626] px-[18px] font-semibold text-sm text-white hover:bg-[#B91C1C] disabled:bg-[#27272A] disabled:text-[#71717A]"
+                >
+                    Move {count} to Trash…
+                </Button>
+            </ConfirmDeletionDialog>
         </section>
     );
 };

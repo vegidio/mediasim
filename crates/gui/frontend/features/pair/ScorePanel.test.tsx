@@ -85,6 +85,20 @@ describe("ScorePanel", () => {
         expect(onRetry).toHaveBeenCalledOnce();
     });
 
+    it("keeps the error but offers no Try again once a file is gone", () => {
+        render(
+            <ScorePanel
+                comparison={{ status: "failed", error: { kind: "load", path: "/media/b.mp4", message: "boom" } }}
+                onRetry={() => {}}
+                canRetry={false}
+            />,
+        );
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Couldn't compare these files");
+        expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load b.mp4");
+        expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    });
+
     it("names a Windows path's file", () => {
         render(
             <ScorePanel

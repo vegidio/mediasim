@@ -1,11 +1,14 @@
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import { cn } from "@/lib/utils";
 import { DetailValue } from "./DetailValue";
 import { type Details, detailRows } from "./details";
 
 type DetailsTableProps = {
     files: Record<Slot, MediaFile>;
     details: Record<Slot, Details>;
+    /** Which files have been moved to the Trash, whose rows are faded and struck through. */
+    trashed?: Record<Slot, boolean>;
 };
 
 const SLOTS: readonly Slot[] = ["a", "b"];
@@ -16,7 +19,7 @@ const HEADER = "px-4 pt-3 pb-1.5 text-left font-normal text-[11px] text-muted-fo
  * Both files' details, one row per file and one column per detail, with the values and badges each file's pane would
  * show. Only a pair of the same media type is compared, so A's type gives both rows' columns.
  */
-export const DetailsTable = ({ files, details }: DetailsTableProps) => {
+export const DetailsTable = ({ files, details, trashed }: DetailsTableProps) => {
     const rows = {
         a: detailRows(files.a.type, details.a, details.b),
         b: detailRows(files.b.type, details.b, details.a),
@@ -44,7 +47,10 @@ export const DetailsTable = ({ files, details }: DetailsTableProps) => {
             </thead>
             <tbody>
                 {SLOTS.map((slot) => (
-                    <tr key={slot} className="border-border-subtle border-t">
+                    <tr
+                        key={slot}
+                        className={cn("border-border-subtle border-t", trashed?.[slot] && "line-through opacity-40")}
+                    >
                         <th scope="row" className="px-4 py-2 text-left">
                             <span className="flex size-6 items-center justify-center rounded-md bg-secondary font-semibold text-xs">
                                 {slot.toUpperCase()}

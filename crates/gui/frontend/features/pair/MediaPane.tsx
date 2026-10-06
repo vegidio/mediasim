@@ -1,6 +1,7 @@
 import { Trash2Icon } from "lucide-react";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import { formatSize } from "@/lib/format";
 import { DetailValue } from "./DetailValue";
 import { type Details, detailRows } from "./details";
 import { MarkButton } from "./MarkButton";
@@ -16,14 +17,34 @@ type MediaPaneProps = {
     /** Whether the file is marked for deletion. */
     marked: boolean;
     onToggleMark: () => void;
+    /** Whether the file has been moved to the Trash, which leaves a placeholder in its place. */
+    trashed?: boolean;
 };
+
+/** A file moved to the Trash: a dashed placeholder with its name and the space freed, and nothing to act on. */
+const GonePane = ({ slot, file }: { slot: Slot; file: MediaFile }) => (
+    <article
+        aria-label={`File ${slot.toUpperCase()}`}
+        className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-2.5 rounded-[14px] border-[1.5px] border-[#3F3F46] border-dashed bg-[rgba(17,17,19,.6)] p-6 text-center"
+    >
+        <span className="flex size-12 items-center justify-center rounded-full border border-[#27272A] bg-[#18181B]">
+            <Trash2Icon aria-hidden="true" className="size-[22px] text-[#A1A1AA]" />
+        </span>
+        <span title={file.name} className="max-w-full truncate font-mono text-[#E4E4E7] text-[13px]">
+            {file.name}
+        </span>
+        <span className="text-[#A1A1AA] text-[13px]">Moved to Trash · {formatSize(file.size)} freed</span>
+    </article>
+);
 
 /**
  * One file of the pair: its badge, name and mark button, its picture, washed red while marked, and its details with the
- * badges it earns.
+ * badges it earns. Once moved to the Trash, a placeholder in its place.
  */
-export const MediaPane = ({ slot, file, details, other, marked, onToggleMark }: MediaPaneProps) => {
+export const MediaPane = ({ slot, file, details, other, marked, onToggleMark, trashed = false }: MediaPaneProps) => {
     const badge = slot.toUpperCase();
+
+    if (trashed) return <GonePane slot={slot} file={file} />;
 
     return (
         <article

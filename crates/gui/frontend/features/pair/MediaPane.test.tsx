@@ -232,4 +232,52 @@ describe("MediaPane", () => {
             expect(screen.getByRole("button", { name: "B Marked · Undo" })).toBeInTheDocument();
         });
     });
+
+    describe("gone", () => {
+        const EDIT: MediaFile = { ...IMAGE, name: "IMG_2041-edit.jpg", size: 1_100_000, identity: "fedcba9876543210" };
+        const smaller = imageInfo({ width: 2048, height: 1536, created: new Date(2025, 7, 2).toISOString() });
+
+        const both = () =>
+            render(
+                <>
+                    <MediaPane
+                        slot="a"
+                        file={IMAGE}
+                        details={ready(imageInfo())}
+                        other={ready(smaller)}
+                        {...UNMARKED}
+                    />
+                    <MediaPane
+                        slot="b"
+                        file={EDIT}
+                        details={ready(smaller)}
+                        other={ready(imageInfo())}
+                        {...UNMARKED}
+                        trashed
+                    />
+                </>,
+            );
+
+        it("replaces a moved file's pane with a dashed placeholder, with no picture, details or mark button", () => {
+            both();
+
+            const gone = pane("File B");
+            expect(gone).toHaveClass("border-dashed");
+            expect(gone).toHaveTextContent("IMG_2041-edit.jpgMoved to Trash · 1.1 MB freed");
+            expect(gone.querySelector(".lucide-trash-2")).toHaveAttribute("aria-hidden", "true");
+            expect(within(gone).queryByRole("button")).not.toBeInTheDocument();
+            expect(gone.querySelector("img")).not.toBeInTheDocument();
+            expect(gone.querySelector("dl")).not.toBeInTheDocument();
+        });
+
+        it("leaves the other pane whole, with its button, picture and badges", () => {
+            both();
+
+            const kept = pane("File A");
+            expect(within(kept).getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
+            expect(kept.querySelector("img")).toBeInTheDocument();
+            expect(details("File A")[0]).toEqual(["Resolution", "4032 × 3024Higher"]);
+            expect(details("File A")[3]).toEqual(["Created", "2025-07-14 20:41Older"]);
+        });
+    });
 });

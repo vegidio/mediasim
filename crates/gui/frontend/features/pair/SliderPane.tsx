@@ -1,5 +1,7 @@
+import { Trash2Icon } from "lucide-react";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import { cn } from "@/lib/utils";
 import { DetailsTable } from "./DetailsTable";
 import type { Details } from "./details";
 import { MarkButton } from "./MarkButton";
@@ -14,42 +16,90 @@ type SliderPaneProps = {
     /** Which files are marked for deletion. */
     marked: Record<Slot, boolean>;
     onToggleMark: (slot: Slot) => void;
+    /** Which files have been moved to the Trash; neither by default. */
+    trashed?: Record<Slot, boolean>;
 };
 
-const Badge = ({ slot }: { slot: Slot }) => (
-    <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary font-semibold text-xs">
+const Badge = ({ slot, gone }: { slot: Slot; gone: boolean }) => (
+    <span
+        className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-md font-semibold text-xs",
+            gone ? "border border-[#3F3F46] border-dashed bg-[#18181B] text-text-disabled" : "bg-secondary",
+        )}
+    >
         {slot.toUpperCase()}
     </span>
 );
 
-const Name = ({ file }: { file: MediaFile }) => (
-    <span title={file.name} className="min-w-0 truncate font-mono text-[13px]">
+const Name = ({ file, gone }: { file: MediaFile; gone: boolean }) => (
+    <span
+        title={file.name}
+        className={cn("min-w-0 truncate font-mono text-[13px]", gone && "text-text-disabled line-through")}
+    >
         {file.name}
     </span>
 );
+
+/** Stands in for a gone file's mark button: there is nothing left to mark. */
+const InTrashPill = () => (
+    <span className="flex h-[22px] shrink-0 items-center gap-1 rounded-full border border-[#3F3F46] bg-[#18181B] px-2 font-medium text-[#A1A1AA] text-[11px]">
+        <Trash2Icon aria-hidden="true" className="size-[11px]" />
+        In Trash
+    </span>
+);
+
+const NONE_GONE: Record<Slot, boolean> = { a: false, b: false };
+
+/** A file's mark button, or the "In Trash" pill once it is gone. */
+const Mark = ({
+    slot,
+    marked,
+    trashed,
+    onToggleMark,
+}: Pick<SliderPaneProps, "marked" | "onToggleMark"> & { slot: Slot; trashed: Record<Slot, boolean> }) =>
+    trashed[slot] ? (
+        <InTrashPill />
+    ) : (
+        <MarkButton slot={slot} marked={marked[slot]} onToggle={() => onToggleMark(slot)} variant="slider" />
+    );
 
 /**
  * Both files of the pair in one pane: their mark buttons beside their names, A over B under a slider, then their
  * details side by side in a table.
  */
-export const SliderPane = ({ files, details, position, onPositionChange, marked, onToggleMark }: SliderPaneProps) => (
+export const SliderPane = ({
+    files,
+    details,
+    position,
+    onPositionChange,
+    marked,
+    onToggleMark,
+    trashed = NONE_GONE,
+}: SliderPaneProps) => (
     <article
         aria-label="Files A and B"
         // No background of its own: the stage draws its own dots, matched by A's layer; only the bars are cards.
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-border"
     >
         <div className="flex h-[52px] shrink-0 items-center gap-2.5 border-border border-b bg-card px-4">
-            <Badge slot="a" />
-            <Name file={files.a} />
-            <MarkButton slot="a" marked={marked.a} onToggle={() => onToggleMark("a")} variant="slider" />
+            <Badge slot="a" gone={trashed.a} />
+            <Name file={files.a} gone={trashed.a} />
+            <Mark slot="a" marked={marked} trashed={trashed} onToggleMark={onToggleMark} />
             <span className="flex-1" />
-            <MarkButton slot="b" marked={marked.b} onToggle={() => onToggleMark("b")} variant="slider" />
-            <Name file={files.b} />
-            <Badge slot="b" />
+            <Mark slot="b" marked={marked} trashed={trashed} onToggleMark={onToggleMark} />
+            <Name file={files.b} gone={trashed.b} />
+            <Badge slot="b" gone={trashed.b} />
         </div>
 
-        <SliderStage a={files.a} b={files.b} position={position} onPositionChange={onPositionChange} marked={marked} />
+        <SliderStage
+            a={files.a}
+            b={files.b}
+            position={position}
+            onPositionChange={onPositionChange}
+            marked={marked}
+            trashed={trashed}
+        />
 
-        <DetailsTable files={files} details={details} />
+        <DetailsTable files={files} details={details} trashed={trashed} />
     </article>
 );

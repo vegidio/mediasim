@@ -27,9 +27,9 @@ pub const SCHEME: &str = "thumb";
 
 /// What was recorded about a file when it was admitted, to tell later whether it has changed.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Admitted {
+pub(crate) struct Admitted {
     /// The path as admitted, which is what is read to render it.
-    path: PathBuf,
+    pub(crate) path: PathBuf,
     size: u64,
     modified: SystemTime,
 }
@@ -59,7 +59,7 @@ impl ThumbState {
         }
     }
 
-    fn lookup(&self, identity: &str) -> Option<Admitted> {
+    pub(crate) fn lookup(&self, identity: &str) -> Option<Admitted> {
         self.admitted().get(identity).cloned()
     }
 
@@ -88,6 +88,19 @@ fn admit_one(path: &Path) -> Option<(String, Admitted, MediaType)> {
         return None;
     }
 
+    let (identity, admitted) = stat(path)?;
+
+    Some((identity, admitted, media_type))
+}
+
+/// The identity `path` would be admitted under now, or `None` when it is not an existing file. Comparing it with an
+/// earlier identity tells whether the file is still the one that was admitted.
+pub(crate) fn current_identity(path: &Path) -> Option<String> {
+    stat(path).map(|(identity, _)| identity)
+}
+
+/// Stats `path` and returns its identity and what is recorded about it, or `None` when it is not an existing file.
+fn stat(path: &Path) -> Option<(String, Admitted)> {
     let metadata = std::fs::metadata(path).ok()?;
     if !metadata.is_file() {
         return None;
@@ -96,7 +109,7 @@ fn admit_one(path: &Path) -> Option<(String, Admitted, MediaType)> {
     let modified = metadata.modified().ok()?;
     let identity = identity(&std::fs::canonicalize(path).ok()?, metadata.len(), modified);
 
-    Some((identity, Admitted { path: path.to_path_buf(), size: metadata.len(), modified }, media_type))
+    Some((identity, Admitted { path: path.to_path_buf(), size: metadata.len(), modified }))
 }
 
 /// XXH3-64 of the canonical path's bytes, the size and the modification time in nanoseconds since the Unix epoch,
@@ -142,7 +155,7 @@ pub(crate) mod tests {
     }
 
     /// Sets the modification time of `path`, so a test can tell a rewrite from the original on any filesystem.
-    fn set_modified(path: &Path, time: SystemTime) {
+    pub(crate) fn set_modified(path: &Path, time: SystemTime) {
         std::fs::File::options().write(true).open(path).unwrap().set_modified(time).unwrap();
     }
 

@@ -2,10 +2,13 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { cancelComparison, comparePair, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
+import { trashMedia } from "@/ipc/trash";
 import { usePairResultStore } from "@/stores/pairResult";
 import { DeletionFooter } from "./DeletionFooter";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn() }));
+vi.mock("@/ipc/thumbs", () => ({ renditionUrl: (identity: string) => `thumb://localhost/${identity}` }));
 
 const media = (name: string, size: number): MediaFile => ({
     path: `/media/${name}`,
@@ -67,15 +70,38 @@ describe("DeletionFooter", () => {
         expect(move()).toBeDisabled();
     });
 
-    it("changes nothing when the enabled button is activated", () => {
+    it("opens the confirmation when the enabled button is activated, moving nothing", () => {
         render(<DeletionFooter />);
         toggle("b");
 
         fireEvent.click(move());
 
+        expect(screen.getByRole("alertdialog", { name: "Move 1 file to Trash?" })).toBeInTheDocument();
+        expect(usePairResultStore.getState().deletion).toEqual({ status: "confirming" });
         expect(usePairResultStore.getState().marked).toEqual({ a: false, b: true });
         expect(usePairResultStore.getState().files).toEqual({ a: A, b: B });
-        for (const call of [probeMedia, comparePair, cancelComparison]) expect(call as Mock).not.toHaveBeenCalled();
+        for (const call of [probeMedia, comparePair, cancelComparison, trashMedia]) {
+            expect(call as Mock).not.toHaveBeenCalled();
+        }
+    });
+
+    it("says nothing is marked for deletion once a file is moved, with Move 0 to Trash… disabled", () => {
+        usePairResultStore.setState({ trashed: { a: false, b: true } });
+
+        render(<DeletionFooter />);
+
+        expect(status()).toHaveTextContent(/^Nothing marked for deletion\.$/);
+        expect(move()).toHaveTextContent("Move 0 to Trash…");
+        expect(move()).toBeDisabled();
+    });
+
+    it("counts only the file still there once the other is moved", () => {
+        usePairResultStore.setState({ trashed: { a: false, b: true } });
+        render(<DeletionFooter />);
+
+        toggle("a");
+
+        expect(status()).toHaveTextContent("1 file marked for deletion · 312.0 MB will be freed");
     });
 
     it("keeps its text inside the status region and the badge's icon hidden", () => {

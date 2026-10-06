@@ -120,4 +120,136 @@ describe("SliderPane", () => {
         expect(screen.getByTestId("delete-tag-a")).toHaveTextContent("A · Delete");
         expect(screen.queryByTestId("delete-tag-b")).not.toBeInTheDocument();
     });
+
+    describe("gone", () => {
+        const B_GONE = { a: false, b: true };
+
+        it("shows In Trash for B in place of its button, with its name struck through and its badge dashed", () => {
+            render(
+                <SliderPane
+                    files={IMAGES}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    trashed={B_GONE}
+                />,
+            );
+
+            const header = pane().firstElementChild as HTMLElement;
+            expect([...header.children].map((child) => child.textContent)).toEqual([
+                "A",
+                "IMG_2041.jpg",
+                "Mark A for deletion",
+                "",
+                "In Trash",
+                "IMG_2041-edit.jpg",
+                "B",
+            ]);
+            expect(within(header).queryByRole("button", { name: /B/ })).not.toBeInTheDocument();
+            expect(within(header).getByText("In Trash").querySelector(".lucide-trash-2")).toHaveAttribute(
+                "aria-hidden",
+                "true",
+            );
+            expect(within(header).getByText("IMG_2041-edit.jpg")).toHaveClass("line-through", "text-text-disabled");
+            expect(within(header).getByText("B")).toHaveClass("border-dashed");
+            expect(within(header).getByText("IMG_2041.jpg")).not.toHaveClass("line-through");
+        });
+
+        it("shows only A's picture on the stage, with no slider", () => {
+            const { container } = render(
+                <SliderPane
+                    files={IMAGES}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    trashed={B_GONE}
+                />,
+            );
+
+            const stage = screen.getByTestId("slider-stage");
+            expect(within(stage).queryByRole("slider")).not.toBeInTheDocument();
+            expect([...stage.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual([
+                "thumb://localhost/id-IMG_2041.jpg?size=2048",
+            ]);
+            expect(container.querySelector('[data-testid="slider-a"]')).not.toBeInTheDocument();
+        });
+
+        it("keeps A's mark button and its tag working", () => {
+            const onToggleMark = vi.fn();
+            const { container, rerender } = render(
+                <SliderPane
+                    files={IMAGES}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={{ a: false, b: false }}
+                    onToggleMark={onToggleMark}
+                    trashed={B_GONE}
+                />,
+            );
+
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+            expect(onToggleMark).toHaveBeenCalledExactlyOnceWith("a");
+
+            rerender(
+                <SliderPane
+                    files={IMAGES}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={{ a: true, b: false }}
+                    onToggleMark={onToggleMark}
+                    trashed={B_GONE}
+                />,
+            );
+            fireEvent.load(container.querySelector("img") as HTMLImageElement);
+
+            expect(screen.getByTestId("delete-tag-a")).toHaveTextContent("A · Delete");
+            expect(screen.getByRole("button", { name: "A Marked · Undo" })).toBeInTheDocument();
+        });
+
+        it("shows a placeholder on the stage when both are gone", () => {
+            render(
+                <SliderPane
+                    files={IMAGES}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    trashed={{ a: true, b: true }}
+                />,
+            );
+
+            const stage = screen.getByTestId("slider-stage");
+            expect(stage).toHaveTextContent("Both files moved to Trash");
+            expect(stage.querySelector("img")).not.toBeInTheDocument();
+            expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+            expect(screen.getAllByText("In Trash")).toHaveLength(2);
+        });
+
+        it("fades and strikes through B's row in the details, keeping its values", () => {
+            const ready = (width: number): Details => ({
+                status: "ready",
+                info: { path: "/x", type: "image", width, height: 100, size: 1000 },
+            });
+            render(
+                <SliderPane
+                    files={IMAGES}
+                    details={{ a: ready(200), b: ready(100) }}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    trashed={B_GONE}
+                />,
+            );
+
+            const [, rowA, rowB] = screen.getAllByRole("row");
+            expect(rowB).toHaveClass("opacity-40", "line-through");
+            expect(rowB).toHaveTextContent("100 × 100");
+            expect(rowA).not.toHaveClass("opacity-40");
+            expect(rowA).toHaveTextContent("200 × 100Higher");
+        });
+    });
 });

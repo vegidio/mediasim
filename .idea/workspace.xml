@@ -17,25 +17,32 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Implement &quot;Move to Trash&quot; functionality for marked files on pair result screen with confirmation dialog">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DetailsTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DetailsTable.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.test.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/Picture.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ScorePanel.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ScorePanel.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ScorePanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ScorePanel.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.test.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/design.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/specs/gui-pair/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/specs/gui-pair/spec.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-1-mark/tasks.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/thumbs/commands.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/thumbs/commands.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/src/thumbs/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/thumbs/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/design.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/proposal.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/proposal.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/specs/gui-pair/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/specs/gui-pair/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-2-trash/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -171,38 +178,38 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Cargo.Run cli.executor": "Run",
-    "CidrDebugProfileConversion": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.go.formatter.settings.were.checked": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "cidr.known.project.marker": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "rust",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/vegidio/Development/Source/mediasim/fixtures",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.jshint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.jshint": "",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.first.attach.projects": "true",
-    "settings.editor.selected.configurable": "actions.on.save",
-    "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "/Users/vegidio/Development/Source/mediasim/crates/gui/node_modules/.pnpm/@typescript+typescript-darwin-arm64@7.0.2/node_modules/@typescript/typescript-darwin-arm64/lib"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Cargo.Run cli.executor&quot;: &quot;Run&quot;,
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;rust&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/vegidio/Development/Source/mediasim/fixtures&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;actions.on.save&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/vegidio/Development/Source/mediasim/crates/gui/node_modules/.pnpm/@typescript+typescript-darwin-arm64@7.0.2/node_modules/@typescript/typescript-darwin-arm64/lib&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/fixtures" />
@@ -493,7 +500,14 @@
       <option name="presentableId" value="LOCAL−00032" />
       <updated>1791228831158</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL−00033" summary="feat: Implement &quot;Move to Trash&quot; functionality for marked files on pair result screen with confirmation dialog">
+      <option name="closed" value="true" />
+      <created>1791265940684</created>
+      <option name="number" value="LOCAL−00033" />
+      <option name="presentableId" value="LOCAL−00033" />
+      <updated>1791265940684</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -501,7 +515,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="refactor: Add media loading with unified handling for images and videos, directory scanning, and detailed metadata" />
     <MESSAGE value="feat: Add `Media`-level similarity API with DTW and error handling for mixed types" />
     <MESSAGE value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
     <MESSAGE value="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs" />
@@ -526,7 +539,8 @@
     <MESSAGE value="feat: Add `Media::probe` for fast media metadata extraction without decoding frames, supporting GUI &quot;Compare&quot; details" />
     <MESSAGE value="feat: Add pair result screen with similarity score, bands, and file details; implement cancellable media loads" />
     <MESSAGE value="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button" />
+    <MESSAGE value="feat: Implement &quot;Move to Trash&quot; functionality for marked files on pair result screen with confirmation dialog" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Implement &quot;Move to Trash&quot; functionality for marked files on pair result screen with confirmation dialog" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

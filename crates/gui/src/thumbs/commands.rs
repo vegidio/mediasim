@@ -35,7 +35,7 @@ pub async fn admit_media(state: State<'_, ThumbState>, paths: Vec<PathBuf>) -> R
     admit(&state, paths).await
 }
 
-async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, ThumbError> {
+pub(crate) async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, ThumbError> {
     let admitted = admit_all(state, paths).await?;
 
     Ok(admitted.into_iter().map(|entry| entry.map(|(identity, ..)| identity)).collect())

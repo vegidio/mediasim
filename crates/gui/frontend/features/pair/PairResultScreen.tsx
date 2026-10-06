@@ -17,6 +17,7 @@ export const PairResultScreen = () => {
     const leave = usePairResultStore((state) => state.leave);
     const marked = usePairResultStore((state) => state.marked);
     const toggleMark = usePairResultStore((state) => state.toggleMark);
+    const trashed = usePairResultStore((state) => state.trashed);
     const mode = usePairViewStore((state) => state.mode);
     const setMode = usePairViewStore((state) => state.setMode);
     const position = usePairViewStore((state) => state.position);
@@ -43,7 +44,7 @@ export const PairResultScreen = () => {
                 </TabsList>
             </div>
 
-            <ScorePanel comparison={comparison} onRetry={retry} />
+            <ScorePanel comparison={comparison} onRetry={retry} canRetry={!trashed.a && !trashed.b} />
 
             {files && (
                 <>
@@ -55,6 +56,7 @@ export const PairResultScreen = () => {
                             other={details.b}
                             marked={marked.a}
                             onToggleMark={() => toggleMark("a")}
+                            trashed={trashed.a}
                         />
                         <MediaPane
                             slot="b"
@@ -63,6 +65,7 @@ export const PairResultScreen = () => {
                             other={details.a}
                             marked={marked.b}
                             onToggleMark={() => toggleMark("b")}
+                            trashed={trashed.b}
                         />
                     </TabsContent>
                     <TabsContent value="slider" className="flex min-h-[360px] flex-1 flex-col">
@@ -73,6 +76,7 @@ export const PairResultScreen = () => {
                             onPositionChange={setPosition}
                             marked={marked}
                             onToggleMark={toggleMark}
+                            trashed={trashed}
                         />
                     </TabsContent>
                 </>

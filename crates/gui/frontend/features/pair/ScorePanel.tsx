@@ -104,16 +104,18 @@ const Reason = ({ error }: { error: PairFailure }) => {
     }
 };
 
-const Failed = ({ error, onRetry }: { error: PairFailure; onRetry: () => void }) => (
+const Failed = ({ error, onRetry }: { error: PairFailure; onRetry?: () => void }) => (
     <div role="alert" className="flex min-w-0 flex-1 items-center gap-4">
         <TriangleAlertIcon aria-hidden="true" className="size-6 shrink-0 text-warning" />
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
             <p className="font-semibold text-[18px]">Couldn't compare these files</p>
             <Reason error={error} />
         </div>
-        <Button variant="outline" onClick={onRetry} className="h-9 px-3.5">
-            Try again
-        </Button>
+        {onRetry && (
+            <Button variant="outline" onClick={onRetry} className="h-9 px-3.5">
+                Try again
+            </Button>
+        )}
     </div>
 );
 
@@ -121,10 +123,12 @@ type ScorePanelProps = {
     comparison: Comparison;
     /** Called by "Try again", in the failed state. */
     onRetry: () => void;
+    /** Whether "Try again" is offered; not once a file of the pair is gone, since it could only fail. */
+    canRetry?: boolean;
 };
 
 /** The similarity of the pair: a placeholder while comparing, then the score and its band, or what went wrong. */
-export const ScorePanel = ({ comparison, onRetry }: ScorePanelProps) => (
+export const ScorePanel = ({ comparison, onRetry, canRetry = true }: ScorePanelProps) => (
     <section
         aria-label="Similarity result"
         aria-busy={comparison.status === "comparing"}
@@ -132,6 +136,6 @@ export const ScorePanel = ({ comparison, onRetry }: ScorePanelProps) => (
     >
         {comparison.status === "comparing" && <Comparing />}
         {comparison.status === "done" && <Done similarity={comparison.similarity} />}
-        {comparison.status === "failed" && <Failed error={comparison.error} onRetry={onRetry} />}
+        {comparison.status === "failed" && <Failed error={comparison.error} {...(canRetry && { onRetry })} />}
     </section>
 );

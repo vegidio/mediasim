@@ -4,6 +4,7 @@ import App from "@/App";
 import type { MediaType } from "@/ipc/formats";
 import { cancelComparison, comparePair, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
+import { trashMedia } from "@/ipc/trash";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
@@ -17,10 +18,12 @@ vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn() }));
 
 const mockedProbe = probeMedia as Mock;
 const mockedCompare = comparePair as Mock;
 const mockedCancel = cancelComparison as Mock;
+const mockedTrash = trashMedia as Mock;
 
 const media = (name: string, type: MediaType = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -356,6 +359,107 @@ describe("PairResultScreen", () => {
             expect(screen.queryByTestId("mark-wash")).not.toBeInTheDocument();
             expect(within(footer()).getByRole("status")).toHaveTextContent("Nothing marked yet.");
             expect(back()).toHaveFocus();
+        });
+    });
+
+    describe("moving to the Trash", () => {
+        const dismiss = () => screen.getByRole("button", { name: "Dismiss" });
+        const notice = () => dismiss().closest('[role="status"]') as HTMLElement;
+
+        /** Opens the pair, marks `slots`, and confirms the move. */
+        const markAndMove = async (...slots: ("a" | "b")[]) => {
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+            for (const slot of slots) {
+                fireEvent.click(screen.getByRole("button", { name: `Mark ${slot.toUpperCase()} for deletion` }));
+            }
+            fireEvent.click(within(footer()).getByRole("button", { name: /Move \d to Trash…/ }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            await settle();
+        };
+
+        beforeEach(() => {
+            mockedTrash.mockReset();
+        });
+
+        it("shows B gone with the notice, focus on Dismiss, and B in Trash in the slider", async () => {
+            mockedTrash.mockResolvedValue([{ status: "trashed" }]);
+
+            await markAndMove("b");
+
+            expect(mockedTrash).toHaveBeenCalledExactlyOnceWith([B.identity]);
+            expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+            expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent("Moved to Trash · 1.0 kB freed");
+            expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
+            expect(notice()).toHaveTextContent("1 file moved to Trash · 1.0 kB freed");
+            await waitFor(() => expect(dismiss()).toHaveFocus());
+            expect(within(footer()).getByRole("status")).toHaveTextContent("Nothing marked for deletion.");
+
+            select("Slider");
+
+            const slider = screen.getByRole("article", { name: "Files A and B" });
+            expect(within(slider).getByText("In Trash")).toBeInTheDocument();
+            expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+        });
+
+        it("keeps the notice out of the footer", async () => {
+            mockedTrash.mockResolvedValue([{ status: "trashed" }]);
+
+            await markAndMove("b");
+
+            expect(footer()).not.toContainElement(notice());
+            expect(screen.getByRole("main")).not.toContainElement(notice());
+        });
+
+        it("withdraws Try again once a file is gone", async () => {
+            mockedCompare.mockRejectedValue({ kind: "load", path: B.path, message: "boom" });
+            mockedTrash.mockResolvedValue([{ status: "trashed" }]);
+
+            await markAndMove("b");
+
+            expect(screen.getByRole("alert")).toHaveTextContent("Couldn't compare these files");
+            expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+        });
+
+        it("returns to the start screen with B's slot empty and no notice", async () => {
+            mockedTrash.mockResolvedValue([{ status: "trashed" }]);
+            await markAndMove("b");
+
+            fireEvent.click(back());
+
+            const card = screen.getByRole("region", { name: "Compare two files" });
+            expect(card).toHaveTextContent(A.name);
+            expect(card).not.toHaveTextContent(B.name);
+            expect(compare()).toBeDisabled();
+            expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+        });
+
+        it("keeps both slots after a failed move", async () => {
+            mockedTrash.mockResolvedValue([{ status: "failed", reason: "trash", message: "no Trash on this volume" }]);
+            await markAndMove("b");
+
+            expect(notice()).toHaveTextContent(`Couldn't move ${B.name}: no Trash on this volume`);
+            expect(screen.getByRole("button", { name: "B Marked · Undo" })).toBeInTheDocument();
+
+            fireEvent.click(back());
+
+            const card = screen.getByRole("region", { name: "Compare two files" });
+            expect(card).toHaveTextContent(A.name);
+            expect(card).toHaveTextContent(B.name);
+        });
+
+        it("starts a new pair with nothing gone", async () => {
+            mockedTrash.mockResolvedValue([{ status: "trashed" }]);
+            await markAndMove("b");
+            fireEvent.click(back());
+            act(() => usePairStore.setState({ b: B }));
+
+            fireEvent.click(compare());
+
+            expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
+            expect(screen.queryByText(/Moved to Trash/)).not.toBeInTheDocument();
         });
     });
 });
