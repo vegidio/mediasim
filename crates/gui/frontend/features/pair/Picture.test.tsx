@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
-import { Picture } from "./Picture";
+import { barStyle, Picture } from "./Picture";
 
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
@@ -163,6 +163,29 @@ describe("Picture", () => {
             expect(bar().style.width).toBe("");
             expect(bar().style.bottom).toBe("");
             expect(bar()).toHaveClass("absolute", "bottom-3", "w-[max(calc(100%-24px),min(280px,100%))]");
+        });
+
+        it("reports the picture's ratio once loaded, and undefined when it can't be produced", () => {
+            const onRatio = vi.fn();
+            const { container } = render(<Picture file={IMAGE} onRatio={onRatio} />);
+
+            loadSized(container, 1600, 900);
+
+            expect(onRatio).toHaveBeenLastCalledWith(1600 / 900);
+
+            fireEvent.error(picture(container));
+
+            expect(onRatio).toHaveBeenLastCalledWith(undefined);
+        });
+
+        it("widens a shared bar to the wider picture and sits it on the taller one's bottom edge", () => {
+            const wide = 16 / 9;
+            const tall = 9 / 16;
+
+            expect(barStyle(wide, tall)).toEqual({
+                width: `clamp(min(280px, 100cqw), min(100cqw, ${wide} * 100cqh) - 24px, 100cqw)`,
+                bottom: `calc((100cqh - min(100cqh, 100cqw / ${tall})) / 2 + 12px)`,
+            });
         });
 
         it("draws no bar box without a bar", () => {

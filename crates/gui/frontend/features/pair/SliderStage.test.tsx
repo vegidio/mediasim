@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Slot } from "@/features/start/routePairDrop";
@@ -8,6 +8,7 @@ import { SliderStage } from "./SliderStage";
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
+vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -26,11 +27,13 @@ const Stateful = ({
     a = A,
     b = B,
     marked = UNMARKED,
+    bar,
     onChange,
 }: {
     a?: MediaFile;
     b?: MediaFile;
     marked?: Record<Slot, boolean>;
+    bar?: ReactNode;
     onChange: (position: number) => void;
 }) => {
     const [position, setPosition] = useState(50);
@@ -45,6 +48,7 @@ const Stateful = ({
                 setPosition(next);
             }}
             marked={marked}
+            bar={bar}
         />
     );
 };
@@ -252,6 +256,260 @@ describe("SliderStage", () => {
 
             expect(onChange.mock.calls).toEqual([[0], [1]]);
             expect(tag("a")).toBeInTheDocument();
+        });
+    });
+
+    describe("media and bar", () => {
+        const VID_A = media("VID_0714.mov", "video");
+        const VID_B = media("VID_0714-edit.mov", "video");
+        const MEDIA = { a: <i data-testid="media-a" />, b: <i data-testid="media-b" /> };
+        const bar = () => screen.getByTestId("slider-bar");
+        /** `value` as the style declaration serialises it, which reorders and simplifies math. */
+        const serialised = (property: string, value: string) => {
+            const probe = document.createElement("div");
+            probe.style.setProperty(property, value);
+            return probe.style.getPropertyValue(property);
+        };
+        const loadSized = (container: HTMLElement, file: MediaFile, width: number, height: number) => {
+            Object.defineProperty(picture(container, file), "naturalWidth", { value: width });
+            Object.defineProperty(picture(container, file), "naturalHeight", { value: height });
+            load(container, file);
+        };
+
+        it("draws A's media inside its clipped layer and B's outside it, each in its own picture", () => {
+            const { container } = render(
+                <SliderStage
+                    a={VID_A}
+                    b={VID_B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    media={MEDIA}
+                />,
+            );
+
+            const layerA = screen.getByTestId("slider-a");
+            expect(layerA).toContainElement(screen.getByTestId("media-a"));
+            expect(layerA).not.toContainElement(screen.getByTestId("media-b"));
+            expect(picture(container, VID_A).parentElement).toContainElement(screen.getByTestId("media-a"));
+            expect(picture(container, VID_B).parentElement).toContainElement(screen.getByTestId("media-b"));
+            expect(stage()).toHaveClass("[container-type:size]");
+        });
+
+        it("still washes each marked side over its media", () => {
+            const { container } = render(
+                <SliderStage
+                    a={VID_A}
+                    b={VID_B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={{ a: true, b: true }}
+                    media={MEDIA}
+                />,
+            );
+            load(container, VID_A);
+            load(container, VID_B);
+
+            const [washB, washA] = screen.getAllByTestId("mark-wash");
+            expect(screen.getByTestId("media-a").compareDocumentPosition(washA as HTMLElement)).toBe(
+                Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+            expect(screen.getByTestId("media-b").compareDocumentPosition(washB as HTMLElement)).toBe(
+                Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+            expect(screen.getByTestId("slider-a")).toContainElement(washA as HTMLElement);
+        });
+
+        it("draws the bar last, after the handle's root and the tags", () => {
+            render(
+                <SliderStage
+                    a={VID_A}
+                    b={VID_B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={{ a: true, b: true }}
+                    bar={<i data-testid="bar" />}
+                />,
+            );
+
+            expect(stage().lastElementChild).toBe(bar());
+            expect(bar()).toContainElement(screen.getByTestId("bar"));
+            expect(slider().compareDocumentPosition(bar()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        });
+
+        it("doesn't move the handle when the bar is pressed", () => {
+            const onChange = vi.fn();
+            render(
+                <Stateful a={VID_A} b={VID_B} bar={<button type="button">Play A and B</button>} onChange={onChange} />,
+            );
+
+            // The handle's root, which reads a press against its own box; jsdom lays nothing out and has no pointer
+            // capture. Laid out, a press on it moves the handle, so the bar's press below is a fair test.
+            const root = slider().closest(".cursor-ew-resize") as HTMLElement;
+            root.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 400, height: 300 });
+            root.setPointerCapture = () => {};
+            const play = screen.getByRole("button", { name: "Play A and B" });
+
+            fireEvent.pointerDown(play, { clientX: 100, pointerId: 1 });
+            fireEvent.click(play);
+
+            expect(onChange).not.toHaveBeenCalled();
+            expect(slider()).toHaveAttribute("aria-valuenow", "50");
+
+            fireEvent.pointerDown(root, { clientX: 100, pointerId: 1 });
+
+            expect(onChange).toHaveBeenCalledExactlyOnceWith(25);
+        });
+
+        it("sits the bar along the stage's bottom until a picture's shape is known", () => {
+            render(
+                <SliderStage
+                    a={VID_A}
+                    b={VID_B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    bar={<i />}
+                />,
+            );
+
+            expect(bar().style.width).toBe("");
+            expect(bar().style.bottom).toBe("");
+            expect(bar()).toHaveClass("absolute", "bottom-3", "w-[max(calc(100%-24px),min(280px,100%))]");
+        });
+
+        it("fits the bar to the one known shape", () => {
+            const { container } = render(
+                <SliderStage
+                    a={VID_A}
+                    b={VID_B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    bar={<i />}
+                />,
+            );
+
+            loadSized(container, VID_B, 1920, 1080);
+
+            const ratio = 1920 / 1080;
+            expect(bar().style.width).toBe(
+                serialised("width", `clamp(min(280px, 100cqw), min(100cqw, ${ratio} * 100cqh) - 24px, 100cqw)`),
+            );
+            expect(bar().style.bottom).toBe(
+                serialised("bottom", `calc((100cqh - min(100cqh, 100cqw / ${ratio})) / 2 + 12px)`),
+            );
+        });
+
+        it("fits the bar to the wider picture's width and the taller picture's bottom edge", () => {
+            const { container } = render(
+                <SliderStage
+                    a={VID_A}
+                    b={VID_B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    bar={<i />}
+                />,
+            );
+
+            loadSized(container, VID_A, 1080, 1920);
+            loadSized(container, VID_B, 1920, 1080);
+
+            const wide = 1920 / 1080;
+            const tall = 1080 / 1920;
+            expect(bar().style.width).not.toBe("");
+            expect(bar().style.width).toBe(
+                serialised("width", `clamp(min(280px, 100cqw), min(100cqw, ${wide} * 100cqh) - 24px, 100cqw)`),
+            );
+            expect(bar().style.bottom).toBe(
+                serialised("bottom", `calc((100cqh - min(100cqh, 100cqw / ${tall})) / 2 + 12px)`),
+            );
+        });
+
+        it("draws no bar box without a bar", () => {
+            render(<SliderStage a={A} b={B} position={50} onPositionChange={() => {}} marked={UNMARKED} />);
+
+            expect(screen.queryByTestId("slider-bar")).not.toBeInTheDocument();
+        });
+    });
+
+    describe("lone file", () => {
+        const VIDEO = media("VID_0714.mov", "video");
+
+        it("gives a remaining video its own player, which plays it alone", () => {
+            const { container } = render(
+                <SliderStage
+                    a={VIDEO}
+                    b={B}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    gone={{ b: "trash" }}
+                />,
+            );
+
+            const videos = container.querySelectorAll("video");
+            expect(videos).toHaveLength(1);
+            expect(videos[0]).toHaveAttribute("src", "video://localhost/id-VID_0714.mov");
+            expect(screen.getByRole("group", { name: "Player for VID_0714.mov" })).toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole("button", { name: "Play VID_0714.mov" }));
+
+            expect((videos[0] as HTMLVideoElement).paused).toBe(false);
+            expect(screen.queryByRole("slider", { name: "Drag to compare A and B" })).not.toBeInTheDocument();
+        });
+
+        it("washes a marked remaining video", () => {
+            const { container } = render(
+                <SliderStage
+                    a={A}
+                    b={VIDEO}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={{ a: false, b: true }}
+                    gone={{ a: "deleted" }}
+                />,
+            );
+            load(container, VIDEO);
+
+            const wash = screen.getByTestId("mark-wash");
+            expect((container.querySelector("video") as HTMLVideoElement).compareDocumentPosition(wash)).toBe(
+                Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+            expect(screen.getByTestId("delete-tag-b")).toBeInTheDocument();
+        });
+
+        it("gives a remaining image no player", () => {
+            const { container } = render(
+                <SliderStage
+                    a={A}
+                    b={VIDEO}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    gone={{ b: "trash" }}
+                />,
+            );
+
+            expect(container.querySelector("video")).not.toBeInTheDocument();
+            expect(screen.queryByRole("group")).not.toBeInTheDocument();
+        });
+
+        it("gives no player when both are gone", () => {
+            const { container } = render(
+                <SliderStage
+                    a={VIDEO}
+                    b={VIDEO}
+                    position={50}
+                    onPositionChange={() => {}}
+                    marked={UNMARKED}
+                    gone={{ a: "trash", b: "trash" }}
+                />,
+            );
+
+            expect(container.querySelector("video")).not.toBeInTheDocument();
+            expect(screen.queryByRole("group")).not.toBeInTheDocument();
         });
     });
 });

@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { ChevronsLeftRightIcon, Trash2Icon } from "lucide-react";
 import { Slider } from "radix-ui";
 import type { Slot } from "@/features/start/routePairDrop";
@@ -6,7 +6,8 @@ import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 import type { GoneKind } from "@/stores/pairResult";
 import { MarkWash } from "./MarkWash";
-import { Picture } from "./Picture";
+import { BAR_BOX, barStyle, Picture } from "./Picture";
+import { VideoPlayer } from "./VideoPlayer";
 
 /**
  * Where each key moves the handle from `position`. Radix's own keys step by `step`, which is fine-grained so a drag
@@ -37,6 +38,14 @@ type SliderStageProps = {
     marked: Record<Slot, boolean>;
     /** How each file that has left went, neither by default; one gone leaves the other alone, with no handle. */
     gone?: Partial<Record<Slot, GoneKind>>;
+    /** Drawn in each side's picture, over its still and under its wash, such as its playing video. */
+    media?: Record<Slot, ReactNode>;
+    /**
+     * Drawn above everything, along the bottom of the smallest rectangle around both pictures, 12 px inside it, but
+     * never narrower than 280 px or the stage, whichever is less. Along the stage's bottom edge until a picture's shape
+     * is known. Presses on it never reach the handle.
+     */
+    bar?: ReactNode;
 };
 
 /** A marked file's tag, in its own corner of the stage. Hidden from assistive technology: the header's buttons state the mark. */
@@ -57,7 +66,21 @@ const DeleteTag = ({ slot }: { slot: Slot }) => (
  * A over B in one frame that fills the view, A showing left of the handle and B right of it. Each is fitted inside it
  * whole and centred. Pressing or dragging anywhere on the stage, edge to edge, moves the handle.
  */
-export const SliderStage = ({ a, b, position, onPositionChange, marked, gone = NONE_GONE }: SliderStageProps) => {
+export const SliderStage = ({
+    a,
+    b,
+    position,
+    onPositionChange,
+    marked,
+    gone = NONE_GONE,
+    media,
+    bar,
+}: SliderStageProps) => {
+    /** Each picture's width over its height, by file identity, so another file's shape never stands in for it. */
+    const [ratios, setRatios] = useState<Partial<Record<string, number>>>({});
+    const onRatio = (identity: string) => (ratio?: number) =>
+        setRatios((previous) => ({ ...previous, [identity]: ratio }));
+
     const onKeyDown = (event: KeyboardEvent) => {
         const move = KEY_MOVES[event.key];
         if (!move) return;
@@ -87,9 +110,11 @@ export const SliderStage = ({ a, b, position, onPositionChange, marked, gone = N
     const remaining: Slot | undefined = gone.a ? "b" : gone.b ? "a" : undefined;
     if (remaining) {
         const file = remaining === "a" ? a : b;
+        // A video plays on its own, as in the side-by-side view; mounted afresh, so it starts paused at 0 and muted.
+        const Lone = file.type === "video" ? VideoPlayer : Picture;
         return (
             <div data-testid="slider-stage" className="relative min-h-0 flex-1 overflow-hidden bg-background bg-dots">
-                <Picture
+                <Lone
                     key={file.identity}
                     file={file}
                     className="absolute inset-0"
@@ -101,21 +126,39 @@ export const SliderStage = ({ a, b, position, onPositionChange, marked, gone = N
     }
 
     return (
-        // Opaque, with its own dots, so A's layer can repeat them exactly: both are this same box.
-        <div data-testid="slider-stage" className="relative min-h-0 flex-1 overflow-hidden bg-background bg-dots">
+        // Opaque, with its own dots, so A's layer can repeat them exactly: both are this same box. A size container, so
+        // the shared bar can fit itself to both pictures with `cq` units rather than measuring.
+        <div
+            data-testid="slider-stage"
+            className="relative min-h-0 flex-1 overflow-hidden bg-background bg-dots [container-type:size]"
+        >
             {/* Keyed so another file starts loading afresh rather than showing as loaded. */}
             {/*
              * Each wash covers its own picture alone, in its file's own layer, so it tints only that picture's part on
              * that file's side of the handle.
              */}
-            <Picture key={b.identity} file={b} className="absolute inset-0" overlay={marked.b && <MarkWash />} />
+            <Picture
+                key={b.identity}
+                file={b}
+                className="absolute inset-0"
+                overlay={marked.b && <MarkWash />}
+                media={media?.b}
+                onRatio={onRatio(b.identity)}
+            />
             <div
                 data-testid="slider-a"
                 style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
                 // Opaque, so B never shows left of the handle where A's picture doesn't cover, or hasn't loaded.
                 className="absolute inset-0 bg-background bg-dots"
             >
-                <Picture key={a.identity} file={a} className="absolute inset-0" overlay={marked.a && <MarkWash />} />
+                <Picture
+                    key={a.identity}
+                    file={a}
+                    className="absolute inset-0"
+                    overlay={marked.a && <MarkWash />}
+                    media={media?.a}
+                    onRatio={onRatio(a.identity)}
+                />
             </div>
 
             <div
@@ -152,6 +195,29 @@ export const SliderStage = ({ a, b, position, onPositionChange, marked, gone = N
             {/* Above every layer and outside A's clip, so each stays whole and put; click-through to the Root. */}
             {marked.a && <DeleteTag slot="a" />}
             {marked.b && <DeleteTag slot="b" />}
+
+            {/*
+             * Last, so it is above the Root: a sibling rather than a descendant, so presses on it never reach Radix's
+             * pointer handlers and never move the handle.
+             */}
+            {bar && (
+                <div
+                    data-testid="slider-bar"
+                    style={sharedBarStyle(ratios[a.identity], ratios[b.identity])}
+                    className={BAR_BOX}
+                >
+                    {bar}
+                </div>
+            )}
         </div>
     );
+};
+
+/**
+ * Where the shared bar sits over both pictures: both are fitted and centred in the stage, so the smallest rectangle
+ * around them is as wide as the wider one and as tall as the taller one. With one shape known, that one alone.
+ */
+const sharedBarStyle = (ratioA?: number, ratioB?: number) => {
+    const known = [ratioA, ratioB].filter((ratio) => ratio !== undefined);
+    return known.length > 0 ? barStyle(Math.max(...known), Math.min(...known)) : undefined;
 };

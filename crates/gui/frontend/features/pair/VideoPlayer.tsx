@@ -1,10 +1,11 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import type { MediaFile } from "@/ipc/thumbs";
 import { videoUrl } from "@/ipc/video";
 import { cn } from "@/lib/utils";
 import { Picture } from "./Picture";
 import { PlayerBar } from "./PlayerBar";
 import { useVideoPlayback } from "./useVideoPlayback";
+import { useVideoSource } from "./useVideoSource";
 
 type VideoPlayerProps = {
     file: MediaFile;
@@ -22,23 +23,7 @@ export const VideoPlayer = ({ file, ...picture }: VideoPlayerProps) => {
     const playback = useVideoPlayback(video);
     const url = videoUrl(file.identity);
 
-    // The source is set here rather than as a prop, so it is set again on every mount: StrictMode's rehearsal unmount
-    // clears it, and React wouldn't restore a prop that hasn't changed. Declared after the hook, so its listeners are
-    // in place before loading starts.
-    //
-    // Unmounting alone leaves the element to be collected, still playing until then. The cleanup silences it at once
-    // and releases its decoder and its requests.
-    useEffect(() => {
-        const element = video.current;
-        if (!element) return;
-        element.src = url;
-
-        return () => {
-            element.pause();
-            element.removeAttribute("src");
-            element.load();
-        };
-    }, [url]);
+    useVideoSource(video, url);
 
     return (
         <Picture

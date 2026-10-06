@@ -29,6 +29,8 @@ const BUTTON =
 type PlayerBarProps = {
     /** The file's name, which every control's name includes. */
     name: string;
+    /** The name the mute button's own name includes, when its sound is only some of `name`'s; `name` by default. */
+    muteName?: string;
     playback: VideoPlayback;
 };
 
@@ -36,7 +38,7 @@ type PlayerBarProps = {
  * One video's controls, as artboard 2d draws them: play or pause, the time, a seek bar and mute. When the video can't
  * be played, a note in their place. No `aria-pressed` on the buttons: their names already change with the state.
  */
-export const PlayerBar = ({ name, playback }: PlayerBarProps) => {
+export const PlayerBar = ({ name, muteName = name, playback }: PlayerBarProps) => {
     const { playing, time, duration, muted, failed, toggle, seek, toggleMute } = playback;
 
     if (failed) {
@@ -104,7 +106,7 @@ export const PlayerBar = ({ name, playback }: PlayerBarProps) => {
 
             <button
                 type="button"
-                aria-label={`${muted ? "Unmute" : "Mute"} ${name}`}
+                aria-label={`${muted ? "Unmute" : "Mute"} ${muteName}`}
                 onClick={toggleMute}
                 className={cn(BUTTON, "bg-transparent text-[#E4E4E7]")}
             >

@@ -8,6 +8,7 @@ import { SliderPane } from "./SliderPane";
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
+vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -72,17 +73,94 @@ describe("SliderPane", () => {
         expect(within(pane()).getByRole("table")).toBeInTheDocument();
     });
 
-    it("plays nothing for videos", () => {
-        const { container } = render(
-            <SliderPane files={VIDEOS} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
-        );
+    describe("two videos", () => {
+        const videos = (container: HTMLElement) => [...container.querySelectorAll("video")];
 
-        expect(container.querySelector("video")).not.toBeInTheDocument();
-        // The mark buttons are the only buttons: there is no play control.
-        expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
-            "Mark A for deletion",
-            "Mark B for deletion",
-        ]);
+        it("shows one player for both, and both videos hidden behind their stills", () => {
+            const { container } = render(
+                <SliderPane files={VIDEOS} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
+            );
+
+            expect(screen.getAllByRole("group")).toHaveLength(1);
+            expect(screen.getByRole("group", { name: "Player for A and B" })).toBeInTheDocument();
+            expect(screen.getByRole("button", { name: "Unmute A" })).toBeInTheDocument();
+            expect(videos(container).map((video) => video.getAttribute("src"))).toEqual([
+                "video://localhost/id-b.mp4",
+                "video://localhost/id-a.mp4",
+            ]);
+            for (const video of videos(container)) {
+                expect(video).toHaveClass("invisible");
+                expect(video.paused).toBe(true);
+                expect(video.muted).toBe(true);
+            }
+        });
+
+        it("plays and reveals both from Play A and B", () => {
+            const { container } = render(
+                <SliderPane files={VIDEOS} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
+            );
+
+            fireEvent.click(screen.getByRole("button", { name: "Play A and B" }));
+
+            for (const video of videos(container)) {
+                expect(video.paused).toBe(false);
+                expect(video).not.toHaveClass("invisible");
+            }
+            expect(screen.getByRole("button", { name: "Pause A and B" })).toBeInTheDocument();
+        });
+
+        it("hides both videos and shows the note in place of the bar when B can't play", () => {
+            const { container } = render(
+                <SliderPane files={VIDEOS} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
+            );
+            fireEvent.click(screen.getByRole("button", { name: "Play A and B" }));
+            const [videoB, videoA] = videos(container) as [HTMLVideoElement, HTMLVideoElement];
+
+            fireEvent.error(videoB);
+
+            expect(screen.getByTestId("slider-bar")).toHaveTextContent("Can't play this format yet");
+            expect(screen.queryByRole("group")).not.toBeInTheDocument();
+            for (const video of [videoA, videoB]) {
+                expect(video).toHaveClass("invisible");
+                expect(video.paused).toBe(true);
+            }
+            expect(screen.getByRole("slider", { name: "Drag to compare A and B" })).toBeInTheDocument();
+        });
+
+        it("washes A over its playing video when marked, keeping both playing and the bar working", () => {
+            const props = { files: VIDEOS, details: DETAILS, position: 50, onPositionChange: () => {} };
+            const { container, rerender } = render(<SliderPane {...props} {...UNMARKED} />);
+            fireEvent.click(screen.getByRole("button", { name: "Play A and B" }));
+            const [videoB, videoA] = videos(container) as [HTMLVideoElement, HTMLVideoElement];
+            fireEvent.load(container.querySelector('img[src^="thumb://localhost/id-a.mp4"]') as HTMLImageElement);
+
+            rerender(<SliderPane {...props} marked={{ a: true, b: false }} onToggleMark={() => {}} />);
+
+            const wash = screen.getByTestId("mark-wash");
+            expect(screen.getByTestId("slider-a")).toContainElement(wash);
+            expect(videoA.compareDocumentPosition(wash)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+            expect(screen.getByTestId("delete-tag-a")).toHaveTextContent("A · Delete");
+            expect(wash.compareDocumentPosition(screen.getByTestId("slider-bar"))).toBe(
+                Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+            expect(videoA.paused).toBe(false);
+            expect(videoB.paused).toBe(false);
+
+            fireEvent.click(screen.getByRole("button", { name: "Pause A and B" }));
+
+            expect(videoA.paused).toBe(true);
+            expect(videoB.paused).toBe(true);
+        });
+
+        it("shows no player for two images", () => {
+            const { container } = render(
+                <SliderPane files={IMAGES} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
+            );
+
+            expect(container.querySelector("video")).not.toBeInTheDocument();
+            expect(screen.queryByRole("group")).not.toBeInTheDocument();
+            expect(screen.queryByTestId("slider-bar")).not.toBeInTheDocument();
+        });
     });
 
     it("marks each file from its own button", () => {
@@ -229,6 +307,63 @@ describe("SliderPane", () => {
 
             expect(screen.getByTestId("delete-tag-a")).toHaveTextContent("A · Delete");
             expect(screen.getByRole("button", { name: "A Marked · Undo" })).toBeInTheDocument();
+        });
+
+        it("gives a remaining video its own player, which plays it alone", () => {
+            const files = { a: media("VID_0714.mov", "video"), b: media("VID_0714-edit.mov", "video") };
+            const { container } = render(
+                <SliderPane
+                    files={files}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    gone={B_GONE}
+                />,
+            );
+
+            expect(screen.getByRole("group", { name: "Player for VID_0714.mov" })).toBeInTheDocument();
+            expect(screen.queryByRole("group", { name: "Player for A and B" })).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole("button", { name: "Play VID_0714.mov" }));
+
+            const videos = container.querySelectorAll("video");
+            expect(videos).toHaveLength(1);
+            expect(videos[0]).toHaveAttribute("src", "video://localhost/id-VID_0714.mov");
+            expect((videos[0] as HTMLVideoElement).paused).toBe(false);
+        });
+
+        it("gives no player when both videos are gone", () => {
+            const { container } = render(
+                <SliderPane
+                    files={VIDEOS}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    gone={{ a: "trash", b: "trash" }}
+                />,
+            );
+
+            expect(screen.getByTestId("slider-stage")).toHaveTextContent("Both files moved to Trash");
+            expect(container.querySelector("video")).not.toBeInTheDocument();
+            expect(screen.queryByRole("group")).not.toBeInTheDocument();
+        });
+
+        it("gives a remaining image no player", () => {
+            const { container } = render(
+                <SliderPane
+                    files={{ a: IMAGES.a, b: VIDEOS.b }}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    gone={B_GONE}
+                />,
+            );
+
+            expect(container.querySelector("video")).not.toBeInTheDocument();
+            expect(screen.queryByRole("group")).not.toBeInTheDocument();
         });
 
         it("shows a placeholder on the stage when both are gone", () => {

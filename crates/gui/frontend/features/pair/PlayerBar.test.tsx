@@ -33,6 +33,26 @@ describe("PlayerBar", () => {
         expect(screen.getByRole("button", { name: "Mute VID_0714.mov" })).toBeInTheDocument();
     });
 
+    it("names the mute button with muteName when given, and every other control with name", () => {
+        const { rerender } = render(<PlayerBar name="A and B" muteName="A" playback={playback({ duration: 42 })} />);
+
+        expect(screen.getByRole("group", { name: "Player for A and B" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Play A and B" })).toBeInTheDocument();
+        expect(screen.getByRole("slider", { name: "Seek A and B" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Unmute A" })).toBeInTheDocument();
+
+        rerender(
+            <PlayerBar
+                name="A and B"
+                muteName="A"
+                playback={playback({ duration: 42, playing: true, muted: false })}
+            />,
+        );
+
+        expect(screen.getByRole("button", { name: "Pause A and B" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Mute A" })).toBeInTheDocument();
+    });
+
     it("holds play, the time, the seek bar and mute, in order, in a group named for the file", () => {
         render(<PlayerBar name={NAME} playback={playback({ time: 12.4, duration: 42.6 })} />);
 

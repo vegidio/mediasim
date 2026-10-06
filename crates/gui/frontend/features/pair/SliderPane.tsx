@@ -6,6 +6,7 @@ import type { GoneKind } from "@/stores/pairResult";
 import { DetailsTable } from "./DetailsTable";
 import type { Details } from "./details";
 import { MarkButton } from "./MarkButton";
+import { SliderPlayer } from "./SliderPlayer";
 import { SliderStage } from "./SliderStage";
 
 type SliderPaneProps = {
@@ -95,14 +96,25 @@ export const SliderPane = ({
             <Badge slot="b" gone={gone.b !== undefined} />
         </div>
 
-        <SliderStage
-            a={files.a}
-            b={files.b}
-            position={position}
-            onPositionChange={onPositionChange}
-            marked={marked}
-            gone={gone}
-        />
+        {/* Two videos still in place play in step; anything else is stills, or one file's own player. */}
+        {files.a.type === "video" && files.b.type === "video" && !gone.a && !gone.b ? (
+            <SliderPlayer
+                a={files.a}
+                b={files.b}
+                position={position}
+                onPositionChange={onPositionChange}
+                marked={marked}
+            />
+        ) : (
+            <SliderStage
+                a={files.a}
+                b={files.b}
+                position={position}
+                onPositionChange={onPositionChange}
+                marked={marked}
+                gone={gone}
+            />
+        )}
 
         <DetailsTable files={files} details={details} gone={gone} />
     </article>

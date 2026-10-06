@@ -693,6 +693,31 @@ describe("PairResultScreen", () => {
         const videoOf = (pane: string) =>
             screen.getByRole("article", { name: pane }).querySelector("video") as HTMLVideoElement;
         const button = (name: string) => screen.getByRole("button", { name });
+        /** The slider's two `<video>` elements, A's then B's. */
+        const sliderVideos = () =>
+            [VA, VB].map(
+                (file) =>
+                    screen
+                        .getByTestId("slider-stage")
+                        .querySelector(`video[src="video://localhost/${file.identity}"]`) as HTMLVideoElement,
+            );
+
+        /** Opens a pair of videos in the slider, each knowing its duration, and plays both with A's sound on. */
+        const openAndPlaySlider = () => {
+            usePairStore.setState({ a: VA, b: VB });
+            render(<App />);
+            fireEvent.click(compare());
+            select("Slider");
+            act(() => {
+                for (const video of sliderVideos()) Object.assign(video, { duration: 42 });
+            });
+            fireEvent.click(button("Play A and B"));
+            fireEvent.click(button("Unmute A"));
+            const videos = sliderVideos();
+            expect(videos.map((video) => video.paused)).toEqual([false, false]);
+            expect(videos[0]?.muted).toBe(false);
+            return videos;
+        };
 
         /** Opens a pair of videos side by side, each knowing its duration, and plays A. */
         const openAndPlayA = () => {
@@ -719,7 +744,7 @@ describe("PairResultScreen", () => {
             expect(button("Unmute VID_0714-copy.mp4")).toBeInTheDocument();
         });
 
-        it("stops A when the slider is selected, which shows stills with no player bar", () => {
+        it("stops A when the slider is selected, which shows stills with its shared player bar at 0:00", () => {
             openAndPlayA();
             fireEvent.click(button("Unmute VID_0714.mov"));
             const playing = videoOf("File A");
@@ -728,8 +753,12 @@ describe("PairResultScreen", () => {
 
             expect(playing.paused).toBe(true);
             expect(playing).not.toHaveAttribute("src");
-            expect(document.querySelector("video")).not.toBeInTheDocument();
-            expect(screen.queryByRole("group", { name: /^Player for/ })).not.toBeInTheDocument();
+            expect(screen.getByRole("group", { name: "Player for A and B" })).toHaveTextContent(/^0:00 \//);
+            expect(button("Play A and B")).toBeInTheDocument();
+            for (const video of sliderVideos()) {
+                expect(video.paused).toBe(true);
+                expect(video).toHaveClass("invisible");
+            }
             expect(screen.getByTestId("slider-stage").querySelectorAll("img")).toHaveLength(2);
         });
 
@@ -804,6 +833,58 @@ describe("PairResultScreen", () => {
             expect(a.paused).toBe(true);
             expect(b.paused).toBe(true);
             expect(document.querySelector("video")).not.toBeInTheDocument();
+        });
+        it("stops both slider videos on Side by side, whose panes start paused at 0:00 and muted", () => {
+            const playing = openAndPlaySlider();
+
+            select("Side by side");
+
+            for (const video of playing) {
+                expect(video.paused).toBe(true);
+                expect(video).not.toHaveAttribute("src");
+            }
+            for (const [pane, name] of [
+                ["File A", "VID_0714.mov"],
+                ["File B", "VID_0714-copy.mp4"],
+            ] as const) {
+                expect(screen.getByRole("group", { name: `Player for ${name}` })).toHaveTextContent(/^0:00 \//);
+                expect(videoOf(pane).paused).toBe(true);
+                expect(videoOf(pane).muted).toBe(true);
+            }
+        });
+
+        it("stops both slider videos on New comparison", () => {
+            const playing = openAndPlaySlider();
+
+            fireEvent.click(back());
+
+            for (const video of playing) {
+                expect(video.paused).toBe(true);
+                expect(video).not.toHaveAttribute("src");
+            }
+            expect(document.querySelector("video")).not.toBeInTheDocument();
+            expect(compare()).toBeInTheDocument();
+        });
+
+        it("stops both slider videos when B is moved to the Trash, leaving A its own player at 0:00, muted", async () => {
+            mockedTrash.mockReset().mockResolvedValue([{ status: "trashed" }]);
+            const playing = openAndPlaySlider();
+
+            fireEvent.click(button("Mark B for deletion"));
+            fireEvent.click(within(footer()).getByRole("button", { name: /Move \d to Trash…/ }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            await settle();
+
+            for (const video of playing) {
+                expect(video.paused).toBe(true);
+                expect(video).not.toHaveAttribute("src");
+            }
+            expect(screen.queryByRole("group", { name: "Player for A and B" })).not.toBeInTheDocument();
+            expect(screen.getByRole("group", { name: "Player for VID_0714.mov" })).toHaveTextContent(/^0:00 \//);
+            const lone = screen.getByTestId("slider-stage").querySelectorAll("video");
+            expect(lone).toHaveLength(1);
+            expect(lone[0]).toMatchObject({ paused: true, muted: true });
+            expect(button("Unmute VID_0714.mov")).toBeInTheDocument();
         });
     });
 });

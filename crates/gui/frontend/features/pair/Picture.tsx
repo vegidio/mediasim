@@ -21,20 +21,33 @@ type PictureProps = {
      * box, whichever is less. Along the box's bottom edge until the picture's shape is known.
      */
     bar?: ReactNode;
+    /** Told the picture's width over its height once it loads, and `undefined` when it can't be produced. */
+    onRatio?: (ratio?: number) => void;
 };
 
-/** Where `bar` sits once the picture's shape is known, from the same `cq` arithmetic as the frame. */
-const barStyle = (ratio: number) => ({
-    width: `clamp(min(280px, 100cqw), min(100cqw, ${ratio} * 100cqh) - 24px, 100cqw)`,
-    bottom: `calc((100cqh - min(100cqh, 100cqw / ${ratio})) / 2 + 12px)`,
+/**
+ * Where a bar sits over pictures fitted and centred in a size container, from the same `cq` arithmetic as their frames:
+ * as wide as the `wide`st picture, and on the bottom edge of the `tall`est, whose ratio is the smaller. For one picture,
+ * both are its own ratio.
+ */
+export const barStyle = (wide: number, tall: number) => ({
+    width: `clamp(min(280px, 100cqw), min(100cqw, ${wide} * 100cqh) - 24px, 100cqw)`,
+    bottom: `calc((100cqh - min(100cqh, 100cqw / ${tall})) / 2 + 12px)`,
 });
+
+/**
+ * A bar's box, along the container's bottom edge. The class places it where a webview can't read `cq` units and drops
+ * {@link barStyle}, and until the pictures' shapes are known.
+ */
+export const BAR_BOX =
+    "absolute bottom-3 left-1/2 w-[max(calc(100%-24px),min(280px,100%))] max-w-full -translate-x-1/2";
 
 /**
  * The file's whole picture, scaled to fit and centred, over its kind icon. The icon shows until the picture has
  * loaded, and stays when it can't be produced. A video's picture is a still frame, which `media` can draw a player
  * over.
  */
-export const Picture = ({ file, className, overlay, media, bar }: PictureProps) => {
+export const Picture = ({ file, className, overlay, media, bar, onRatio }: PictureProps) => {
     const [loaded, setLoaded] = useState(false);
     /** The picture's width over its height, known once it has loaded. */
     const [ratio, setRatio] = useState<number>();
@@ -66,28 +79,24 @@ export const Picture = ({ file, className, overlay, media, bar }: PictureProps) 
                     src={renditionUrl(file.identity, PICTURE_BOUND)}
                     onLoad={(event) => {
                         const { naturalWidth, naturalHeight } = event.currentTarget;
-                        setRatio(naturalWidth > 0 && naturalHeight > 0 ? naturalWidth / naturalHeight : undefined);
+                        const shape = naturalWidth > 0 && naturalHeight > 0 ? naturalWidth / naturalHeight : undefined;
+                        setRatio(shape);
                         setLoaded(true);
+                        onRatio?.(shape);
                     }}
                     onError={() => {
                         setRatio(undefined);
                         setLoaded(false);
+                        onRatio?.(undefined);
                     }}
                     className={cn("absolute inset-0 size-full object-contain", !loaded && "invisible")}
                 />
                 {media}
                 {loaded && overlay}
             </div>
-            {/*
-             * Outside the frame, so a narrow portrait picture still gets a usable bar. The class places it where a
-             * webview can't read `cq` units and drops the inline style.
-             */}
+            {/* Outside the frame, so a narrow portrait picture still gets a usable bar. */}
             {bar && (
-                <div
-                    data-testid="picture-bar"
-                    style={ratio ? barStyle(ratio) : undefined}
-                    className="absolute bottom-3 left-1/2 w-[max(calc(100%-24px),min(280px,100%))] max-w-full -translate-x-1/2"
-                >
+                <div data-testid="picture-bar" style={ratio ? barStyle(ratio, ratio) : undefined} className={BAR_BOX}>
                     {bar}
                 </div>
             )}
