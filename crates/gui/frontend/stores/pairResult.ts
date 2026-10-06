@@ -3,10 +3,18 @@ import type { Details } from "@/features/pair/details";
 import type { Slot } from "@/features/start/routePairDrop";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { type RestoreOutcome, restoreMedia, type TrashOutcome, trashMedia } from "@/ipc/trash";
+import {
+    type DeleteOutcome,
+    deleteMedia,
+    type RestoreOutcome,
+    restoreMedia,
+    type TrashOutcome,
+    trashMedia,
+} from "@/ipc/trash";
 import { usePairStore } from "@/stores/pair";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
+import { type DeletionMode, useSettingsStore } from "@/stores/settings";
 
 /** Where the comparison of the pair stands. */
 export type Comparison =
@@ -14,17 +22,29 @@ export type Comparison =
     | { status: "done"; similarity: number }
     | { status: "failed"; error: PairFailure };
 
-/**
- * Where the deletion of the marked files stands: not started, awaiting confirmation, moving them, or restoring files
- * moved. A move and a restore never run at once.
- */
-export type Deletion = { status: "idle" } | { status: "confirming" } | { status: "moving" } | { status: "restoring" };
+/** How a file left: moved to the Trash, which Undo can reverse, or deleted from disk, which nothing can. */
+export type GoneKind = "trash" | "deleted";
 
 /**
- * The result of the last move to the Trash or restore from it: the files it was done to, and each one it wasn't with
- * the reason.
+ * Where the deletion of the marked files stands: not started, awaiting confirmation, removing them, or restoring files
+ * moved. The mode is the one in force when the deletion was asked for, and `confirmed` says whether the confirmation
+ * was shown. A removal and a restore never run at once.
  */
-export type Notice = { action: "trash" | "restore"; done: Slot[]; failed: { slot: Slot; message: string }[] };
+export type Deletion =
+    | { status: "idle" }
+    | { status: "confirming"; mode: DeletionMode }
+    | { status: "removing"; mode: DeletionMode; confirmed: boolean }
+    | { status: "restoring" };
+
+/**
+ * The result of the last move to the Trash, permanent deletion or restore: the files it was done to, and each one it
+ * wasn't with the reason.
+ */
+export type Notice = {
+    action: "trash" | "delete" | "restore";
+    done: Slot[];
+    failed: { slot: Slot; message: string }[];
+};
 
 /** State of the pair result screen. */
 type PairResultStore = {
@@ -34,8 +54,8 @@ type PairResultStore = {
     comparison: Comparison;
     /** Which files the user has marked for deletion; neither when a pair opens. */
     marked: Record<Slot, boolean>;
-    /** Which files have been moved to the Trash; neither when a pair opens. */
-    trashed: Record<Slot, boolean>;
+    /** How each file that has left went; neither when a pair opens. */
+    gone: Partial<Record<Slot, GoneKind>>;
     deletion: Deletion;
     /** The result of the last move or restore, until it is dismissed or the screen is left. */
     notice?: Notice;
@@ -48,12 +68,15 @@ type PairResultStore = {
     leave: () => void;
     /** Mark `slot`'s file for deletion, or unmark it. */
     toggleMark: (slot: Slot) => void;
-    /** Ask to confirm moving the marked files to the Trash; does nothing while none is marked. */
-    confirmDeletion: () => void;
-    /** Close the confirmation without moving anything. */
+    /**
+     * Start removing the marked files in the deletion mode in force: ask to confirm first while the settings say so,
+     * or remove them at once. Does nothing while none is marked or another deletion or restore is under way.
+     */
+    requestDeletion: () => Promise<void>;
+    /** Close the confirmation without removing anything. */
     cancelDeletion: () => void;
-    /** Move the marked files to the Trash, once confirmed, and record the result. */
-    moveToTrash: () => Promise<void>;
+    /** Remove the marked files in the confirming mode, once confirmed, and record the result. */
+    removeMarked: () => Promise<void>;
     /** Put the files of `slots` that are in the Trash back where they were, and record the result. */
     restore: (slots: Slot[]) => Promise<void>;
     /** Close the notice. */
@@ -62,6 +85,7 @@ type PairResultStore = {
 
 const LOADING: Details = { status: "loading" };
 const UNMARKED: Record<Slot, boolean> = { a: false, b: false };
+const NONE_GONE: Partial<Record<Slot, GoneKind>> = {};
 const IDLE: Deletion = { status: "idle" };
 const SLOTS: readonly Slot[] = ["a", "b"];
 
@@ -104,11 +128,58 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
         );
     };
 
+    /** Removes the marked files in `mode`, and records how each went. */
+    const remove = async (mode: DeletionMode, confirmed: boolean) => {
+        const { files, marked } = get();
+        if (!files) return;
+
+        const run = opened;
+        const slots = SLOTS.filter((slot) => marked[slot]);
+        set({ deletion: { status: "removing", mode, confirmed } });
+
+        const identities = slots.map((slot) => files[slot].identity);
+        // A rejection means nothing was attempted, so every file counts as not removed, with the reason.
+        const outcomes =
+            mode === "trash"
+                ? await trashMedia(identities).catch((error: unknown): TrashOutcome[] =>
+                      slots.map(() => ({ status: "failed", reason: "trash", message: String(error) })),
+                  )
+                : await deleteMedia(identities).catch((error: unknown): DeleteOutcome[] =>
+                      slots.map(() => ({ status: "failed", reason: "delete", message: String(error) })),
+                  );
+        if (run !== opened) return;
+
+        const notice: Notice = { action: mode === "trash" ? "trash" : "delete", done: [], failed: [] };
+        slots.forEach((slot, index) => {
+            const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
+            if (outcome.status === "failed") notice.failed.push({ slot, message: outcome.message });
+            else notice.done.push(slot);
+        });
+
+        const kind: GoneKind = mode === "trash" ? "trash" : "deleted";
+        set((state) => {
+            const gone = { ...state.gone };
+            const marked = { ...state.marked };
+            for (const slot of notice.done) {
+                gone[slot] = kind;
+                marked[slot] = false;
+            }
+            return { gone, marked, deletion: IDLE, notice };
+        });
+
+        // A file gone can't be compared again, so it leaves the start screen's slot, unless that slot has since been
+        // given another file.
+        const start = usePairStore.getState();
+        for (const slot of notice.done) {
+            if (start[slot]?.identity === files[slot].identity) start.remove(slot);
+        }
+    };
+
     return {
         details: { a: LOADING, b: LOADING },
         comparison: { status: "comparing" },
         marked: UNMARKED,
-        trashed: UNMARKED,
+        gone: NONE_GONE,
         deletion: IDLE,
 
         open: (a, b) => {
@@ -119,7 +190,7 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
                     files: { a, b },
                     details: { a: LOADING, b: LOADING },
                     marked: UNMARKED,
-                    trashed: UNMARKED,
+                    gone: NONE_GONE,
                     deletion: IDLE,
                 }),
                 true,
@@ -148,61 +219,32 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
 
         toggleMark: (slot) => set((state) => ({ marked: { ...state.marked, [slot]: !state.marked[slot] } })),
 
-        confirmDeletion: () => {
+        requestDeletion: async () => {
             const { marked, deletion } = get();
-            if (deletion.status === "idle" && (marked.a || marked.b)) set({ deletion: { status: "confirming" } });
+            if (deletion.status !== "idle" || !(marked.a || marked.b)) return;
+
+            // Read once, so this deletion keeps its mode whatever Settings says by the time it is confirmed.
+            const { deletionMode, confirmDeletion } = useSettingsStore.getState();
+            if (confirmDeletion) set({ deletion: { status: "confirming", mode: deletionMode } });
+            else await remove(deletionMode, false);
         },
 
         cancelDeletion: () => {
             if (get().deletion.status === "confirming") set({ deletion: IDLE });
         },
 
-        moveToTrash: async () => {
-            const { files, marked, deletion } = get();
-            if (!files || deletion.status !== "confirming") return;
-
-            const run = opened;
-            const slots = SLOTS.filter((slot) => marked[slot]);
-            set({ deletion: { status: "moving" } });
-
-            // A rejection means nothing was attempted, so every file counts as not moved, with the reason.
-            const outcomes = await trashMedia(slots.map((slot) => files[slot].identity)).catch(
-                (error: unknown): TrashOutcome[] =>
-                    slots.map(() => ({ status: "failed", reason: "trash", message: String(error) })),
-            );
-            if (run !== opened) return;
-
-            const notice: Notice = { action: "trash", done: [], failed: [] };
-            slots.forEach((slot, index) => {
-                const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
-                if (outcome.status === "trashed") notice.done.push(slot);
-                else notice.failed.push({ slot, message: outcome.message });
-            });
-
-            set((state) => {
-                const trashed = { ...state.trashed };
-                const marked = { ...state.marked };
-                for (const slot of notice.done) {
-                    trashed[slot] = true;
-                    marked[slot] = false;
-                }
-                return { trashed, marked, deletion: IDLE, notice };
-            });
-
-            // A trashed file can't be compared again, so it leaves the start screen's slot, unless that slot has
-            // since been given another file.
-            const start = usePairStore.getState();
-            for (const slot of notice.done) {
-                if (start[slot]?.identity === files[slot].identity) start.remove(slot);
-            }
+        removeMarked: async () => {
+            const { deletion } = get();
+            if (deletion.status === "confirming") await remove(deletion.mode, true);
         },
 
         restore: async (requested) => {
-            const { files, trashed, deletion } = get();
+            const { files, gone, deletion } = get();
             if (!files || deletion.status !== "idle") return;
 
             const run = opened;
-            const slots = SLOTS.filter((slot) => requested.includes(slot) && trashed[slot]);
+            // A deleted file is never sent: only the Trash can give a file back.
+            const slots = SLOTS.filter((slot) => requested.includes(slot) && gone[slot] === "trash");
             if (slots.length === 0) return;
             set({ deletion: { status: "restoring" } });
 
@@ -228,9 +270,9 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
 
             set((state) => {
                 if (!state.files) return { deletion: IDLE, notice };
-                const trashed = { ...state.trashed };
-                for (const slot of notice.done) trashed[slot] = false;
-                return { files: { ...state.files, ...restored }, trashed, deletion: IDLE, notice };
+                const gone = { ...state.gone };
+                for (const slot of notice.done) delete gone[slot];
+                return { files: { ...state.files, ...restored }, gone, deletion: IDLE, notice };
             });
 
             // Back in its start slot, unless that slot has been given another file since.

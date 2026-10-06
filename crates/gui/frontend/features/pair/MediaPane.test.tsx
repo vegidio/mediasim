@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { GoneKind } from "@/stores/pairResult";
 import type { Details } from "./details";
 import { MediaPane } from "./MediaPane";
 
@@ -237,7 +238,15 @@ describe("MediaPane", () => {
         const EDIT: MediaFile = { ...IMAGE, name: "IMG_2041-edit.jpg", size: 1_100_000, identity: "fedcba9876543210" };
         const smaller = imageInfo({ width: 2048, height: 1536, created: new Date(2025, 7, 2).toISOString() });
 
-        const both = ({ onRestore = () => {}, restoring = false } = {}) =>
+        const both = ({
+            onRestore = () => {},
+            restoring = false,
+            gone = "trash",
+        }: {
+            onRestore?: () => void;
+            restoring?: boolean;
+            gone?: GoneKind;
+        } = {}) =>
             render(
                 <>
                     <MediaPane
@@ -253,7 +262,7 @@ describe("MediaPane", () => {
                         details={ready(smaller)}
                         other={ready(imageInfo())}
                         {...UNMARKED}
-                        trashed
+                        gone={gone}
                         onRestore={onRestore}
                         restoring={restoring}
                     />
@@ -271,6 +280,15 @@ describe("MediaPane", () => {
             expect(within(gone).queryByRole("button", { name: /^Mark/ })).not.toBeInTheDocument();
             expect(gone.querySelector("img")).not.toBeInTheDocument();
             expect(gone.querySelector("dl")).not.toBeInTheDocument();
+        });
+
+        it("shows a deleted file's placeholder with no Undo", () => {
+            both({ gone: "deleted" });
+
+            const gone = pane("File B");
+            expect(gone).toHaveClass("border-dashed");
+            expect(gone).toHaveTextContent(/^IMG_2041-edit\.jpgDeleted permanently · 1\.1 MB freed$/);
+            expect(within(gone).queryByRole("button")).not.toBeInTheDocument();
         });
 
         it("leaves the other pane whole, with its button, picture and badges", () => {

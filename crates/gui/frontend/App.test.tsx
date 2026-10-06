@@ -1,5 +1,5 @@
 import { act } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { comparePair, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
@@ -17,7 +17,7 @@ vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
-vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
 
 describe("App", () => {
     beforeEach(() => {
@@ -60,8 +60,99 @@ describe("App", () => {
         expect(header).toHaveTextContent("Compare two files");
         expect(within(header).queryByRole("navigation", { name: "Progress" })).not.toBeInTheDocument();
         expect(within(header).getByText("MediaSim")).toBeInTheDocument();
-        expect(within(header).getByRole("button", { name: "Settings" })).toBeDisabled();
+        expect(within(header).getByRole("button", { name: "Settings" })).toBeEnabled();
         expect(screen.queryByRole("heading", { name: "What do you want to compare?" })).not.toBeInTheDocument();
+    });
+
+    describe("Settings", () => {
+        const settingsButton = () => within(screen.getByRole("banner")).getByRole("button", { name: "Settings" });
+        const media = (name: string): MediaFile => ({
+            path: `/media/${name}`,
+            name,
+            type: "image",
+            size: 1000,
+            identity: `id-${name}`,
+        });
+        const [a, b] = [media("a.jpg"), media("b.jpg")];
+
+        beforeEach(() => {
+            (probeMedia as Mock).mockReturnValue(new Promise(() => {}));
+            (comparePair as Mock).mockReturnValue(new Promise(() => {}));
+            usePairStore.setState(usePairStore.getInitialState(), true);
+            usePairResultStore.setState(usePairResultStore.getInitialState(), true);
+        });
+
+        it("opens from the start screen, reading Settings in the header with the button as the current page", () => {
+            render(<App />);
+
+            fireEvent.click(settingsButton());
+
+            const header = screen.getByRole("banner");
+            expect(header).toHaveTextContent("Settings");
+            expect(within(header).queryByRole("navigation", { name: "Progress" })).not.toBeInTheDocument();
+            expect(settingsButton()).toHaveAttribute("aria-current", "page");
+            expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
+            expect(screen.getByRole("region", { name: "Deleting files" })).toBeInTheDocument();
+        });
+
+        it("goes Back to the start screen with its slots, and focus on the Settings button", async () => {
+            usePairStore.setState({ a, b });
+            render(<App />);
+            fireEvent.click(settingsButton());
+
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+            expect(screen.getByRole("heading", { level: 1, name: "What do you want to compare?" })).toBeInTheDocument();
+            expect(usePairStore.getState()).toMatchObject({ a, b });
+            expect(settingsButton()).not.toHaveAttribute("aria-current");
+            await waitFor(() => expect(settingsButton()).toHaveFocus());
+        });
+
+        it("opens from a pair, hiding the footer and notice, and comes back to it unchanged", async () => {
+            (trashMedia as Mock).mockResolvedValue([{ status: "trashed" }]);
+            usePairStore.setState({ a, b });
+            render(<App />);
+            fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            fireEvent.click(screen.getByRole("button", { name: "Move 1 to Trash…" }));
+            fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Move to Trash" }));
+            // The move sends focus to Dismiss once the dialog has closed; let it land, so it can't race Back's focus.
+            await waitFor(() => expect(screen.getByRole("button", { name: "Dismiss" })).toHaveFocus());
+            fireEvent.click(screen.getByRole("button", { name: "Mark A for deletion" }));
+            const before = usePairResultStore.getState();
+
+            fireEvent.click(settingsButton());
+
+            expect(screen.queryByRole("region", { name: "Deletion" })).not.toBeInTheDocument();
+            expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+            expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+            expect(screen.getByRole("banner")).toHaveTextContent("Compare two files");
+            expect(usePairResultStore.getState()).toBe(before);
+            expect(screen.getByRole("button", { name: "Undo moving b.jpg to Trash" })).toBeInTheDocument();
+            expect(within(screen.getByRole("region", { name: "Deletion" })).getByRole("status")).toHaveTextContent(
+                "1 file marked for deletion",
+            );
+            expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+            await waitFor(() => expect(settingsButton()).toHaveFocus());
+            expect(screen.getByRole("button", { name: "New comparison" })).not.toHaveFocus();
+        });
+
+        it("shows the score of a comparison that finished while in Settings", async () => {
+            let finish: (similarity: number) => void = () => {};
+            (comparePair as Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+            usePairStore.setState({ a, b });
+            render(<App />);
+            fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+            fireEvent.click(settingsButton());
+
+            await act(async () => finish(0.94522));
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+            expect(screen.getByRole("region", { name: "Similarity result" })).toHaveTextContent("95%");
+        });
     });
 
     describe("deletion footer", () => {

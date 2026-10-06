@@ -79,7 +79,7 @@ describe("DeletionNotice", () => {
     });
 
     it("closes on Dismiss, keeping the file gone", () => {
-        usePairResultStore.setState({ trashed: { a: false, b: true } });
+        usePairResultStore.setState({ gone: { b: "trash" } });
         render(<DeletionNotice />);
         show({ action: "trash", done: ["b"], failed: [] });
 
@@ -87,7 +87,7 @@ describe("DeletionNotice", () => {
 
         expect(status()).toBeEmptyDOMElement();
         expect(usePairResultStore.getState().notice).toBeUndefined();
-        expect(usePairResultStore.getState().trashed.b).toBe(true);
+        expect(usePairResultStore.getState().gone.b).toBe("trash");
     });
 
     describe("undo", () => {
@@ -99,7 +99,7 @@ describe("DeletionNotice", () => {
         });
 
         it("offers Undo between the text and Dismiss, named with the count", () => {
-            usePairResultStore.setState({ trashed: { a: true, b: true } });
+            usePairResultStore.setState({ gone: { a: "trash", b: "trash" } });
             render(<DeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
@@ -110,7 +110,7 @@ describe("DeletionNotice", () => {
         });
 
         it("restores every file the move moved, and moves focus to Dismiss", async () => {
-            usePairResultStore.setState({ trashed: { a: true, b: true } });
+            usePairResultStore.setState({ gone: { a: "trash", b: "trash" } });
             mockedRestore.mockResolvedValue([restored(A.identity), restored(B.identity)]);
             render(<DeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
@@ -123,7 +123,7 @@ describe("DeletionNotice", () => {
         });
 
         it("restores only the files the move moved that are still in the Trash", async () => {
-            usePairResultStore.setState({ trashed: { a: false, b: true } });
+            usePairResultStore.setState({ gone: { b: "trash" } });
             mockedRestore.mockResolvedValue([restored(B.identity)]);
             render(<DeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
@@ -135,7 +135,7 @@ describe("DeletionNotice", () => {
         });
 
         it("hides Undo once every file the move moved is back", () => {
-            usePairResultStore.setState({ trashed: { a: false, b: false } });
+            usePairResultStore.setState({ gone: {} });
             render(<DeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
@@ -143,7 +143,7 @@ describe("DeletionNotice", () => {
         });
 
         it("disables Undo while restoring", () => {
-            usePairResultStore.setState({ trashed: { a: false, b: true }, deletion: { status: "restoring" } });
+            usePairResultStore.setState({ gone: { b: "trash" }, deletion: { status: "restoring" } });
             render(<DeletionNotice />);
             show({ action: "trash", done: ["b"], failed: [] });
 
@@ -151,7 +151,7 @@ describe("DeletionNotice", () => {
         });
 
         it("offers no Undo for a move where nothing moved", () => {
-            usePairResultStore.setState({ trashed: { a: false, b: false } });
+            usePairResultStore.setState({ gone: {} });
             render(<DeletionNotice />);
             show({ action: "trash", done: [], failed: [{ slot: "b", message: "no Trash" }] });
 
@@ -159,9 +159,44 @@ describe("DeletionNotice", () => {
         });
     });
 
+    describe("delete", () => {
+        it("reports one file deleted with the space freed, Dismiss and no Undo", () => {
+            usePairResultStore.setState({ gone: { b: "deleted" } });
+            const { container } = render(<DeletionNotice />);
+
+            show({ action: "delete", done: ["b"], failed: [] });
+
+            expect(status()).toHaveTextContent(/^1 file deleted · 1\.1 MB freed$/);
+            expect(screen.getByText("1 file")).toHaveClass("font-semibold");
+            expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+            expect(screen.queryByRole("button", { name: /^Undo/ })).not.toBeInTheDocument();
+            expect(container.querySelector(".lucide-circle-check")).toBeInTheDocument();
+        });
+
+        it("reports a file that couldn't be deleted, with the reason and the error icon", () => {
+            const { container } = render(<DeletionNotice />);
+
+            show({ action: "delete", done: [], failed: [{ slot: "b", message: "Permission denied (os error 13)" }] });
+
+            expect(status()).toHaveTextContent(
+                /^Couldn't delete IMG_2041-edit\.jpg: Permission denied \(os error 13\)$/,
+            );
+            expect(container.querySelector(".lucide-triangle-alert")).toBeInTheDocument();
+        });
+
+        it("offers Undo only for the trashed file of a mixed pair", () => {
+            usePairResultStore.setState({ gone: { a: "trash", b: "deleted" } });
+            render(<DeletionNotice />);
+
+            show({ action: "trash", done: ["a", "b"], failed: [] });
+
+            expect(screen.getByRole("button", { name: "Undo moving 1 file to Trash" })).toBeInTheDocument();
+        });
+    });
+
     describe("restore", () => {
         it("reports one file restored with a check icon, Dismiss and no Undo", () => {
-            usePairResultStore.setState({ trashed: { a: true, b: false } });
+            usePairResultStore.setState({ gone: { a: "trash" } });
             const { container } = render(<DeletionNotice />);
 
             show({ action: "restore", done: ["b"], failed: [] });

@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Slot } from "@/features/start/routePairDrop";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
+import { useScreenStore } from "@/stores/screen";
 import { focusDismiss } from "./DeletionNotice";
 import { MediaPane } from "./MediaPane";
 import { ScorePanel } from "./ScorePanel";
@@ -19,7 +20,7 @@ export const PairResultScreen = () => {
     const leave = usePairResultStore((state) => state.leave);
     const marked = usePairResultStore((state) => state.marked);
     const toggleMark = usePairResultStore((state) => state.toggleMark);
-    const trashed = usePairResultStore((state) => state.trashed);
+    const gone = usePairResultStore((state) => state.gone);
     const restoring = usePairResultStore((state) => state.deletion.status === "restoring");
     const restore = usePairResultStore((state) => state.restore);
     const mode = usePairViewStore((state) => state.mode);
@@ -28,8 +29,11 @@ export const PairResultScreen = () => {
     const setPosition = usePairViewStore((state) => state.setPosition);
     const back = useRef<HTMLButtonElement>(null);
 
-    // Compare, which opened this screen, is gone, so focus lands on the way back.
-    useEffect(() => back.current?.focus(), []);
+    // Compare, which opened this screen, is gone, so focus lands on the way back. Coming back from Settings, focus goes
+    // to the Settings button instead.
+    useEffect(() => {
+        if (useScreenStore.getState().takePrevious() !== "settings") back.current?.focus();
+    }, []);
 
     // The gone pane's Undo goes as its pane comes back, so focus moves to the notice reporting the restore.
     const undo = (slot: Slot) => () => restore([slot]).then(focusDismiss);
@@ -51,7 +55,7 @@ export const PairResultScreen = () => {
                 </TabsList>
             </div>
 
-            <ScorePanel comparison={comparison} onRetry={retry} canRetry={!trashed.a && !trashed.b} />
+            <ScorePanel comparison={comparison} onRetry={retry} canRetry={!gone.a && !gone.b} />
 
             {files && (
                 <>
@@ -63,7 +67,7 @@ export const PairResultScreen = () => {
                             other={details.b}
                             marked={marked.a}
                             onToggleMark={() => toggleMark("a")}
-                            trashed={trashed.a}
+                            {...(gone.a && { gone: gone.a })}
                             onRestore={undo("a")}
                             restoring={restoring}
                         />
@@ -74,7 +78,7 @@ export const PairResultScreen = () => {
                             other={details.a}
                             marked={marked.b}
                             onToggleMark={() => toggleMark("b")}
-                            trashed={trashed.b}
+                            {...(gone.b && { gone: gone.b })}
                             onRestore={undo("b")}
                             restoring={restoring}
                         />
@@ -87,7 +91,7 @@ export const PairResultScreen = () => {
                             onPositionChange={setPosition}
                             marked={marked}
                             onToggleMark={toggleMark}
-                            trashed={trashed}
+                            gone={gone}
                         />
                     </TabsContent>
                 </>

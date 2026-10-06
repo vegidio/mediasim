@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { formatSize } from "@/lib/format";
+import type { GoneKind } from "@/stores/pairResult";
 import { DetailValue } from "./DetailValue";
 import { type Details, detailRows } from "./details";
 import { MarkButton } from "./MarkButton";
@@ -18,18 +19,21 @@ type MediaPaneProps = {
     /** Whether the file is marked for deletion. */
     marked: boolean;
     onToggleMark: () => void;
-    /** Whether the file has been moved to the Trash, which leaves a placeholder in its place. */
-    trashed?: boolean;
+    /** How the file has gone, if it has: moved to the Trash or deleted, either leaving a placeholder in its place. */
+    gone?: GoneKind;
     /** Restore the file from the Trash, from the placeholder's Undo. */
     onRestore?: () => void;
     /** Whether a restore is running, which disables Undo. */
     restoring?: boolean;
 };
 
-type GonePaneProps = Pick<MediaPaneProps, "slot" | "file" | "onRestore" | "restoring">;
+type GonePaneProps = Pick<MediaPaneProps, "slot" | "file" | "onRestore" | "restoring"> & { gone: GoneKind };
 
-/** A file moved to the Trash: a dashed placeholder with its name, the space freed, and Undo to put it back. */
-const GonePane = ({ slot, file, onRestore, restoring = false }: GonePaneProps) => (
+/**
+ * A file gone: a dashed placeholder with its name and the space freed, and, for a file moved to the Trash, Undo to put
+ * it back. A deleted file can't be put back.
+ */
+const GonePane = ({ slot, file, gone, onRestore, restoring = false }: GonePaneProps) => (
     <article
         aria-label={`File ${slot.toUpperCase()}`}
         className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-2.5 rounded-[14px] border-[1.5px] border-[#3F3F46] border-dashed bg-[rgba(17,17,19,.6)] p-6 text-center"
@@ -40,25 +44,29 @@ const GonePane = ({ slot, file, onRestore, restoring = false }: GonePaneProps) =
         <span title={file.name} className="max-w-full truncate font-mono text-[#E4E4E7] text-[13px]">
             {file.name}
         </span>
-        <span className="text-[#A1A1AA] text-[13px]">Moved to Trash · {formatSize(file.size)} freed</span>
-        <Button
-            variant="outline"
-            aria-label={`Undo moving ${file.name} to Trash`}
-            disabled={restoring}
-            onClick={onRestore}
-            className="mt-1.5 h-[34px] rounded-[8px] border-[#3F3F46] bg-transparent px-3.5 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"
-        >
-            Undo
-        </Button>
+        <span className="text-[#A1A1AA] text-[13px]">
+            {gone === "trash" ? "Moved to Trash" : "Deleted permanently"} · {formatSize(file.size)} freed
+        </span>
+        {gone === "trash" && (
+            <Button
+                variant="outline"
+                aria-label={`Undo moving ${file.name} to Trash`}
+                disabled={restoring}
+                onClick={onRestore}
+                className="mt-1.5 h-[34px] rounded-[8px] border-[#3F3F46] bg-transparent px-3.5 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"
+            >
+                Undo
+            </Button>
+        )}
     </article>
 );
 
 /**
  * One file of the pair: its badge, name and mark button, its picture, washed red while marked, and its details with the
- * badges it earns. Once moved to the Trash, a placeholder in its place, with Undo.
+ * badges it earns. Once gone, a placeholder in its place, with Undo while it is in the Trash.
  */
 export const MediaPane = (props: MediaPaneProps) => {
-    if (props.trashed) return <GonePane {...props} />;
+    if (props.gone) return <GonePane {...props} gone={props.gone} />;
 
     const { slot, file, details, other, marked, onToggleMark } = props;
     const badge = slot.toUpperCase();

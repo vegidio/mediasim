@@ -17,34 +17,36 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add &quot;Undo Move to Trash&quot; functionality with file restoration and updated notices on pair result screen">
+    <list default="true" id="f76afb52-5555-4d4f-9039-c307403df693" name="Changes" comment="feat: Add Settings screen with deletion mode options (Trash or permanent) and confirmation toggle">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ConfirmDeletionDialog.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ConfirmDeletionDialog.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ConfirmDeletionDialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ConfirmDeletionDialog.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionFooter.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionNotice.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionNotice.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionNotice.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DeletionNotice.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DetailsTable.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DetailsTable.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DetailsTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/DetailsTable.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/MediaPane.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.test.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/PairResultScreen.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ScorePanel.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/ScorePanel.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderPane.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/pair/SliderStage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/shell/Header.test.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/shell/Header.test.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/features/shell/Header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/features/shell/Header.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/trash.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/trash.test.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/ipc/trash.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/ipc/trash.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pair.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pair.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pair.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pair.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.test.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/pairResult.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/gui/frontend/stores/screen.ts" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/frontend/stores/screen.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/gui/src/thumbs/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/thumbs/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/gui/src/trash.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/gui/src/trash.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-3-undo/.openspec.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-3-undo/design.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-3-undo/proposal.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-3-undo/specs/gui-pair/spec.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-3-undo/tasks.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/openspec/specs/gui-pair/spec.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/specs/gui-pair/spec.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/openspec/changes/add-gui-delete-4-setting/tasks.md" beforeDir="false" afterPath="$PROJECT_DIR$/openspec/changes/add-gui-delete-4-setting/tasks.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -516,7 +518,14 @@
       <option name="presentableId" value="LOCAL−00034" />
       <updated>1791272640392</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL−00035" summary="feat: Add Settings screen with deletion mode options (Trash or permanent) and confirmation toggle">
+      <option name="closed" value="true" />
+      <created>1791277622943</created>
+      <option name="number" value="LOCAL−00035" />
+      <option name="presentableId" value="LOCAL−00035" />
+      <updated>1791277622943</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -524,7 +533,6 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
-    <MESSAGE value="feat: Add `mediasim score` CLI command with interactive progress and terminal-safe outputs" />
     <MESSAGE value="feat: Add `mediasim files` command for similarity grouping with threshold-based progress and structured outputs" />
     <MESSAGE value="feat: Add `mediasim dir` command for directory-based media similarity grouping with threshold, recursion, and media-type filtering" />
     <MESSAGE value="fix: Ensure `Grouper::push` runs comparisons on a dedicated pool to prevent blocking on global pool during batch loads" />
@@ -549,7 +557,8 @@
     <MESSAGE value="feat: Add marking interface to pair result screen with footer and inert &quot;Move to Trash&quot; button" />
     <MESSAGE value="feat: Implement &quot;Move to Trash&quot; functionality for marked files on pair result screen with confirmation dialog" />
     <MESSAGE value="feat: Add &quot;Undo Move to Trash&quot; functionality with file restoration and updated notices on pair result screen" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: Add &quot;Undo Move to Trash&quot; functionality with file restoration and updated notices on pair result screen" />
+    <MESSAGE value="feat: Add Settings screen with deletion mode options (Trash or permanent) and confirmation toggle" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: Add Settings screen with deletion mode options (Trash or permanent) and confirmation toggle" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

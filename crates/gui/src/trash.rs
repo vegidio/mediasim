@@ -1,4 +1,4 @@
-//! The Tauri commands that move admitted files to the platform's Trash and put them back.
+//! The Tauri commands that move admitted files to the platform's Trash, put them back, or delete them outright.
 //!
 //! The window names files by the identity [`thumbs`](crate::thumbs) gave it, never by path, so it can only send to the
 //! Trash a file it was shown. Each file is checked again just before it moves: one rewritten, replaced or removed
@@ -177,14 +177,33 @@ async fn trash(
         .collect())
 }
 
+/// Why the file at an admitted path is no longer the one admitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Mismatch {
+    /// Something else is at the path now.
+    Changed,
+    /// Nothing is at the path now.
+    Missing,
+}
+
+/// Checks that the file at `path` is still the one admitted as `identity`, just before it is moved or deleted.
+fn check_admitted(identity: &str, path: &Path) -> Result<(), Mismatch> {
+    match current_identity(path) {
+        Some(current) if current == identity => Ok(()),
+        // A path that is now a folder, or unreadable, is not the file that was admitted either.
+        _ if path.try_exists().is_ok_and(|exists| !exists) => Err(Mismatch::Missing),
+        _ => Err(Mismatch::Changed),
+    }
+}
+
 /// Moves the file at `path` to the Trash if it is still the one admitted as `identity`, and returns its handle.
 fn trash_one(identity: &str, path: &Path) -> Result<Trashed, TrashOutcome> {
-    match current_identity(path) {
-        Some(current) if current == identity => {}
-        // A path that is now a folder, or unreadable, is not the file that was admitted either.
-        _ if path.try_exists().is_ok_and(|exists| !exists) => return Err(TrashOutcome::failed(TrashFailure::Missing)),
-        _ => return Err(TrashOutcome::failed(TrashFailure::Changed)),
-    }
+    check_admitted(identity, path).map_err(|mismatch| {
+        TrashOutcome::failed(match mismatch {
+            Mismatch::Changed => TrashFailure::Changed,
+            Mismatch::Missing => TrashFailure::Missing,
+        })
+    })?;
 
     rust_sak::fs::move_to_trash(path).map_err(|err| match err {
         // Removed between the check and the move.
@@ -192,6 +211,95 @@ fn trash_one(identity: &str, path: &Path) -> Result<Trashed, TrashOutcome> {
         FsError::Trash { message, .. } => TrashOutcome::Failed { reason: TrashFailure::Trash, message },
         err => TrashOutcome::Failed { reason: TrashFailure::Trash, message: err.to_string() },
     })
+}
+
+/// Why a file was not deleted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DeleteFailure {
+    /// The identity was never admitted.
+    Unknown,
+    /// The file is no longer the one admitted: its size, modification time or canonical path differs.
+    Changed,
+    /// The file no longer exists.
+    Missing,
+    /// The platform refused the deletion.
+    Delete,
+}
+
+/// What happened to one file, as the window sees it: an object tagged by `status`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum DeleteOutcome {
+    /// The file is no longer on disk.
+    Deleted,
+    /// The file was left where it was.
+    Failed {
+        /// Why.
+        reason: DeleteFailure,
+        /// The reason in words, to follow the file's name.
+        message: String,
+    },
+}
+
+impl DeleteOutcome {
+    fn failed(reason: DeleteFailure) -> Self {
+        let message = match reason {
+            DeleteFailure::Unknown => "it wasn't opened in this window",
+            DeleteFailure::Changed => "it has changed since it was opened",
+            DeleteFailure::Missing => "it no longer exists",
+            DeleteFailure::Delete => "it could not be deleted",
+        };
+        Self::Failed { reason, message: message.to_owned() }
+    }
+}
+
+/// Deletes the admitted files named by `identities` from disk, without the Trash, and returns, in the same order,
+/// what happened to each. A file that fails never stops the next one. Nothing is recorded, so nothing can be undone.
+///
+/// # Errors
+///
+/// If the blocking task fails to finish.
+#[tauri::command]
+pub async fn delete_media(
+    thumbs: State<'_, ThumbState>,
+    identities: Vec<String>,
+) -> Result<Vec<DeleteOutcome>, TrashError> {
+    delete(&thumbs, identities).await
+}
+
+async fn delete(thumbs: &ThumbState, identities: Vec<String>) -> Result<Vec<DeleteOutcome>, TrashError> {
+    // Looked up here, so the blocking task holds paths rather than the state.
+    let admitted: Vec<_> = identities.iter().map(|identity| thumbs.lookup(identity)).collect();
+
+    Ok(spawn_blocking(move || {
+        identities
+            .iter()
+            .zip(admitted)
+            .map(|(identity, admitted)| match admitted {
+                Some(admitted) => delete_one(identity, &admitted.path),
+                None => DeleteOutcome::failed(DeleteFailure::Unknown),
+            })
+            .collect()
+    })
+    .await?)
+}
+
+/// Deletes the file at `path` if it is still the one admitted as `identity`.
+fn delete_one(identity: &str, path: &Path) -> DeleteOutcome {
+    if let Err(mismatch) = check_admitted(identity, path) {
+        return DeleteOutcome::failed(match mismatch {
+            Mismatch::Changed => DeleteFailure::Changed,
+            Mismatch::Missing => DeleteFailure::Missing,
+        });
+    }
+
+    match std::fs::remove_file(path) {
+        Ok(()) => DeleteOutcome::Deleted,
+        // Removed between the check and the deletion.
+        Err(err) if err.kind() == ErrorKind::NotFound => DeleteOutcome::failed(DeleteFailure::Missing),
+        Err(err) => DeleteOutcome::Failed { reason: DeleteFailure::Delete, message: err.to_string() },
+    }
 }
 
 /// Why a file was not restored from the Trash.
@@ -453,6 +561,101 @@ mod tests {
                 "status": "failed",
                 "reason": "changed",
                 "message": "it has changed since it was opened",
+            })
+        );
+    }
+
+    fn delete(state: &ThumbState, identities: Vec<String>) -> Vec<DeleteOutcome> {
+        block_on(super::delete(state, identities)).unwrap()
+    }
+
+    #[test]
+    fn deleting_an_unknown_identity_is_unknown() {
+        let outcomes = delete(&state(), vec!["0123456789abcdef".into()]);
+
+        assert_eq!(outcomes, [DeleteOutcome::failed(DeleteFailure::Unknown)]);
+    }
+
+    #[test]
+    fn deleting_a_file_rewritten_after_admission_is_changed_and_leaves_it_on_disk() {
+        let state = state();
+        let (_dir, path) = temp_image();
+        set_modified(&path, UNIX_EPOCH + Duration::from_secs(1_700_000_000));
+        let identities = admit(&state, vec![path.clone()]);
+
+        std::fs::write(&path, b"rewritten").unwrap();
+        set_modified(&path, UNIX_EPOCH + Duration::from_secs(1_700_000_001));
+
+        assert_eq!(delete(&state, identities), [DeleteOutcome::failed(DeleteFailure::Changed)]);
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn deleting_a_file_removed_after_admission_is_missing() {
+        let state = state();
+        let (_dir, path) = temp_image();
+        let identities = admit(&state, vec![path.clone()]);
+
+        std::fs::remove_file(&path).unwrap();
+
+        assert_eq!(delete(&state, identities), [DeleteOutcome::failed(DeleteFailure::Missing)]);
+    }
+
+    #[test]
+    fn an_admitted_file_is_deleted_from_disk() {
+        let state = state();
+        let (_dir, path) = temp_image();
+        let identities = admit(&state, vec![path.clone()]);
+
+        assert_eq!(delete(&state, identities), [DeleteOutcome::Deleted]);
+        assert!(!path.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_file_in_a_read_only_folder_is_refused_and_stays_on_disk() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let state = state();
+        let (dir, path) = temp_image();
+        let identities = admit(&state, vec![path.clone()]);
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+
+        let outcomes = delete(&state, identities);
+        // Writable again, so the temp dir can be cleaned up.
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        assert!(
+            matches!(&outcomes[..], [DeleteOutcome::Failed { reason: DeleteFailure::Delete, message }] if !message.is_empty())
+        );
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn deletions_keep_their_order() {
+        let state = state();
+        let (_dir, path) = temp_image();
+        let mut identities = admit(&state, vec![path.clone()]);
+        identities.insert(0, "0123456789abcdef".into());
+
+        assert_eq!(
+            delete(&state, identities),
+            [DeleteOutcome::failed(DeleteFailure::Unknown), DeleteOutcome::Deleted]
+        );
+    }
+
+    #[test]
+    fn delete_outcomes_serialize_as_tagged_objects() {
+        assert_eq!(
+            serde_json::to_value(DeleteOutcome::Deleted).unwrap(),
+            serde_json::json!({ "status": "deleted" })
+        );
+        assert_eq!(
+            serde_json::to_value(DeleteOutcome::failed(DeleteFailure::Missing)).unwrap(),
+            serde_json::json!({
+                "status": "failed",
+                "reason": "missing",
+                "message": "it no longer exists",
             })
         );
     }

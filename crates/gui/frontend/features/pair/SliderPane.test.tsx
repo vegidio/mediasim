@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { GoneKind } from "@/stores/pairResult";
 import type { Details } from "./details";
 import { SliderPane } from "./SliderPane";
 
@@ -122,7 +123,7 @@ describe("SliderPane", () => {
     });
 
     describe("gone", () => {
-        const B_GONE = { a: false, b: true };
+        const B_GONE: Partial<Record<"a" | "b", GoneKind>> = { b: "trash" };
 
         it("shows In Trash for B in place of its button, with its name struck through and its badge dashed", () => {
             render(
@@ -132,7 +133,7 @@ describe("SliderPane", () => {
                     position={50}
                     onPositionChange={() => {}}
                     {...UNMARKED}
-                    trashed={B_GONE}
+                    gone={B_GONE}
                 />,
             );
 
@@ -156,6 +157,26 @@ describe("SliderPane", () => {
             expect(within(header).getByText("IMG_2041.jpg")).not.toHaveClass("line-through");
         });
 
+        it("shows Deleted for a deleted B, with its name struck through", () => {
+            render(
+                <SliderPane
+                    files={IMAGES}
+                    details={DETAILS}
+                    position={50}
+                    onPositionChange={() => {}}
+                    {...UNMARKED}
+                    gone={{ b: "deleted" }}
+                />,
+            );
+
+            const header = pane().firstElementChild as HTMLElement;
+            expect(within(header).getByText("Deleted").querySelector(".lucide-trash-2")).toBeInTheDocument();
+            expect(within(header).queryByText("In Trash")).not.toBeInTheDocument();
+            expect(within(header).getByText("IMG_2041-edit.jpg")).toHaveClass("line-through");
+            expect(within(screen.getByTestId("slider-stage")).queryByRole("slider")).not.toBeInTheDocument();
+            expect(screen.getAllByRole("row")[2]).toHaveClass("line-through");
+        });
+
         it("shows only A's picture on the stage, with no slider", () => {
             const { container } = render(
                 <SliderPane
@@ -164,7 +185,7 @@ describe("SliderPane", () => {
                     position={50}
                     onPositionChange={() => {}}
                     {...UNMARKED}
-                    trashed={B_GONE}
+                    gone={B_GONE}
                 />,
             );
 
@@ -186,7 +207,7 @@ describe("SliderPane", () => {
                     onPositionChange={() => {}}
                     marked={{ a: false, b: false }}
                     onToggleMark={onToggleMark}
-                    trashed={B_GONE}
+                    gone={B_GONE}
                 />,
             );
 
@@ -201,7 +222,7 @@ describe("SliderPane", () => {
                     onPositionChange={() => {}}
                     marked={{ a: true, b: false }}
                     onToggleMark={onToggleMark}
-                    trashed={B_GONE}
+                    gone={B_GONE}
                 />,
             );
             fireEvent.load(container.querySelector("img") as HTMLImageElement);
@@ -218,7 +239,7 @@ describe("SliderPane", () => {
                     position={50}
                     onPositionChange={() => {}}
                     {...UNMARKED}
-                    trashed={{ a: true, b: true }}
+                    gone={{ a: "trash", b: "trash" }}
                 />,
             );
 
@@ -241,7 +262,7 @@ describe("SliderPane", () => {
                     position={50}
                     onPositionChange={() => {}}
                     {...UNMARKED}
-                    trashed={B_GONE}
+                    gone={B_GONE}
                 />,
             );
 

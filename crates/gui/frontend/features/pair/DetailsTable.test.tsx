@@ -49,6 +49,20 @@ const row = (badge: string) =>
         .map((cell) => cell.textContent);
 
 describe("DetailsTable", () => {
+    it.each(["trash", "deleted"] as const)("fades and strikes through a file gone to %s", (kind) => {
+        render(
+            <DetailsTable
+                files={IMAGES}
+                details={{ a: ready(imageInfo()), b: ready(imageInfo()) }}
+                gone={{ b: kind }}
+            />,
+        );
+
+        const [rowA, rowB] = ["A", "B"].map((badge) => screen.getByRole("rowheader", { name: badge }).closest("tr"));
+        expect(rowB).toHaveClass("line-through", "opacity-40");
+        expect(rowA).not.toHaveClass("line-through");
+    });
+
     it("lists an image's details as columns, with a row for A and for B", () => {
         render(<DetailsTable files={IMAGES} details={{ a: ready(imageInfo()), b: ready(imageInfo()) }} />);
 

@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { isMacOs } from "@/ipc/os";
+import { useScreenStore } from "@/stores/screen";
 import { Header } from "./Header";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
@@ -8,6 +9,10 @@ vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
 const onMacOs = isMacOs as Mock;
 
 describe("Header", () => {
+    beforeEach(() => {
+        useScreenStore.setState(useScreenStore.getInitialState(), true);
+    });
+
     it("shows the logo name, the step indicator and Settings", () => {
         render(<Header current="select" />);
 
@@ -22,10 +27,29 @@ describe("Header", () => {
         expect(screen.getByRole("banner")).toHaveAttribute("data-tauri-drag-region", "deep");
     });
 
-    it("has Settings disabled", () => {
+    it("opens Settings from the Settings button", () => {
         render(<Header current="select" />);
+        const settings = screen.getByRole("button", { name: "Settings" });
+        expect(settings).toBeEnabled();
+        expect(settings).not.toHaveAttribute("aria-current");
 
-        expect(screen.getByRole("button", { name: "Settings" })).toBeDisabled();
+        fireEvent.click(settings);
+
+        expect(useScreenStore.getState().screen).toBe("settings");
+    });
+
+    it("shows Settings as the current page on the Settings screen, where it does nothing", () => {
+        useScreenStore.getState().show("pair");
+        useScreenStore.getState().openSettings();
+        render(<Header title="Settings" />);
+        const settings = screen.getByRole("button", { name: "Settings" });
+
+        fireEvent.click(settings);
+
+        expect(settings).toHaveAttribute("aria-current", "page");
+        expect(settings).toBeEnabled();
+        expect(screen.getByRole("banner")).toHaveTextContent("Settings");
+        expect(useScreenStore.getState()).toMatchObject({ screen: "settings", returnTo: "pair" });
     });
 
     it("leaves room for the traffic lights on macOS", () => {
@@ -42,7 +66,7 @@ describe("Header", () => {
         expect(header).toHaveTextContent("Compare two files");
         expect(screen.queryByRole("navigation", { name: "Progress" })).not.toBeInTheDocument();
         expect(screen.getByText("MediaSim")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Settings" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Settings" })).toBeEnabled();
     });
 
     it("starts flush at the leading edge elsewhere", () => {

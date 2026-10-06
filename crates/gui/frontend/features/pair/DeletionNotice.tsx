@@ -5,7 +5,7 @@ import { formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePairResultStore } from "@/stores/pairResult";
 
-/** The Dismiss button's id, which focus is sent to after a move or a restore. */
+/** The Dismiss button's id, which focus is sent to after a move, a deletion or a restore. */
 export const DISMISS_ID = "deletion-notice-dismiss";
 
 /** Move focus to the notice's Dismiss, once React has rendered the notice a move or a restore just set. */
@@ -31,17 +31,18 @@ type DeletionNoticeProps = {
 };
 
 /**
- * The result of the last move to the Trash or restore from it: how many files moved and the space freed, or how many
- * were restored, then each file it failed for with the reason. A move's notice offers Undo while any file it moved is
- * still in the Trash. A notice with no failure hides after {@link HIDE_AFTER}, unless the pointer is over it or
- * keyboard focus is in it; one reporting a failure stays until dismissed, so the reason is never lost before it is
- * read. The status region is always there, so what appears in it is announced.
+ * The result of the last move to the Trash, permanent deletion or restore: how many files moved or were deleted and the
+ * space freed, or how many were restored, then each file it failed for with the reason. A move's notice offers Undo
+ * while any file it moved is still in the Trash; a deletion's never does. A notice with no failure hides after
+ * {@link HIDE_AFTER}, unless the pointer is over it or keyboard focus is in it; one reporting a failure stays until
+ * dismissed, so the reason is never lost before it is read. The status region is always there, so what appears in it
+ * is announced.
  */
 export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
     const files = usePairResultStore((state) => state.files);
     const notice = usePairResultStore((state) => state.notice);
     const dismissNotice = usePairResultStore((state) => state.dismissNotice);
-    const trashed = usePairResultStore((state) => state.trashed);
+    const gone = usePairResultStore((state) => state.gone);
     const restoring = usePairResultStore((state) => state.deletion.status === "restoring");
     const restore = usePairResultStore((state) => state.restore);
     const [hovered, setHovered] = useState(false);
@@ -67,8 +68,8 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
     const freed = done.reduce((total, file) => total + file.size, 0);
     const counted = (count: number) => (count === 1 ? "1 file" : `${count} files`);
     // What Undo puts back: the files this move moved that are still in the Trash.
-    const undoable = notice?.action === "trash" ? notice.done.filter((slot) => trashed[slot]) : [];
-    const failedVerb = notice?.action === "restore" ? "restore" : "move";
+    const undoable = notice?.action === "trash" ? notice.done.filter((slot) => gone[slot] === "trash") : [];
+    const failedVerb = { trash: "move", delete: "delete", restore: "restore" }[notice?.action ?? "trash"];
 
     return (
         <div role="status" className={cn("w-max max-w-[min(640px,calc(100%-32px))]", className)}>
@@ -90,9 +91,10 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
                     )}
                     <div className="flex min-w-0 flex-1 flex-col gap-1 py-1 text-sm">
                         {done.length > 0 &&
-                            (notice.action === "trash" ? (
+                            (notice.action !== "restore" ? (
                                 <p className="whitespace-nowrap">
-                                    <span className="font-semibold">{counted(done.length)}</span> moved to Trash
+                                    <span className="font-semibold">{counted(done.length)}</span>{" "}
+                                    {notice.action === "trash" ? "moved to Trash" : "deleted"}
                                     <span className="text-[#A1A1AA]"> · {formatSize(freed)} freed</span>
                                 </p>
                             ) : (

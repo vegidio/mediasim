@@ -16,6 +16,22 @@ export const trashMedia = async (identities: string[]): Promise<TrashOutcome[]> 
     return outcomes.map(toOutcome);
 };
 
+/** Why a file was not deleted, as `DeleteFailure` in `crates/gui/src/trash.rs` serializes it. */
+export type DeleteFailure = "unknown" | "changed" | "missing" | "delete";
+
+/** What happened to one file, as `DeleteOutcome` in `crates/gui/src/trash.rs` serializes it. */
+export type DeleteOutcome = { status: "deleted" } | { status: "failed"; reason: DeleteFailure; message: string };
+
+/**
+ * Delete the admitted files named by `identities` from disk, without the Trash. Resolves, in the same order, to what
+ * happened to each; one failure never stops the next file. Rejects only when the deletion couldn't be attempted at all.
+ */
+export const deleteMedia = async (identities: string[]): Promise<DeleteOutcome[]> => {
+    const outcomes = await invoke<unknown[]>("delete_media", { identities });
+
+    return outcomes.map(toDeleteOutcome);
+};
+
 /** Why a file was not restored, as `RestoreFailure` in `crates/gui/src/trash.rs` serializes it. */
 export type RestoreFailure = "unknown" | "occupied" | "gone" | "restore";
 
@@ -38,6 +54,7 @@ export const restoreMedia = async (identities: string[]): Promise<RestoreOutcome
 };
 
 const REASONS: readonly unknown[] = ["unknown", "changed", "missing", "trash"] satisfies TrashFailure[];
+const DELETE_REASONS: readonly unknown[] = ["unknown", "changed", "missing", "delete"] satisfies DeleteFailure[];
 const RESTORE_REASONS: readonly unknown[] = ["unknown", "occupied", "gone", "restore"] satisfies RestoreFailure[];
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -57,6 +74,23 @@ const toOutcome = (value: unknown): TrashOutcome => {
     }
 
     return { status: "failed", reason: "trash", message: "the reply was not understood" };
+};
+
+const isDeleteReason = (value: unknown): value is DeleteFailure => DELETE_REASONS.includes(value);
+
+/** The {@link DeleteOutcome} `value` describes, or a `failed` one for any other shape, so it never reads as deleted. */
+const toDeleteOutcome = (value: unknown): DeleteOutcome => {
+    if (isRecord(value)) {
+        const { status, reason, message } = value;
+        if (status === "deleted") {
+            return { status };
+        }
+        if (status === "failed" && isDeleteReason(reason) && typeof message === "string") {
+            return { status, reason, message };
+        }
+    }
+
+    return { status: "failed", reason: "delete", message: "the reply was not understood" };
 };
 
 const isRestoreReason = (value: unknown): value is RestoreFailure => RESTORE_REASONS.includes(value);

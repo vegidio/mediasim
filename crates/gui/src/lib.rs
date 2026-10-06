@@ -55,6 +55,7 @@ pub fn run() {
             pair::cancel_comparison,
             trash::trash_media,
             trash::restore_media,
+            trash::delete_media,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the MediaSim application");

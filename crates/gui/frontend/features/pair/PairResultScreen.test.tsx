@@ -4,11 +4,12 @@ import App from "@/App";
 import type { MediaType } from "@/ipc/formats";
 import { cancelComparison, comparePair, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { restoreMedia, trashMedia } from "@/ipc/trash";
+import { deleteMedia, restoreMedia, trashMedia } from "@/ipc/trash";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
@@ -18,7 +19,7 @@ vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
-vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
 
 const mockedProbe = probeMedia as Mock;
 const mockedCompare = comparePair as Mock;
@@ -67,6 +68,7 @@ describe("PairResultScreen", () => {
         usePairResultStore.setState(usePairResultStore.getInitialState(), true);
         useScreenStore.setState(useScreenStore.getInitialState(), true);
         usePairViewStore.setState(usePairViewStore.getInitialState(), true);
+        useSettingsStore.setState(SETTINGS_DEFAULTS);
         mockedProbe.mockReset().mockReturnValue(new Promise(() => {}));
         mockedCompare.mockReset().mockReturnValue(new Promise(() => {}));
         mockedCancel.mockReset().mockResolvedValue(undefined);
@@ -461,6 +463,52 @@ describe("PairResultScreen", () => {
             expect(screen.getByRole("button", { name: "Mark A for deletion" })).toBeInTheDocument();
             expect(screen.getByRole("button", { name: "Mark B for deletion" })).toBeInTheDocument();
             expect(screen.queryByText(/Moved to Trash/)).not.toBeInTheDocument();
+        });
+    });
+
+    describe("deleting permanently", () => {
+        /** Opens the pair, marks B, and confirms its permanent deletion. */
+        const markAndDelete = async () => {
+            useSettingsStore.setState({ deletionMode: "permanent" });
+            (deleteMedia as Mock).mockReset().mockResolvedValue([{ status: "deleted" }]);
+            usePairStore.setState({ a: A, b: B });
+            render(<App />);
+            fireEvent.click(compare());
+            fireEvent.click(screen.getByRole("button", { name: "Mark B for deletion" }));
+            fireEvent.click(within(footer()).getByRole("button", { name: "Delete 1 permanently…" }));
+            fireEvent.click(
+                within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }),
+            );
+            await settle();
+        };
+
+        it("shows B deleted with no Undo anywhere, and Deleted in the slider", async () => {
+            await markAndDelete();
+
+            expect(deleteMedia as Mock).toHaveBeenCalledExactlyOnceWith([B.identity]);
+            expect(screen.getByRole("article", { name: "File B" })).toHaveTextContent(
+                "Deleted permanently · 1.0 kB freed",
+            );
+            expect(screen.getByRole("button", { name: "Dismiss" }).closest('[role="status"]')).toHaveTextContent(
+                /^1 file deleted · 1\.0 kB freed$/,
+            );
+            expect(screen.queryByRole("button", { name: /^Undo/ })).not.toBeInTheDocument();
+            expect(within(footer()).getByRole("status")).toHaveTextContent("Nothing marked for deletion.");
+
+            select("Slider");
+
+            expect(
+                within(screen.getByRole("article", { name: "Files A and B" })).getByText("Deleted"),
+            ).toBeInTheDocument();
+        });
+
+        it("withdraws Try again once a file is deleted", async () => {
+            mockedCompare.mockRejectedValue({ kind: "load", path: B.path, message: "boom" });
+
+            await markAndDelete();
+
+            expect(screen.getByRole("alert")).toHaveTextContent("Couldn't compare these files");
+            expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
         });
     });
 

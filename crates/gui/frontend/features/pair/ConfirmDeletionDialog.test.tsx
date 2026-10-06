@@ -1,18 +1,20 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
-import { type TrashOutcome, trashMedia } from "@/ipc/trash";
+import { type DeleteOutcome, deleteMedia, type TrashOutcome, trashMedia } from "@/ipc/trash";
 import { usePairResultStore } from "@/stores/pairResult";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import packageJson from "../../../package.json";
 import { DeletionFooter } from "./DeletionFooter";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
-vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), deleteMedia: vi.fn() }));
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 
 const mockedTrash = trashMedia as Mock;
+const mockedDelete = deleteMedia as Mock;
 
 const media = (name: string, size: number): MediaFile => ({
     path: `/media/${name}`,
@@ -25,7 +27,7 @@ const media = (name: string, size: number): MediaFile => ({
 const A = media("IMG_2041.jpg", 4_800_000);
 const B = media("IMG_2041-edit.jpg", 1_100_000);
 
-const trigger = () => screen.getByRole("button", { name: /^Move \d to Trash…$/ });
+const trigger = () => screen.getByRole("button", { name: /^(Move \d to Trash|Delete \d permanently)…$/ });
 const dialog = () => screen.getByRole("alertdialog");
 const queryDialog = () => screen.queryByRole("alertdialog");
 const primary = () => within(dialog()).getByRole("button", { name: /Move to Trash|Moving…/ });
@@ -50,6 +52,7 @@ const deferred = <T,>() => {
 describe("ConfirmDeletionDialog", () => {
     beforeEach(() => {
         usePairResultStore.setState({ ...usePairResultStore.getInitialState(), files: { a: A, b: B } }, true);
+        useSettingsStore.setState(SETTINGS_DEFAULTS);
         vi.clearAllMocks();
     });
 
@@ -63,6 +66,8 @@ describe("ConfirmDeletionDialog", () => {
         expect(rows[0]).toHaveTextContent("IMG_2041-edit.jpg1.1 MB");
         expect(rows[0]?.querySelector("img")).toHaveAttribute("src", "thumb://localhost/id-IMG_2041-edit.jpg?size=96");
         expect(dialog()).toHaveTextContent("1 fileTotal 1.1 MB");
+        expect(dialog()).toHaveTextContent("Settings: move to Trash");
+        expect(dialog()).not.toHaveTextContent("This cannot be undone.");
         expect(cancel()).toBeInTheDocument();
         expect(primary()).toHaveTextContent("Move to Trash");
         // Red, overriding the button's accent rather than sitting beside it.
@@ -136,6 +141,71 @@ describe("ConfirmDeletionDialog", () => {
         await act(async () => pending.resolve([{ status: "trashed" }]));
 
         expect(queryDialog()).not.toBeInTheDocument();
+    });
+
+    describe("permanent mode", () => {
+        const deletePrimary = () => within(dialog()).getByRole("button", { name: /Delete permanently|Deleting…/ });
+
+        beforeEach(() => {
+            useSettingsStore.setState({ deletionMode: "permanent" });
+        });
+
+        it("asks about one file, warning it won't go to the Trash", () => {
+            open("b");
+
+            expect(dialog()).toHaveAccessibleName("Delete 1 file permanently?");
+            expect(dialog()).toHaveAccessibleDescription("This file will be removed from your disk.");
+            expect(dialog()).toHaveTextContent("This cannot be undone. The file won't go to the Trash.");
+            expect(dialog()).toHaveTextContent("Settings: delete permanently");
+            expect(deletePrimary()).toHaveTextContent(/^Delete permanently$/);
+            expect(within(dialog()).queryByRole("button", { name: "Move to Trash" })).not.toBeInTheDocument();
+        });
+
+        it("asks about two files", () => {
+            open("a", "b");
+
+            expect(dialog()).toHaveAccessibleName("Delete 2 files permanently?");
+            expect(dialog()).toHaveAccessibleDescription("These files will be removed from your disk.");
+            expect(dialog()).toHaveTextContent("This cannot be undone. The files won't go to the Trash.");
+        });
+
+        it("reads Deleting… with both buttons disabled while deleting, and ignores Escape", async () => {
+            let resolve: (value: DeleteOutcome[]) => void = () => {};
+            mockedDelete.mockReturnValue(new Promise((res) => (resolve = res)));
+            open("b");
+
+            fireEvent.click(deletePrimary());
+
+            expect(deletePrimary()).toHaveTextContent("Deleting…");
+            expect(deletePrimary()).toBeDisabled();
+            expect(cancel()).toBeDisabled();
+            fireEvent.keyDown(dialog(), { key: "Escape" });
+            expect(dialog()).toBeInTheDocument();
+            expect(mockedDelete).toHaveBeenCalledExactlyOnceWith([B.identity]);
+            expect(mockedTrash).not.toHaveBeenCalled();
+
+            await act(async () => resolve([{ status: "deleted" }]));
+
+            expect(queryDialog()).not.toBeInTheDocument();
+        });
+
+        it("deletes nothing on Cancel", () => {
+            open("b");
+
+            fireEvent.click(cancel());
+
+            expect(queryDialog()).not.toBeInTheDocument();
+            expect(mockedDelete).not.toHaveBeenCalled();
+            expect(usePairResultStore.getState().marked).toEqual({ a: false, b: true });
+        });
+
+        it("keeps the mode it opened in if Settings changes while it is open", () => {
+            open("b");
+
+            act(() => useSettingsStore.setState({ deletionMode: "trash" }));
+
+            expect(dialog()).toHaveAccessibleName("Delete 1 file permanently?");
+        });
     });
 
     it("adds no npm package", () => {

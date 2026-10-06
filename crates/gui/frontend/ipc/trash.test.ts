@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { restoreMedia, trashMedia } from "./trash";
+import { deleteMedia, restoreMedia, trashMedia } from "./trash";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -101,5 +101,48 @@ describe("restoreMedia", () => {
         mockedInvoke.mockRejectedValue("the Trash task did not finish");
 
         await expect(restoreMedia(["a"])).rejects.toBe("the Trash task did not finish");
+    });
+});
+
+describe("deleteMedia", () => {
+    it("sends the identities to delete_media", async () => {
+        mockedInvoke.mockResolvedValue([]);
+
+        await deleteMedia(["aaaa", "bbbb"]);
+
+        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("delete_media", { identities: ["aaaa", "bbbb"] });
+    });
+
+    it("passes a deleted outcome through", async () => {
+        mockedInvoke.mockResolvedValue([{ status: "deleted" }]);
+
+        await expect(deleteMedia(["a"])).resolves.toStrictEqual([{ status: "deleted" }]);
+    });
+
+    it.each(["unknown", "changed", "missing", "delete"])("passes a %s failure through", async (reason) => {
+        const outcome = { status: "failed", reason, message: "why" };
+        mockedInvoke.mockResolvedValue([outcome]);
+
+        await expect(deleteMedia(["a"])).resolves.toStrictEqual([outcome]);
+    });
+
+    it.each([
+        [JSON.parse("null")],
+        ["deleted"],
+        [{ status: "trashed" }],
+        [{ status: "failed", reason: "trash", message: "x" }],
+        [{ status: "failed", reason: "delete" }],
+    ])("turns the malformed %o into a failure", async (item) => {
+        mockedInvoke.mockResolvedValue([item]);
+
+        const [outcome] = await deleteMedia(["a"]);
+
+        expect(outcome).toEqual({ status: "failed", reason: "delete", message: expect.any(String) });
+    });
+
+    it("rejects when the command does", async () => {
+        mockedInvoke.mockRejectedValue("the Trash task did not finish");
+
+        await expect(deleteMedia(["a"])).rejects.toBe("the Trash task did not finish");
     });
 });

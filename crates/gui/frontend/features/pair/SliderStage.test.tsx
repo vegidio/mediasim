@@ -60,6 +60,17 @@ const picture = (container: HTMLElement, file: MediaFile) =>
 const load = (container: HTMLElement, file: MediaFile) => fireEvent.load(picture(container, file));
 
 describe("SliderStage", () => {
+    it.each([
+        [{ a: "trash", b: "trash" }, "Both files moved to Trash"],
+        [{ a: "deleted", b: "deleted" }, "Both files deleted"],
+        [{ a: "trash", b: "deleted" }, "Both files removed"],
+    ] as const)("reads, with both files gone as %o, %s", (gone, line) => {
+        render(<SliderStage a={A} b={B} position={50} onPositionChange={() => {}} marked={UNMARKED} gone={gone} />);
+
+        expect(stage()).toHaveTextContent(new RegExp(`^${line}$`));
+        expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    });
+
     it("clips A to the left of the handle at 50", () => {
         render(<SliderStage a={A} b={B} position={50} onPositionChange={() => {}} marked={UNMARKED} />);
 
