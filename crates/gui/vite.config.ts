@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 // From `vitest/config` rather than `vite`, so the tests share the alias and the React plugin.
 import { defineConfig } from "vitest/config";
 
@@ -9,7 +10,8 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig({
-    plugins: [react(), tailwindcss()],
+    // React Compiler memoizes components and hooks at build time.
+    plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
 
     // The runtime half of the `@/*` alias declared in tsconfig.json.
     resolve: {

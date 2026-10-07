@@ -35,14 +35,59 @@ type Driver = {
     waiting: Set<HTMLVideoElement>;
 };
 
+/** Brings the follower in step with the leader, unless either is waiting for data. */
+const step = (a: HTMLVideoElement, b: HTMLVideoElement, self: Driver) => {
+    if (self.waiting.size > 0) return;
+
+    const [leader, follower] = roles(a, b);
+    const now = performance.now();
+    const sinceCorrection = now - self.lastCorrection;
+
+    // Once the last correction has settled, what it left over teaches the lead for the next one.
+    if (self.pending && sinceCorrection >= SYNC_COOLDOWN) {
+        self.pending = false;
+        const end = knownDuration(follower) ?? Number.POSITIVE_INFINITY;
+        const target = Math.min(leader.currentTime, end);
+        if (self.intent && !follower.paused && target < end) {
+            self.lead = nextLead(self.lead, target - follower.currentTime);
+        }
+    }
+
+    const action = syncStep(reading(leader), reading(follower), {
+        playing: self.intent,
+        lead: self.lead,
+        sinceCorrection,
+    });
+    switch (action.kind) {
+        case "seek": {
+            const wasPlaying = !follower.paused;
+            follower.currentTime = action.time;
+            if (wasPlaying) {
+                self.lastCorrection = now;
+                self.pending = true;
+            } else {
+                // Moved while paused, it may now need to play.
+                step(a, b, self);
+            }
+            break;
+        }
+        case "play":
+            play(follower);
+            break;
+        case "pause":
+            follower.pause();
+            break;
+    }
+};
+
 /**
- * Plays the two `<video>` elements in `refA` and `refB` in step, as one {@link VideoPlayback} for one player bar.
+ * Plays the two `<video>` elements in `aRef` and `bRef` in step, as one {@link VideoPlayback} for one player bar.
  *
  * The longer video leads and plays freely; the bar's time and seek bar follow it. The other follows it, kept within
  * the tolerance by {@link syncStep}, and holds its last frame once past its end. Either waiting for data pauses the
  * other until it can play on. Only A's sound can ever play: B is kept muted.
  */
-export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback => {
+export const useSyncedPlayback = (aRef: VideoRef, bRef: VideoRef): VideoPlayback => {
     const [state, setState] = useState(INITIAL);
     const driver = useRef<Driver>({
         intent: false,
@@ -57,63 +102,14 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
         setState((previous) => ({ ...previous, playing: intent }));
     }, []);
 
-    /** Brings the follower in step with the leader, unless either is waiting for data. */
-    const step = useCallback(() => {
-        const a = refA.current;
-        const b = refB.current;
-        if (!a || !b) return;
-        const self = driver.current;
-        if (self.waiting.size > 0) return;
-
-        const [leader, follower] = roles(a, b);
-        const now = performance.now();
-        const sinceCorrection = now - self.lastCorrection;
-
-        // Once the last correction has settled, what it left over teaches the lead for the next one.
-        if (self.pending && sinceCorrection >= SYNC_COOLDOWN) {
-            self.pending = false;
-            const end = knownDuration(follower) ?? Number.POSITIVE_INFINITY;
-            const target = Math.min(leader.currentTime, end);
-            if (self.intent && !follower.paused && target < end) {
-                self.lead = nextLead(self.lead, target - follower.currentTime);
-            }
-        }
-
-        const action = syncStep(reading(leader), reading(follower), {
-            playing: self.intent,
-            lead: self.lead,
-            sinceCorrection,
-        });
-        switch (action.kind) {
-            case "seek": {
-                const wasPlaying = !follower.paused;
-                follower.currentTime = action.time;
-                if (wasPlaying) {
-                    self.lastCorrection = now;
-                    self.pending = true;
-                } else {
-                    // Moved while paused, it may now need to play.
-                    step();
-                }
-                break;
-            }
-            case "play":
-                play(follower);
-                break;
-            case "pause":
-                follower.pause();
-                break;
-        }
-    }, [refA, refB]);
-
     const pauseBoth = () => {
-        refA.current?.pause();
-        refB.current?.pause();
+        aRef.current?.pause();
+        bRef.current?.pause();
     };
 
     useEffect(() => {
-        const a = refA.current;
-        const b = refB.current;
+        const a = aRef.current;
+        const b = bRef.current;
         if (!a || !b) return;
         const self = driver.current;
 
@@ -142,13 +138,13 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
 
         /** Runs a step on the leader's own events only: the follower's would correct it against itself. */
         const onLeader = (event: Event) => {
-            if (event.currentTarget === roles(a, b)[0]) step();
+            if (event.currentTarget === roles(a, b)[0]) step(a, b, self);
         };
         const onEnded = (event: Event) => {
             if (event.currentTarget !== roles(a, b)[0]) return;
             // The leader's end is the pair's: both stay on their last frames.
             setIntent(false);
-            step();
+            step(a, b, self);
         };
         const onWaiting = (event: Event) => {
             if (!self.intent) return;
@@ -162,7 +158,7 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
             // Both play on together: the leader here, the follower in step with it.
             const [leader] = roles(a, b);
             if (leader.paused && !leader.ended) play(leader);
-            step();
+            step(a, b, self);
         };
         const keepMuted = () => {
             if (!b.muted) b.muted = true;
@@ -197,11 +193,11 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
             }
             b.removeEventListener("volumechange", keepMuted);
         };
-    }, [refA, refB, step, setIntent]);
+    }, [aRef, bRef, setIntent]);
 
     const toggle = () => {
-        const a = refA.current;
-        const b = refB.current;
+        const a = aRef.current;
+        const b = bRef.current;
         if (!a || !b) return;
         const self = driver.current;
 
@@ -219,22 +215,24 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
         }
         setIntent(true);
         play(leader);
-        step();
+        step(a, b, self);
     };
 
     const seek = (time: number) => {
-        const a = refA.current;
-        const b = refB.current;
+        const a = aRef.current;
+        const b = bRef.current;
         if (!a || !b) return;
+
+        const self = driver.current;
 
         for (const video of [a, b]) video.currentTime = Math.min(time, knownDuration(video) ?? time);
         // Both stall alike on a seek; they are left to settle before any correction.
-        driver.current.lastCorrection = performance.now();
-        driver.current.pending = false;
-        step();
+        self.lastCorrection = performance.now();
+        self.pending = false;
+        step(a, b, self);
     };
 
-    const toggleMute = () => toggleMuted(refA.current);
+    const toggleMute = () => toggleMuted(aRef.current);
 
     return { ...state, toggle, seek, toggleMute };
 };

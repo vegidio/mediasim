@@ -1,20 +1,20 @@
 "use client";
 
-import type * as React from "react";
+import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 
-function RadioGroup({ className, ...props }: React.ComponentProps<typeof RadioGroupPrimitive.Root>) {
+const RadioGroup = ({ className, ...props }: ComponentProps<typeof RadioGroupPrimitive.Root>) => {
     return (
         <RadioGroupPrimitive.Root data-slot="radio-group" className={cn("grid w-full gap-2", className)} {...props} />
     );
-}
+};
 
-function RadioGroupItem({
+const RadioGroupItem = ({
     className,
     indicatorClassName,
     ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Item> & { indicatorClassName?: string }) {
+}: ComponentProps<typeof RadioGroupPrimitive.Item> & { indicatorClassName?: string }) => {
     return (
         <RadioGroupPrimitive.Item
             data-slot="radio-group-item"
@@ -37,6 +37,6 @@ function RadioGroupItem({
             </RadioGroupPrimitive.Indicator>
         </RadioGroupPrimitive.Item>
     );
-}
+};
 
 export { RadioGroup, RadioGroupItem };

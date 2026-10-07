@@ -1,10 +1,10 @@
 "use client";
 
-import * as React from "react";
+import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Slider as SliderPrimitive } from "radix-ui";
 
-function Slider({
+const Slider = ({
     className,
     trackClassName,
     rangeClassName,
@@ -15,16 +15,13 @@ function Slider({
     "aria-labelledby": ariaLabelledBy,
     "aria-describedby": ariaDescribedBy,
     ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root> & {
+}: ComponentProps<typeof SliderPrimitive.Root> & {
     trackClassName?: string;
     rangeClassName?: string;
     thumbClassName?: string;
-}) {
+}) => {
     const { value, defaultValue } = props;
-    const _values = React.useMemo(
-        () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
-        [value, defaultValue, min, max],
-    );
+    const _values = Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max];
 
     return (
         <SliderPrimitive.Root
@@ -66,6 +63,6 @@ function Slider({
             ))}
         </SliderPrimitive.Root>
     );
-}
+};
 
 export { Slider };
