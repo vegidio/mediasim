@@ -5,6 +5,7 @@ import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
 import { probeVideo } from "@/ipc/video";
 import { formatDuration, formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useGalleryStore } from "@/stores/gallery";
 
 /**
  * The longest edge, in pixels, a tile's picture is asked for. A 160×120 tile on a 2× display needs 320×240 covered,
@@ -76,22 +77,28 @@ type MediaTileProps = {
     included: boolean;
 };
 
-/** One file of the gallery: its picture, with a play mark and duration for a video, then its name and size. */
+/**
+ * One file of the gallery: its picture, with a play mark and duration for a video, then its name and size. Its one
+ * button is the "Open" chip, which opens the file's media details, as does a double click anywhere on the tile.
+ */
 export const MediaTile = ({ file, included }: MediaTileProps) => {
     const duration = useDuration(file);
+    const openDetails = useGalleryStore((state) => state.openDetails);
+    const open = () => openDetails(file.path);
 
     return (
-        // Activating it does nothing until media details exist.
-        <button
-            type="button"
-            aria-label={`Open ${file.name}`}
+        // The double click is a shortcut for the pointer; the Open button is the way in from the keyboard.
+        // biome-ignore lint/a11y/noStaticElementInteractions: the tile's button is its Open chip, which a button can't hold.
+        <div
+            data-path={file.path}
+            onDoubleClick={open}
             {...(!included && { title: "Not included in this comparison" })}
-            className={cn("group flex w-40 flex-col gap-2 text-left outline-none", !included && "opacity-28 grayscale")}
+            className={cn("group flex w-40 flex-col gap-2 text-left", !included && "opacity-28 grayscale")}
         >
-            <span className="relative block h-[120px] w-40 overflow-hidden rounded-[10px] bg-[#18181B] group-hover:ring-2 group-hover:ring-primary group-focus-visible:ring-2 group-focus-visible:ring-primary">
+            <span className="relative block h-[120px] w-40 overflow-hidden rounded-[10px] bg-[#18181B] group-hover:ring-2 group-hover:ring-primary group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-primary">
                 <Thumbnail key={file.identity} file={file} />
                 {/* Over the picture, which would otherwise hide an inset border. */}
-                <span className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] group-hover:hidden group-focus-visible:hidden" />
+                <span className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] group-hover:hidden group-has-[:focus-visible]:hidden" />
                 {file.type === "video" && (
                     <>
                         <span className="absolute top-1/2 left-1/2 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(9,9,11,0.6)]">
@@ -104,19 +111,22 @@ export const MediaTile = ({ file, included }: MediaTileProps) => {
                         )}
                     </>
                 )}
-                <span
-                    aria-hidden="true"
-                    className="absolute top-2 right-2 hidden h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-[#FAFAFA] text-xs group-hover:flex group-focus-visible:flex"
+                {/* Transparent rather than hidden, so it stays in the tab order and the accessibility tree. */}
+                <button
+                    type="button"
+                    aria-label={`Open ${file.name}`}
+                    onClick={open}
+                    className="absolute top-2 right-2 flex h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-[#FAFAFA] text-xs opacity-0 outline-none group-hover:opacity-100 focus-visible:opacity-100"
                 >
-                    <ExternalLinkIcon className="size-[13px]" />
+                    <ExternalLinkIcon aria-hidden="true" className="size-[13px]" />
                     Open
-                </span>
+                </button>
             </span>
             <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate font-mono text-[#E4E4E7] text-xs">{file.name}</span>
                 <span className="whitespace-nowrap text-[#A1A1AA] text-[11px]">{formatSize(file.size)}</span>
             </span>
-        </button>
+        </div>
     );
 };
 

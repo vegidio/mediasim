@@ -192,6 +192,26 @@ describe("useStartStore", () => {
         expect(state().sources).toEqual([folder("/a", { count: 5 })]);
     });
 
+    it("refreshes by recounting every folder with the current setting, keeping it", async () => {
+        mockedAdd.mockResolvedValueOnce(view(1, [folder("/a", { count: 5 })], 5));
+        await state().add(["/a"]);
+
+        const rescan = deferred<SetView>();
+        mockedRescan.mockReturnValueOnce(rescan.promise);
+        const refreshing = state().refresh();
+
+        expect(mockedRescan).toHaveBeenCalledExactlyOnceWith(false);
+        expect(state().rescans).toBe(1);
+        expect(state().sources).toEqual([folder("/a", { count: 5, pending: true })]);
+
+        rescan.resolve(view(2, [folder("/a", { count: 4 })], 4));
+        await refreshing;
+
+        expect(state().scanSubfolders).toBe(false);
+        expect(state().rescans).toBe(0);
+        expect(state().sources).toEqual([folder("/a", { count: 4 })]);
+    });
+
     it("adds with the current subfolder setting", async () => {
         mockedRescan.mockResolvedValue(view(1, []));
         mockedAdd.mockResolvedValue(view(2, []));

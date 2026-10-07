@@ -33,3 +33,13 @@ export const formatDuration = (seconds: number) => {
 
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 };
+
+/** Frames per second with at most two decimals and no trailing zeros: `29.97 fps`, `30 fps`. */
+export const formatFrameRate = (fps: number) => `${fps.toFixed(2).replace(/\.?0+$/, "")} fps`;
+
+/** An RFC 3339 time in local time, as `YYYY-MM-DD HH:MM`. */
+export const formatCreated = (rfc3339: string) => {
+    const date = new Date(rfc3339);
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};

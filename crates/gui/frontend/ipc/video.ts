@@ -18,6 +18,8 @@ export type StreamProbe = {
     codecString?: string;
     /** Whether the application can decode the stream, and so encode it for the window. */
     decodable: boolean;
+    /** In hertz, for an audio stream. */
+    sampleRate?: number;
 };
 
 /** What an admitted video holds, read from its header by `probe_video`. */

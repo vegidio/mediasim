@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@/components/ui/button";
 import { useGalleryStore } from "@/stores/gallery";
@@ -20,6 +20,15 @@ const PADDING = 24;
 /** How many tiles fit across `width` pixels of content, never fewer than one. */
 export const columnsFor = (width: number) => Math.max(1, Math.floor((width + COLUMN_GAP) / (TILE_WIDTH + COLUMN_GAP)));
 
+/** How many frames the grid waits for a tile it scrolled to before giving up on focusing it. */
+const FOCUS_FRAMES = 10;
+
+/** The Open button of the tile for the file at `path`, if the grid renders it. */
+const openButton = (scroller: HTMLElement, path: string) =>
+    Array.from(scroller.querySelectorAll<HTMLElement>("[data-path]"))
+        .find((tile) => tile.dataset.path === path)
+        ?.querySelector("button");
+
 /** The width of the content inside `element`, without its padding or scrollbar. */
 const contentWidth = (element: HTMLElement) => element.clientWidth - 2 * PADDING;
 
@@ -29,10 +38,12 @@ type VirtualRowsProps = {
     columns: number;
     /** The tiles of row `index`. */
     row: (index: number, columns: number) => ReactNode;
+    /** A row to scroll into view, if it isn't already. */
+    reveal?: number;
 };
 
 /** Only the rows in view, and two either side, of `count` tiles in `columns` columns. */
-const VirtualRows = ({ scroller, count, columns, row }: VirtualRowsProps) => {
+const VirtualRows = ({ scroller, count, columns, row, reveal }: VirtualRowsProps) => {
     // The virtualizer is one mutable object that rerenders through its own state, which the compiler can't follow.
     "use no memo";
 
@@ -45,6 +56,10 @@ const VirtualRows = ({ scroller, count, columns, row }: VirtualRowsProps) => {
         // The last row's gap stands for part of the bottom padding.
         paddingEnd: PADDING - ROW_GAP,
     });
+
+    useEffect(() => {
+        if (reveal !== undefined) virtualizer.scrollToIndex(reveal, { align: "auto" });
+    }, [virtualizer, reveal]);
 
     return (
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -69,6 +84,8 @@ export const GalleryGrid = () => {
     const listing = useGalleryStore((state) => state.listing);
     const filter = useGalleryStore((state) => state.filter);
     const load = useGalleryStore((state) => state.load);
+    const focusTile = useGalleryStore((state) => state.focusTile);
+    const tileFocused = useGalleryStore((state) => state.tileFocused);
     const total = useStartStore((state) => state.view.total);
     const [scroller, setScroller] = useState<HTMLDivElement>();
     const [columns, setColumns] = useState(1);
@@ -88,6 +105,26 @@ export const GalleryGrid = () => {
         };
     }, []);
 
+    // Once its row is rendered, which can take a frame or two after scrolling to it.
+    useEffect(() => {
+        if (focusTile === undefined || !scroller) return;
+
+        let frame = 0;
+        let frames = 0;
+        const attempt = () => {
+            const button = openButton(scroller, focusTile);
+            if (!button && ++frames < FOCUS_FRAMES) {
+                frame = requestAnimationFrame(attempt);
+                return;
+            }
+            button?.focus();
+            tileFocused();
+        };
+        frame = requestAnimationFrame(attempt);
+
+        return () => cancelAnimationFrame(frame);
+    }, [focusTile, scroller, tileFocused]);
+
     if (listing.status === "failed") {
         return (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
@@ -100,6 +137,7 @@ export const GalleryGrid = () => {
     }
 
     const files = listing.status === "ready" ? listing.files : undefined;
+    const focusIndex = focusTile === undefined ? -1 : (files?.findIndex((file) => file.path === focusTile) ?? -1);
 
     return (
         <div
@@ -113,6 +151,7 @@ export const GalleryGrid = () => {
                     {...(scroller && { scroller })}
                     count={files.length}
                     columns={columns}
+                    {...(focusIndex >= 0 && { reveal: Math.floor(focusIndex / columns) })}
                     row={(index, columns) =>
                         files
                             .slice(index * columns, (index + 1) * columns)

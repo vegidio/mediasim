@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { listSetMedia, type SetMedia, type SetView } from "@/ipc/set";
+import { listSetMedia, rescanSet, type SetMedia, type SetView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
@@ -13,6 +13,7 @@ vi.mock("@/ipc/set", () => ({
 }));
 
 const mockedList = listSetMedia as Mock;
+const mockedRescan = rescanSet as Mock;
 
 const file = (name: string): MediaFile => ({
     path: `/p/${name}`,
@@ -45,6 +46,7 @@ describe("useGalleryStore", () => {
     beforeEach(() => {
         localStorage.clear();
         mockedList.mockReset();
+        mockedRescan.mockReset().mockResolvedValue({ revision: 0, sources: [], total: 0 });
         useSettingsStore.setState(SETTINGS_DEFAULTS);
         useStartStore.setState(useStartStore.getInitialState(), true);
         useGalleryStore.setState(useGalleryStore.getInitialState(), true);
@@ -82,6 +84,29 @@ describe("useGalleryStore", () => {
         state().begin();
 
         expect(state().threshold).toBe(90);
+    });
+
+    it("recounts the set when a new comparison starts, then reads the files again", async () => {
+        atRevision(2);
+        mockedList.mockResolvedValueOnce(media(2, [file("a.jpg"), file("b.jpg")]));
+        await state().load();
+
+        // b.jpg was deleted on disk; the set itself did not change, so only the recount can notice.
+        const rescan = deferred<SetView>();
+        mockedRescan.mockReturnValueOnce(rescan.promise);
+        mockedList.mockResolvedValueOnce(media(3, [file("a.jpg")]));
+
+        state().begin();
+        const loading = state().load();
+
+        expect(mockedRescan).toHaveBeenCalledExactlyOnceWith(false);
+        expect(state().listing).toEqual({ status: "loading" });
+
+        rescan.resolve({ revision: 3, sources: [], total: 1 });
+        await loading;
+
+        expect(mockedList).toHaveBeenCalledTimes(2);
+        expect(state().listing).toEqual({ status: "ready", revision: 3, files: [file("a.jpg")] });
     });
 
     it("reads the files once per revision of the set", async () => {
@@ -143,5 +168,47 @@ describe("useGalleryStore", () => {
 
         await state().load();
         expect(state().listing).toEqual({ status: "ready", revision: 1, files: [file("a.jpg")] });
+    });
+
+    describe("media details", () => {
+        it("opens on a file, steps to another and closes, handing focus to the last file's tile", () => {
+            state().openDetails("/p/a.jpg");
+            expect(state().details).toBe("/p/a.jpg");
+
+            state().showDetails("/p/b.jpg");
+            state().closeDetails();
+
+            expect(state().details).toBeUndefined();
+            expect(state().focusTile).toBe("/p/b.jpg");
+
+            state().tileFocused();
+            expect(state().focusTile).toBeUndefined();
+        });
+
+        it("forgets a tile still waiting for focus when it opens again", () => {
+            state().openDetails("/p/a.jpg");
+            state().closeDetails();
+
+            state().openDetails("/p/b.jpg");
+
+            expect(state().focusTile).toBeUndefined();
+        });
+
+        it("closes when a new listing no longer holds its file", async () => {
+            atRevision(2);
+            mockedList.mockResolvedValue(media(2, [file("a.jpg"), file("b.jpg")]));
+            await state().load();
+            state().openDetails("/p/b.jpg");
+
+            atRevision(3);
+            mockedList.mockResolvedValue(media(3, [file("a.jpg"), file("b.jpg"), file("c.jpg")]));
+            await state().load();
+            expect(state().details).toBe("/p/b.jpg");
+
+            atRevision(4);
+            mockedList.mockResolvedValue(media(4, [file("a.jpg")]));
+            await state().load();
+            expect(state().details).toBeUndefined();
+        });
     });
 });

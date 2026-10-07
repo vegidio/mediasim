@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
-import { type Details, detailRows, formatCreated, formatFormat, formatFrameRate } from "./details";
+import { type Details, detailRows, formatFormat } from "./details";
 
 /** An RFC 3339 time for a local wall-clock time, so the expectations hold in any time zone. */
 const local = (year: number, month: number, day: number, hours = 0, minutes = 0) =>
@@ -34,25 +34,6 @@ const ready = (info: MediaInfo): Details => ({ status: "ready", info });
 /** Each row as `key: value [badge]`, for compact expectations. */
 const lines = (...args: Parameters<typeof detailRows>) =>
     detailRows(...args).map(({ key, value, badge }) => `${key}: ${value ?? "…"}${badge ? ` [${badge}]` : ""}`);
-
-describe("formatFrameRate", () => {
-    it.each([
-        [30000 / 1001, "29.97 fps"],
-        [30, "30 fps"],
-        [24000 / 1001, "23.98 fps"],
-        [12.5, "12.5 fps"],
-        [60.001, "60 fps"],
-    ])("reads %d as %s", (fps, expected) => {
-        expect(formatFrameRate(fps)).toBe(expected);
-    });
-});
-
-describe("formatCreated", () => {
-    it("shows the local time as YYYY-MM-DD HH:MM", () => {
-        expect(formatCreated(local(2025, 7, 14, 20, 41))).toBe("2025-07-14 20:41");
-        expect(formatCreated(local(2026, 1, 5, 3, 7))).toBe("2026-01-05 03:07");
-    });
-});
 
 describe("formatFormat", () => {
     it("adds the color profile after the format", () => {

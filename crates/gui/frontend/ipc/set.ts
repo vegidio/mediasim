@@ -37,7 +37,7 @@ export const addToSet = (paths: string[], recursive: boolean) => invoke<SetView>
 /** Remove the source added as `path`. */
 export const removeFromSet = (path: string) => invoke<SetView>("remove_from_set", { path });
 
-/** Recount every folder, with or without its subfolders; resolves once they are all counted. */
+/** Recount every folder as it is on disk, with or without its subfolders; resolves once they are all counted. */
 export const rescanSet = (recursive: boolean) => invoke<SetView>("rescan_set", { recursive });
 
 /** The set's distinct media files, as `list_set_media` returns them. */
@@ -50,3 +50,6 @@ export type SetMedia = {
 
 /** Admit every distinct media file in the set for thumbnails, and describe each one. */
 export const listSetMedia = () => invoke<SetMedia>("list_set_media");
+
+/** `path` as the set list shows a location: with `~` for the home folder on macOS and Linux, and in full on Windows. */
+export const displayPath = (path: string) => invoke<string>("display_path", { path });

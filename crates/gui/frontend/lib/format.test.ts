@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatCount, formatDuration, formatSize, totalSize } from "./format";
+import { formatCount, formatCreated, formatDuration, formatFrameRate, formatSize, totalSize } from "./format";
+
+/** An RFC 3339 time for a local wall-clock time, so the expectations hold in any time zone. */
+const local = (year: number, month: number, day: number, hours = 0, minutes = 0) =>
+    new Date(year, month - 1, day, hours, minutes).toISOString();
 
 describe("formatSize", () => {
     it("shows bytes below 1 kB as they are", () => {
@@ -48,5 +52,24 @@ describe("totalSize", () => {
     it("adds up the files' sizes, and is 0 for none", () => {
         expect(totalSize([])).toBe(0);
         expect(totalSize([{ size: 1000 }, { size: 234 }])).toBe(1234);
+    });
+});
+
+describe("formatFrameRate", () => {
+    it.each([
+        [30000 / 1001, "29.97 fps"],
+        [30, "30 fps"],
+        [24000 / 1001, "23.98 fps"],
+        [12.5, "12.5 fps"],
+        [60.001, "60 fps"],
+    ])("reads %d as %s", (fps, expected) => {
+        expect(formatFrameRate(fps)).toBe(expected);
+    });
+});
+
+describe("formatCreated", () => {
+    it("shows the local time as YYYY-MM-DD HH:MM", () => {
+        expect(formatCreated(local(2025, 7, 14, 20, 41))).toBe("2025-07-14 20:41");
+        expect(formatCreated(local(2026, 1, 5, 3, 7))).toBe("2026-01-05 03:07");
     });
 });

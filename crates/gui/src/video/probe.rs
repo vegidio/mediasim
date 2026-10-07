@@ -34,6 +34,9 @@ pub struct StreamProbe {
     codec_string: Option<String>,
     /// Whether `FFmpeg` can decode the stream, and so a session can encode it.
     decodable: bool,
+    /// In hertz, for an audio stream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sample_rate: Option<u32>,
 }
 
 /// The admitted video behind `identity`, refused as not found when it is an image. Shared with the sessions and the
@@ -60,7 +63,13 @@ fn read(state: &ThumbState, identity: &str) -> Result<VideoProbe, VideoError> {
         let stream = info.streams().get(index)?;
         // Opening a decoder takes milliseconds, and tells the window before it plays whether the stream can be encoded.
         let decodable = reader.stream(index).decoder().is_ok();
-        Some(StreamProbe { codec: stream.codec_name.clone(), codec_string: stream.codec_string.clone(), decodable })
+        Some(StreamProbe {
+            codec: stream.codec_name.clone(),
+            codec_string: stream.codec_string.clone(),
+            decodable,
+            // media-rs reports 0 for a stream without one, such as a video stream.
+            sample_rate: (stream.sample_rate > 0).then_some(stream.sample_rate),
+        })
     };
 
     Ok(VideoProbe {
@@ -91,7 +100,16 @@ mod tests {
     use crate::video::fixtures::{admit, mkv, mkv_undecodable, mkv_video_only};
 
     fn stream(codec: &str, codec_string: &str) -> StreamProbe {
-        StreamProbe { codec: codec.to_owned(), codec_string: Some(codec_string.to_owned()), decodable: true }
+        StreamProbe {
+            codec: codec.to_owned(),
+            codec_string: Some(codec_string.to_owned()),
+            decodable: true,
+            sample_rate: None,
+        }
+    }
+
+    fn audio(codec: &str, codec_string: &str, sample_rate: u32) -> StreamProbe {
+        StreamProbe { sample_rate: Some(sample_rate), ..stream(codec, codec_string) }
     }
 
     #[test]
@@ -117,7 +135,18 @@ mod tests {
         let probe = read(&state, &identity).unwrap();
 
         assert_eq!(probe.video.unwrap().codec, "av1");
-        assert_eq!(probe.audio.unwrap(), stream("aac", "mp4a.40.2"));
+        assert_eq!(probe.audio.unwrap(), audio("aac", "mp4a.40.2", 44_100));
+    }
+
+    #[test]
+    fn only_the_audio_stream_reports_a_sample_rate() {
+        let state = state();
+        let identity = admit(&state, &fixture("test4.mp4"));
+
+        let json = serde_json::to_value(read(&state, &identity).unwrap()).unwrap();
+
+        assert_eq!(json["audio"]["sampleRate"], 44_100);
+        assert!(json["video"].get("sampleRate").is_none());
     }
 
     #[test]
@@ -131,7 +160,7 @@ mod tests {
 
         assert_eq!(probe.format, "matroska,webm");
         assert_eq!(probe.video, mp4.video);
-        assert_eq!(probe.audio.unwrap(), stream("aac", "mp4a.40.2"));
+        assert_eq!(probe.audio.unwrap(), audio("aac", "mp4a.40.2", 44_100));
     }
 
     #[test]
@@ -155,7 +184,7 @@ mod tests {
         let probe = read(&state, &identity).unwrap();
 
         assert!(!probe.video.unwrap().decodable);
-        assert_eq!(probe.audio.unwrap(), stream("aac", "mp4a.40.2"));
+        assert_eq!(probe.audio.unwrap(), audio("aac", "mp4a.40.2", 44_100));
     }
 
     #[test]
@@ -173,7 +202,7 @@ mod tests {
 
     #[test]
     fn a_missing_codec_string_is_left_out_not_empty() {
-        let probe = StreamProbe { codec: "wmv3".to_owned(), codec_string: None, decodable: true };
+        let probe = StreamProbe { codec: "wmv3".to_owned(), codec_string: None, decodable: true, sample_rate: None };
 
         let json = serde_json::to_value(probe).unwrap();
 

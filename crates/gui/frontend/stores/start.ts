@@ -29,6 +29,8 @@ type StartStore = {
     setScanSubfolders: (value: boolean) => Promise<void>;
     /** Flip "Scan subfolders" and recount every folder to match. */
     toggleScanSubfolders: () => Promise<void>;
+    /** Recount every folder as it is on disk now, keeping "Scan subfolders" as it is. */
+    refresh: () => Promise<void>;
 
     /** The last view applied from Rust. */
     view: SetView;
@@ -93,6 +95,17 @@ export const useStartStore = create<StartStore>()((set, get) => {
 
     const report = (action: string) => (error: unknown) => console.error(`could not ${action}`, error);
 
+    /** Recount every folder with `recursive`, showing them as being counted until it answers. */
+    const rescan = async (recursive: boolean) => {
+        rescanning(1);
+
+        try {
+            await rescanSet(recursive).then(apply, report("rescan the set"));
+        } finally {
+            rescanning(-1);
+        }
+    };
+
     return {
         // The settings store rehydrates synchronously at import, so this already reads what the user chose.
         scanSubfolders: useSettingsStore.getState().scanSubfolders,
@@ -130,16 +143,12 @@ export const useStartStore = create<StartStore>()((set, get) => {
         setScanSubfolders: async (scanSubfolders) => {
             if (scanSubfolders === get().scanSubfolders) return;
             set({ scanSubfolders });
-            rescanning(1);
-
-            try {
-                await rescanSet(scanSubfolders).then(apply, report("rescan the set"));
-            } finally {
-                rescanning(-1);
-            }
+            await rescan(scanSubfolders);
         },
 
         toggleScanSubfolders: () => get().setScanSubfolders(!get().scanSubfolders),
+
+        refresh: () => rescan(get().scanSubfolders),
     };
 });
 

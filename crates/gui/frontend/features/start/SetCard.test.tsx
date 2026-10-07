@@ -113,6 +113,15 @@ describe("SetCard", () => {
         expect(useGalleryStore.getState().threshold).toBe(90);
     });
 
+    it("recounts the set on Continue, so the gallery sees the folders as they are on disk", () => {
+        withSources([folder()], 49);
+        render(<SetCard />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Continue with 49 files" }));
+
+        expect(rescanSet).toHaveBeenCalledExactlyOnceWith(useStartStore.getState().scanSubfolders);
+    });
+
     it("reads Continue with 1 file for a single file", () => {
         withSources([folder({ count: 1 })], 1);
         render(<SetCard />);

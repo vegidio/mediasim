@@ -38,11 +38,15 @@ describe("video commands", () => {
             format: "matroska,webm",
             duration: 42,
             video: { codec: "h264", codecString: "avc1.640028", decodable: true },
-            audio: { codec: "dts", decodable: true },
+            audio: { codec: "dts", decodable: true, sampleRate: 48000 },
         };
         mockedInvoke.mockResolvedValue(probe);
 
-        await expect(probeVideo(ID)).resolves.toEqual(probe);
+        const probed = await probeVideo(ID);
+
+        expect(probed).toEqual(probe);
+        expect(probed.audio?.sampleRate).toBe(48000);
+        expect(probed.video?.sampleRate).toBeUndefined();
         expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("probe_video", { identity: ID });
     });
 

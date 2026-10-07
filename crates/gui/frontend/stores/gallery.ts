@@ -24,7 +24,10 @@ type GalleryStore = {
      */
     threshold: number;
     setThreshold: (threshold: number) => void;
-    /** Starts a new comparison: the threshold goes back to the "Default match threshold" setting. */
+    /**
+     * Starts a new comparison: the threshold goes back to the "Default match threshold" setting, and every folder is
+     * recounted, so files added or deleted on disk since it was counted show up or drop out.
+     */
     begin: () => void;
     listing: GalleryListing;
     /**
@@ -32,6 +35,18 @@ type GalleryStore = {
      * revision.
      */
     load: () => Promise<void>;
+    /** The path of the file the media details dialog shows, while it is open. */
+    details?: string;
+    /** The path of the file whose tile takes focus once the grid shows it, as after the dialog closes. */
+    focusTile?: string;
+    /** Open the media details dialog on the file at `path`. */
+    openDetails: (path: string) => void;
+    /** Show the file at `path` in the open media details dialog. */
+    showDetails: (path: string) => void;
+    /** Close the media details dialog, handing focus to the tile of the file it last showed. */
+    closeDetails: () => void;
+    /** Forget {@link focusTile}, once the tile has taken focus. */
+    tileFocused: () => void;
 };
 
 type StartState = ReturnType<typeof useStartStore.getState>;
@@ -53,13 +68,29 @@ const settled = () =>
 
 let requests = 0;
 
+/** `state` without the details dialog's file. */
+const withoutDetails = ({ details: _closed, ...rest }: GalleryStore): GalleryStore => rest;
+
+/** `state` with `listing`, closing the details dialog when its file is no longer in it. */
+const withListing = (state: GalleryStore, listing: GalleryListing): GalleryStore => {
+    const { details } = state;
+    const gone =
+        details !== undefined && listing.status === "ready" && !listing.files.some((file) => file.path === details);
+
+    return { ...(gone ? withoutDetails(state) : state), listing };
+};
+
 export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     filter: "both",
     setFilter: (filter) => set({ filter }),
     // The settings store rehydrates synchronously at import, so this already reads what the user chose.
     threshold: useSettingsStore.getState().matchThreshold,
     setThreshold: (threshold) => set({ threshold }),
-    begin: () => set({ threshold: useSettingsStore.getState().matchThreshold }),
+    begin: () => {
+        set({ threshold: useSettingsStore.getState().matchThreshold });
+        // The recount bumps the set's revision, so the next load reads the files again instead of keeping the last read.
+        void useStartStore.getState().refresh();
+    },
     listing: { status: "idle" },
 
     load: async () => {
@@ -78,12 +109,21 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
         set({ listing: { status: "loading" } });
         try {
             const { revision, files } = await listSetMedia();
-            if (request === requests) set({ listing: { status: "ready", revision, files } });
+            if (request === requests) set((state) => withListing(state, { status: "ready", revision, files }), true);
         } catch (error) {
             console.error("could not list the set's files", error);
             if (request === requests) set({ listing: { status: "failed" } });
         }
     },
+
+    openDetails: (path) => set(({ focusTile: _stale, ...rest }) => ({ ...rest, details: path }), true),
+    showDetails: (path) => set({ details: path }),
+    closeDetails: () =>
+        set((state) => {
+            const { details } = state;
+            return details === undefined ? state : { ...withoutDetails(state), focusTile: details };
+        }, true),
+    tileFocused: () => set(({ focusTile: _done, ...rest }) => rest, true),
 }));
 
 // Follow the "Default match threshold" setting, whether the user changed it or reset it.

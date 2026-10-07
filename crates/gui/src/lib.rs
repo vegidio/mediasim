@@ -75,6 +75,7 @@ pub fn run() {
             set::commands::remove_from_set,
             set::commands::rescan_set,
             set::commands::list_set_media,
+            set::commands::display_path,
             thumbs::commands::admit_media,
             thumbs::commands::describe_media,
             pair::probe_media,

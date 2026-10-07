@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, type Mock, vi } from "vitest";
-import { addToSet, listSetMedia, removeFromSet, rescanSet, type SetMedia, type SetView } from "./set";
+import { addToSet, displayPath, listSetMedia, removeFromSet, rescanSet, type SetMedia, type SetView } from "./set";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -45,5 +45,13 @@ describe("set commands", () => {
         await expect(listSetMedia()).resolves.toBe(media);
 
         expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("list_set_media");
+    });
+
+    it("shows a path as the set list does", async () => {
+        mockedInvoke.mockResolvedValue("~/Pictures/a.png");
+
+        await expect(displayPath("/Users/me/Pictures/a.png")).resolves.toBe("~/Pictures/a.png");
+
+        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("display_path", { path: "/Users/me/Pictures/a.png" });
     });
 });

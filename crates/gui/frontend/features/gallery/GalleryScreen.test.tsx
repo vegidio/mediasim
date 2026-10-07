@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import App from "@/App";
 import type { MediaType } from "@/ipc/formats";
-import { listSetMedia, type SetMedia, type SourceView } from "@/ipc/set";
+import { listSetMedia, rescanSet, type SetMedia, type SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
 import { useScreenStore } from "@/stores/screen";
@@ -14,13 +14,23 @@ import { GalleryScreen } from "./GalleryScreen";
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
 vi.mock("@/ipc/formats", () => ({ supportedFormats: vi.fn(() => Promise.resolve([])) }));
-vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
+vi.mock("@/ipc/set", () => ({
+    addToSet: vi.fn(),
+    removeFromSet: vi.fn(),
+    rescanSet: vi.fn(),
+    listSetMedia: vi.fn(),
+    displayPath: vi.fn(async (path: string) => path),
+}));
+vi.mock("@/ipc/pair", () => ({
+    probeMedia: vi.fn(async (path: string) => ({ path, type: "image", width: 4, height: 3, size: 1000 })),
+}));
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/video", () => ({ probeVideo: vi.fn(() => new Promise(() => {})) }));
 
 const mockedList = listSetMedia as Mock;
+const mockedRescan = rescanSet as Mock;
 
 /** The grid's height in a 720 px window, below the 56 px header and the 72 px toolbar. */
 const GRID_HEIGHT = 720 - 56 - 72;
@@ -80,6 +90,8 @@ describe("GalleryScreen", () => {
     beforeEach(() => {
         localStorage.clear();
         observers.length = 0;
+        // A recount that finds the set as it was.
+        mockedRescan.mockReset().mockImplementation(async () => useStartStore.getState().view);
         vi.stubGlobal(
             "ResizeObserver",
             class {
@@ -173,8 +185,10 @@ describe("GalleryScreen", () => {
         fireEvent.mouseDown(screen.getByRole("tab", { name: /^Videos/ }));
 
         expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(read.map((file) => `Open ${file.name}`));
-        for (const [i, tile] of tiles().entries()) {
+        for (const [i, open] of tiles().entries()) {
             const leftOut = read[i]?.type === "image";
+            // The Open button sits in the picture, inside the tile that carries the tooltip and dimming.
+            const tile = open.closest(".group") as HTMLElement;
             expect(tile.hasAttribute("title")).toBe(leftOut);
             expect(tile.classList.contains("grayscale")).toBe(leftOut);
         }
@@ -196,6 +210,50 @@ describe("GalleryScreen", () => {
         expect(screen.getByRole("tab", { name: /^Videos/ })).toHaveAttribute("aria-selected", "true");
         expect(screen.getByRole("slider", { name: "Match threshold" })).toHaveAttribute("aria-valuenow", "80");
         expect(within(screen.getByRole("main")).getByText("80%")).toBeInTheDocument();
-        expect(mockedList).toHaveBeenCalledOnce();
+        await waitFor(() => expect(tiles()).toHaveLength(4));
+    });
+
+    it("drops a file deleted on disk when the gallery is opened again", async () => {
+        withSet(2, { revision: 1, files: files(["image", "image"]) });
+        render(<App />);
+        act(() => useScreenStore.getState().show("gallery"));
+        await waitFor(() => expect(tiles()).toHaveLength(2));
+        fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+        // The set is unchanged; only the recount Continue starts finds that the second file is gone.
+        const [kept] = files(["image"]);
+        mockedRescan.mockResolvedValueOnce({ revision: 2, sources: [{ ...folder, count: 1 }], total: 1 });
+        mockedList.mockImplementation(() => Promise.resolve({ revision: 2, files: [kept] }));
+        fireEvent.click(screen.getByRole("button", { name: "Continue with 2 files" }));
+
+        await waitFor(() => expect(tiles()).toHaveLength(1));
+        expect(mockedRescan).toHaveBeenCalledOnce();
+    });
+
+    it("hands focus back to the tile of the file last shown, scrolled into view, when the details close", async () => {
+        const read = images(200);
+        withSet(200, { revision: 1, files: read });
+        render(<GalleryScreen />);
+        await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+        // jsdom has no `scrollTo` and no scroll height; this moves the grid as a browser would, so the virtualizer
+        // renders the rows in view.
+        Object.defineProperty(grid(), "scrollHeight", { get: () => Math.ceil(200 / 7) * 164 + 28 });
+        Object.defineProperty(grid(), "scrollTo", {
+            value: ({ top = 0 }: ScrollToOptions) => {
+                grid().scrollTop = top;
+                fireEvent.scroll(grid());
+            },
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: "Open IMG_00003.jpg" }));
+        expect(screen.getByRole("dialog", { name: "Media details: IMG_00003.jpg" })).toBeInTheDocument();
+        act(() => useGalleryStore.getState().showDetails("/p/IMG_00150.jpg"));
+        expect(screen.queryByRole("button", { name: "Open IMG_00150.jpg" })).not.toBeInTheDocument();
+
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+        await waitFor(() => expect(screen.getByRole("button", { name: "Open IMG_00150.jpg" })).toHaveFocus());
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(useGalleryStore.getState().focusTile).toBeUndefined();
     });
 });

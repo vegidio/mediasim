@@ -197,7 +197,8 @@ impl Set {
         }
     }
 
-    /// Switches "Scan subfolders" and starts relisting every folder with it. Files are unaffected.
+    /// Starts relisting every folder with "Scan subfolders" as `recursive`, whether or not it changed. Files are
+    /// unaffected.
     pub fn rescan(&mut self, recursive: bool) -> Vec<Job> {
         self.revision += 1;
 

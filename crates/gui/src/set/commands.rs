@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
-use super::{Job, Listing, Set, SetView, classify, home, list_folder};
+use super::{Job, Listing, Set, SetView, abbreviate, classify, home, list_folder};
 use crate::TaskError;
 use crate::thumbs::ThumbState;
 use crate::thumbs::commands::{MediaFile, describe};
@@ -62,7 +62,10 @@ pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Resul
     Ok(remove(&state, &path))
 }
 
-/// Switches "Scan subfolders", relists every folder with it, and returns the set once they are all listed.
+/// Relists every folder with "Scan subfolders" as `recursive`, and returns the set once they are all listed.
+///
+/// The frontend calls it when the setting changes, and with the same setting when a comparison starts, so files added
+/// to or deleted from a folder since it was listed show up or drop out.
 ///
 /// # Errors
 ///
@@ -70,6 +73,13 @@ pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Resul
 #[tauri::command]
 pub async fn rescan_set(state: State<'_, SetState>, recursive: bool) -> Result<SetView, TaskError> {
     rescan(&state, recursive, list_folder).await
+}
+
+/// `path` as the set list shows a location: with `~` for the home folder on macOS and Linux, and in full on Windows.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, reason = "Tauri passes command arguments by value")]
+pub fn display_path(path: PathBuf) -> String {
+    abbreviate(&path, home().as_deref())
 }
 
 /// The set's distinct media files, as the gallery shows them.
@@ -251,6 +261,20 @@ mod tests {
         assert_eq!(added.total, 2);
         let names: Vec<_> = media.files.iter().map(|f| f.name.as_str()).collect();
         assert_eq!(names, ["b.png"]);
+    }
+
+    #[test]
+    fn a_path_under_home_is_shown_with_a_tilde_except_on_windows() {
+        let home = std::env::home_dir().expect("the test machine should have a home folder");
+        let path = home.join("Pictures").join("a.png");
+
+        let shown = display_path(path.clone());
+
+        if cfg!(windows) {
+            assert_eq!(shown, path.to_string_lossy());
+        } else {
+            assert_eq!(shown, Path::new("~").join("Pictures").join("a.png").to_string_lossy());
+        }
     }
 
     #[test]

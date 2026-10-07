@@ -1,6 +1,6 @@
 import type { MediaType } from "@/ipc/formats";
 import type { MediaInfo } from "@/ipc/pair";
-import { formatDuration, formatSize, pad } from "@/lib/format";
+import { formatCreated, formatDuration, formatFrameRate, formatSize } from "@/lib/format";
 
 /** What is known of a file's details: still being read, read, or unreadable. */
 export type Details = { status: "loading" } | { status: "ready"; info: MediaInfo } | { status: "failed" };
@@ -20,16 +20,6 @@ const UNKNOWN = "Unknown";
 
 /** The sRGB profile almost every camera and phone embeds, whose full name would break the row. */
 const SRGB = "sRGB IEC61966-2.1";
-
-/** Frames per second with at most two decimals and no trailing zeros: `29.97 fps`, `30 fps`. */
-export const formatFrameRate = (fps: number) => `${fps.toFixed(2).replace(/\.?0+$/, "")} fps`;
-
-/** An RFC 3339 time in local time, as `YYYY-MM-DD HH:MM`. */
-export const formatCreated = (rfc3339: string) => {
-    const date = new Date(rfc3339);
-
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
 
 /** An image format, followed by its color profile when it declares one: `JPEG · Display P3`, `PNG`. */
 export const formatFormat = (format: string, colorProfile?: string) =>
