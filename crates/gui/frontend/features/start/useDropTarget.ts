@@ -56,9 +56,17 @@ export const useDropTarget = (
         }
 
         // Only `enter` carries the paths; `over` keeps the count it gave.
+        // The same state as before is kept as it is, so a drag that changes nothing skips the render.
         setState((previous) => {
             const count = event.type === "enter" ? event.paths.length : previous.count;
-            return inside ? { isOver: true, position, count } : { isOver: false, count };
+            if (!inside) return !previous.isOver && previous.count === count ? previous : { isOver: false, count };
+
+            const same =
+                previous.isOver &&
+                previous.count === count &&
+                previous.position?.x === position.x &&
+                previous.position?.y === position.y;
+            return same ? previous : { isOver: true, position, count };
         });
     });
 

@@ -16,6 +16,7 @@ use media::prelude::{
 };
 
 use super::encoder::Candidate;
+use super::packets::{first_keyframe, packet_ts, seconds};
 
 /// The grid's step.
 pub(crate) const SEGMENT: Duration = Duration::from_secs(2);
@@ -232,9 +233,7 @@ impl VideoEncode {
 
     /// Where segment `segment` starts on the file's own clock, in seconds: the grid's origin plus its offset.
     pub(crate) fn boundary(&self, segment: u64) -> f64 {
-        #[expect(clippy::cast_precision_loss, reason = "a timestamp, far below 2^52 ticks")]
-        let origin = self.origin as f64 * self.settings.time_base.as_f64();
-        origin + segment_start(segment)
+        seconds(self.origin, self.settings.time_base) + segment_start(segment)
     }
 
     /// Segment `segment`, encoded by a fresh encoder: the frames shown from its grid boundary up to the next, at their
@@ -301,9 +300,8 @@ impl VideoEncode {
 
     /// Positions the reader at the keyframe at or before `ts`, and drops what the decoder held.
     fn seek(&mut self, ts: i64) -> media::Result<()> {
-        #[expect(clippy::cast_precision_loss, reason = "a timestamp, far below 2^52 ticks")]
-        let seconds = ts as f64 * self.settings.time_base.as_f64();
-        self.reader.seek(self.index, Duration::try_from_secs_f64(seconds).unwrap_or_default())?;
+        let at = seconds(ts, self.settings.time_base);
+        self.reader.seek(self.index, Duration::try_from_secs_f64(at).unwrap_or_default())?;
         self.decoder.reset();
         self.decoded.clear();
         self.at_end = false;
@@ -340,13 +338,7 @@ impl VideoEncode {
 
 /// The first timestamp of stream `index`, from its first keyframe: the grid's origin. Leaves the reader at the start.
 fn first_timestamp(reader: &mut MediaReader, index: usize) -> media::Result<i64> {
-    let mut first = None;
-    while let Some(packet) = reader.packets().next().transpose()? {
-        if packet.stream_index() == index && packet.is_keyframe() {
-            first = Some(if packet.pts() == i64::MIN { packet.dts() } else { packet.pts() });
-            break;
-        }
-    }
+    let first = first_keyframe(reader, index)?.map(|packet| packet_ts(&packet));
     reader.seek(index, Duration::ZERO)?;
 
     Ok(first.filter(|ts| *ts != i64::MIN).unwrap_or(0))

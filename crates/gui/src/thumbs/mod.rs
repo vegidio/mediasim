@@ -20,7 +20,7 @@ use mediasim::MediaType;
 
 use cache::Renditions;
 pub use serve::serve;
-pub(crate) use serve::{Refusal, locate};
+pub(crate) use serve::{Refusal, digits_only, locate, parse_identity, refusal_response};
 
 // Must stay in sync with `tauri.conf.json`'s `img-src`, which needs both platform forms of it.
 /// The URI scheme thumbnails are served over. Registered in `src/lib.rs`.

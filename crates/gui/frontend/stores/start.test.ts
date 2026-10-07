@@ -41,7 +41,7 @@ describe("useStartStore", () => {
     it("starts with subfolders scanned and an empty set", () => {
         expect(state().scanSubfolders).toBe(true);
         expect(state().sources).toEqual([]);
-        expect(state().total).toBe(0);
+        expect(state().view.total).toBe(0);
     });
 
     it("shows added paths as pending at once, then Rust's view", async () => {
@@ -60,7 +60,7 @@ describe("useStartStore", () => {
         await adding;
 
         expect(state().sources).toEqual([folder("/Pictures/Holiday 2025", { count: 48 })]);
-        expect(state().total).toBe(48);
+        expect(state().view.total).toBe(48);
     });
 
     it("drops the pending rows of paths Rust skipped", async () => {
@@ -108,7 +108,7 @@ describe("useStartStore", () => {
         await adding;
 
         expect(state().sources).toEqual([folder("/a", { count: 10 })]);
-        expect(state().total).toBe(10);
+        expect(state().view.total).toBe(10);
     });
 
     it("removes a source", async () => {
@@ -129,14 +129,14 @@ describe("useStartStore", () => {
 
         expect(state().scanSubfolders).toBe(false);
         expect(mockedRescan).toHaveBeenCalledExactlyOnceWith(false);
-        expect(state().total).toBe(5);
+        expect(state().view.total).toBe(5);
 
         mockedRescan.mockResolvedValueOnce(view(2, [folder("/a", { count: 25 })], 25));
         await state().toggleScanSubfolders();
 
         expect(state().scanSubfolders).toBe(true);
         expect(mockedRescan).toHaveBeenLastCalledWith(true);
-        expect(state().total).toBe(25);
+        expect(state().view.total).toBe(25);
     });
 
     it("shows every folder as being counted until the rescan answers", async () => {
@@ -155,7 +155,7 @@ describe("useStartStore", () => {
         await toggling;
 
         expect(state().sources.map((row) => row.pending)).toEqual([false, false]);
-        expect(state().total).toBe(6);
+        expect(state().view.total).toBe(6);
     });
 
     it("keeps folders counted while a rescan runs, even when an older view arrives", async () => {

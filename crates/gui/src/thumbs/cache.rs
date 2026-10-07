@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::{Condvar, Mutex, PoisonError};
 use std::time::Duration;
 
+use mediasim::DirCache;
 use rust_sak::memo::{CacheOpts, KeyBuilder, Memo};
 use serde::{Deserialize, Serialize};
 
@@ -14,11 +15,6 @@ const TTL: Duration = Duration::from_hours(30 * 24);
 
 /// The memory tier's budget.
 const MEMORY_BUDGET: u64 = 256 << 20;
-
-/// Make a disk write durable at least every this many writes, or every [`FLUSH_INTERVAL`]: the same settings as
-/// `mediasim`'s `DirCache`. Thumbnails are cheap to rebuild, so losing the last second's on a crash is fine.
-const FLUSH_EVERY: u32 = 64;
-const FLUSH_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Versions the key, so a change to how renditions are made can't serve the old ones.
 const KEY_VERSION: &str = "thumb-v1";
@@ -59,10 +55,12 @@ impl Renditions {
     /// won't open: a broken disk cache must not break thumbnails. Infallible on purpose; see
     /// [`ThumbState::open_cache`](super::ThumbState::open_cache).
     pub fn open(dir: Option<&Path>) -> Self {
+        // Disk writes are made durable as `mediasim`'s `DirCache` makes them. Thumbnails are cheap to rebuild, so
+        // losing the last second's on a crash is fine.
         let opts = CacheOpts::new()
             .max_capacity(MEMORY_BUDGET)
-            .flush_every(FLUSH_EVERY)
-            .flush_interval(FLUSH_INTERVAL);
+            .flush_every(DirCache::FLUSH_EVERY)
+            .flush_interval(DirCache::FLUSH_INTERVAL);
 
         let memo = dir.and_then(|dir| Memo::memory_disk(dir, opts, TTL).ok()).or_else(|| Memo::memory(opts).ok());
 

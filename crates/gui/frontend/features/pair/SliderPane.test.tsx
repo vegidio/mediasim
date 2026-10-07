@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
-import type { GoneKind } from "@/stores/pairResult";
+import { type GoneKind, NONE_GONE } from "@/stores/pairResult";
 import type { Details } from "./details";
 import { SliderPane } from "./SliderPane";
 
@@ -39,7 +39,7 @@ const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({
 
 const LOADING: Details = { status: "loading" };
 const DETAILS = { a: LOADING, b: LOADING };
-const UNMARKED = { marked: { a: false, b: false }, onToggleMark: () => {} };
+const UNMARKED = { marked: { a: false, b: false }, onToggleMark: () => {}, gone: NONE_GONE };
 
 const IMAGES = { a: media("IMG_2041.jpg"), b: media("IMG_2041-edit.jpg") };
 const VIDEOS = { a: media("a.mp4", "video"), b: media("b.mp4", "video") };
@@ -188,7 +188,7 @@ describe("SliderPane", () => {
             const [videoB, videoA] = videos(container) as [HTMLVideoElement, HTMLVideoElement];
             fireEvent.load(container.querySelector('img[src^="thumb://localhost/id-a.mp4"]') as HTMLImageElement);
 
-            rerender(<SliderPane {...props} marked={{ a: true, b: false }} onToggleMark={() => {}} />);
+            rerender(<SliderPane {...props} marked={{ a: true, b: false }} onToggleMark={() => {}} gone={NONE_GONE} />);
 
             const wash = screen.getByTestId("mark-wash");
             expect(screen.getByTestId("slider-a")).toContainElement(wash);
@@ -227,6 +227,7 @@ describe("SliderPane", () => {
                 onPositionChange={() => {}}
                 marked={{ a: false, b: false }}
                 onToggleMark={onToggleMark}
+                gone={NONE_GONE}
             />,
         );
 
@@ -245,6 +246,7 @@ describe("SliderPane", () => {
                 onPositionChange={() => {}}
                 marked={{ a: true, b: false }}
                 onToggleMark={() => {}}
+                gone={NONE_GONE}
             />,
         );
 
@@ -297,7 +299,7 @@ describe("SliderPane", () => {
                     position={50}
                     onPositionChange={() => {}}
                     {...UNMARKED}
-                    gone={{ b: "deleted" }}
+                    gone={{ b: "permanent" }}
                 />,
             );
 

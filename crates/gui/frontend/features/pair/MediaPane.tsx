@@ -9,6 +9,7 @@ import { type Details, detailRows } from "./details";
 import { MarkButton } from "./MarkButton";
 import { MarkWash } from "./MarkWash";
 import { Picture } from "./Picture";
+import { SlotBadge } from "./SlotBadge";
 import { VideoPlayer } from "./VideoPlayer";
 
 type MediaPaneProps = {
@@ -81,9 +82,7 @@ export const MediaPane = (props: MediaPaneProps) => {
             className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[14px] border border-border"
         >
             <div className="flex h-[52px] shrink-0 items-center gap-2.5 border-border border-b bg-card px-4">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary font-semibold text-xs">
-                    {badge}
-                </span>
+                <SlotBadge slot={slot} />
                 {/* Grows and shortens first, so a long name gives way before the button does. */}
                 <span title={file.name} className="min-w-0 flex-1 truncate font-mono text-[13px]">
                     {file.name}

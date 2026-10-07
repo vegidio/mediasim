@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatSize } from "./format";
+import { formatCount, formatDuration, formatSize, totalSize } from "./format";
 
 describe("formatSize", () => {
     it("shows bytes below 1 kB as they are", () => {
@@ -30,5 +30,23 @@ describe("formatDuration", () => {
         [3725, "1:02:05"],
     ])("reads %d seconds as %s", (seconds, expected) => {
         expect(formatDuration(seconds)).toBe(expected);
+    });
+});
+
+describe("formatCount", () => {
+    it("reads 1 file in the singular", () => {
+        expect(formatCount(1)).toBe("1 file");
+    });
+
+    it("reads every other count in the plural", () => {
+        expect(formatCount(0)).toBe("0 files");
+        expect(formatCount(48)).toBe("48 files");
+    });
+});
+
+describe("totalSize", () => {
+    it("adds up the files' sizes, and is 0 for none", () => {
+        expect(totalSize([])).toBe(0);
+        expect(totalSize([{ size: 1000 }, { size: 234 }])).toBe(1234);
     });
 });

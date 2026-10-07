@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { outcomeReader } from "./wire";
 
 /** Why a file was not moved, as `TrashFailure` in `crates/gui/src/trash.rs` serializes it. */
 export type TrashFailure = "unknown" | "changed" | "missing" | "trash";
@@ -53,59 +54,24 @@ export const restoreMedia = async (identities: string[]): Promise<RestoreOutcome
     return outcomes.map(toRestoreOutcome);
 };
 
-const REASONS: readonly unknown[] = ["unknown", "changed", "missing", "trash"] satisfies TrashFailure[];
-const DELETE_REASONS: readonly unknown[] = ["unknown", "changed", "missing", "delete"] satisfies DeleteFailure[];
-const RESTORE_REASONS: readonly unknown[] = ["unknown", "occupied", "gone", "restore"] satisfies RestoreFailure[];
+/** The {@link TrashOutcome} a reply describes, or a `failed` one for any other shape, so it never reads as moved. */
+const toOutcome = outcomeReader<{ status: "trashed" }, TrashFailure>(
+    ({ status }) => (status === "trashed" ? { status } : undefined),
+    ["unknown", "changed", "missing", "trash"],
+    "trash",
+);
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+/** The {@link DeleteOutcome} a reply describes, or a `failed` one for any other shape, so it never reads as deleted. */
+const toDeleteOutcome = outcomeReader<{ status: "deleted" }, DeleteFailure>(
+    ({ status }) => (status === "deleted" ? { status } : undefined),
+    ["unknown", "changed", "missing", "delete"],
+    "delete",
+);
 
-const isReason = (value: unknown): value is TrashFailure => REASONS.includes(value);
-
-/** The {@link TrashOutcome} `value` describes, or a `failed` one for any other shape, so it never reads as moved. */
-const toOutcome = (value: unknown): TrashOutcome => {
-    if (isRecord(value)) {
-        const { status, reason, message } = value;
-        if (status === "trashed") {
-            return { status };
-        }
-        if (status === "failed" && isReason(reason) && typeof message === "string") {
-            return { status, reason, message };
-        }
-    }
-
-    return { status: "failed", reason: "trash", message: "the reply was not understood" };
-};
-
-const isDeleteReason = (value: unknown): value is DeleteFailure => DELETE_REASONS.includes(value);
-
-/** The {@link DeleteOutcome} `value` describes, or a `failed` one for any other shape, so it never reads as deleted. */
-const toDeleteOutcome = (value: unknown): DeleteOutcome => {
-    if (isRecord(value)) {
-        const { status, reason, message } = value;
-        if (status === "deleted") {
-            return { status };
-        }
-        if (status === "failed" && isDeleteReason(reason) && typeof message === "string") {
-            return { status, reason, message };
-        }
-    }
-
-    return { status: "failed", reason: "delete", message: "the reply was not understood" };
-};
-
-const isRestoreReason = (value: unknown): value is RestoreFailure => RESTORE_REASONS.includes(value);
-
-/** The {@link RestoreOutcome} `value` describes, or a `failed` one for any other shape, so it never reads as restored. */
-const toRestoreOutcome = (value: unknown): RestoreOutcome => {
-    if (isRecord(value)) {
-        const { status, identity, reason, message } = value;
-        if (status === "restored" && typeof identity === "string") {
-            return { status, identity };
-        }
-        if (status === "failed" && isRestoreReason(reason) && typeof message === "string") {
-            return { status, reason, message };
-        }
-    }
-
-    return { status: "failed", reason: "restore", message: "the reply was not understood" };
-};
+/** The {@link RestoreOutcome} a reply describes, or a `failed` one for any other shape, so it never reads as restored. */
+const toRestoreOutcome = outcomeReader<{ status: "restored"; identity: string }, RestoreFailure>(
+    ({ status, identity }) =>
+        status === "restored" && typeof identity === "string" ? { status, identity } : undefined,
+    ["unknown", "occupied", "gone", "restore"],
+    "restore",
+);

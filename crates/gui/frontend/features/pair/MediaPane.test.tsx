@@ -452,7 +452,7 @@ describe("MediaPane", () => {
         });
 
         it("shows a deleted file's placeholder with no Undo", () => {
-            both({ gone: "deleted" });
+            both({ gone: "permanent" });
 
             const gone = pane("File B");
             expect(gone).toHaveClass("border-dashed");

@@ -5,8 +5,16 @@ use std::path::Path;
 
 use super::MediaType;
 
-/// Video file extensions recognised by this crate, lowercase.
-static VIDEO_EXTENSIONS: [&str; 7] = ["avi", "m4v", "mp4", "mkv", "mov", "webm", "wmv"];
+/// Video file extensions recognised by this crate, lowercase, each with the MIME type of its files.
+static VIDEO_FORMATS: [(&str, &str); 7] = [
+    ("avi", "video/x-msvideo"),
+    ("m4v", "video/mp4"),
+    ("mp4", "video/mp4"),
+    ("mkv", "video/x-matroska"),
+    ("mov", "video/quicktime"),
+    ("webm", "video/webm"),
+    ("wmv", "video/x-ms-wmv"),
+];
 
 impl MediaType {
     /// Classifies `path` by its extension, case-insensitively.
@@ -18,7 +26,7 @@ impl MediaType {
         let path = path.as_ref();
         let ext = path.extension()?.to_str()?;
 
-        if VIDEO_EXTENSIONS.iter().any(|v| v.eq_ignore_ascii_case(ext)) {
+        if VIDEO_FORMATS.iter().any(|(v, _)| v.eq_ignore_ascii_case(ext)) {
             Some(Self::Video)
         } else if rust_sak::image::ImageFormat::from_path(path).is_some() {
             Some(Self::Image)
@@ -28,10 +36,11 @@ impl MediaType {
     }
 }
 
-/// A media format this crate loads: its [`MediaType`] and every lowercase file extension that selects it, the
-/// canonical one first.
+/// A media format this crate loads: its [`MediaType`], every lowercase file extension that selects it, the canonical
+/// one first, and, for a video format, its MIME type.
 ///
-/// With the `serde` feature it serializes as `{ "type": "image", "extensions": ["jpg", "jpeg"] }`.
+/// With the `serde` feature it serializes as `{ "type": "image", "extensions": ["jpg", "jpeg"] }`, without the MIME
+/// type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MediaFormat {
@@ -40,6 +49,9 @@ pub struct MediaFormat {
     pub media_type: MediaType,
     /// The lowercase extensions, without a leading dot, that select this format; the first is the canonical one.
     pub extensions: &'static [&'static str],
+    /// The MIME type of files of this format, such as `video/mp4`; `None` for an image format.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub mime: Option<&'static str>,
 }
 
 impl MediaFormat {
@@ -49,12 +61,16 @@ impl MediaFormat {
     /// The listing reads the same tables as [`MediaType::from_path`], so an extension is listed exactly when it
     /// classifies, and as the type it classifies as.
     pub fn all() -> impl Iterator<Item = MediaFormat> {
-        let images = rust_sak::image::ImageFormat::ALL
-            .into_iter()
-            .map(|format| MediaFormat { media_type: MediaType::Image, extensions: format.extensions() });
-        let videos = VIDEO_EXTENSIONS
-            .iter()
-            .map(|ext| MediaFormat { media_type: MediaType::Video, extensions: std::slice::from_ref(ext) });
+        let images = rust_sak::image::ImageFormat::ALL.into_iter().map(|format| MediaFormat {
+            media_type: MediaType::Image,
+            extensions: format.extensions(),
+            mime: None,
+        });
+        let videos = VIDEO_FORMATS.iter().map(|(ext, mime)| MediaFormat {
+            media_type: MediaType::Video,
+            extensions: std::slice::from_ref(ext),
+            mime: Some(mime),
+        });
         images.chain(videos)
     }
 }
@@ -75,7 +91,7 @@ mod tests {
 
     #[test]
     fn every_video_extension_in_either_case_is_a_video() {
-        for ext in VIDEO_EXTENSIONS {
+        for (ext, _) in VIDEO_FORMATS {
             let lower = format!("clip.{ext}");
             let upper = format!("clip.{}", ext.to_ascii_uppercase());
             assert_eq!(MediaType::from_path(&lower), Some(MediaType::Video), "{lower}");
@@ -140,9 +156,10 @@ mod tests {
     #[test]
     fn video_formats_are_one_per_video_extension() {
         let videos: Vec<_> = MediaFormat::all().filter(|f| f.media_type == MediaType::Video).collect();
-        assert_eq!(videos.len(), VIDEO_EXTENSIONS.len());
-        for (format, ext) in videos.iter().zip(VIDEO_EXTENSIONS) {
+        assert_eq!(videos.len(), VIDEO_FORMATS.len());
+        for (format, (ext, mime)) in videos.iter().zip(VIDEO_FORMATS) {
             assert_eq!(format.extensions, [ext]);
+            assert_eq!(format.mime, Some(mime));
         }
     }
 

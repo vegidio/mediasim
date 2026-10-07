@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invokeOr, isRecord } from "./wire";
 
 /** The URI scheme `crates/gui/src/video/mod.rs` serves videos over. */
 const SCHEME = "video";
@@ -51,8 +52,6 @@ export type VideoOpened = {
 /** Why a probe or a session request was refused, as `VideoError` in `crates/gui/src/video/error.rs` serializes it. */
 export type VideoError = { kind: "notfound" } | { kind: "gone" } | { kind: "unreadable"; message: string };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-
 /** The {@link VideoError} a rejection carries, or an `unreadable` one for anything else, such as a missing command. */
 const toVideoError = (error: unknown): VideoError => {
     if (isRecord(error)) {
@@ -64,13 +63,32 @@ const toVideoError = (error: unknown): VideoError => {
     return { kind: "unreadable", message: String(error) };
 };
 
-const call = <T>(command: string, args: Record<string, unknown>): Promise<T> =>
-    invoke<T>(command, args).catch((error: unknown) => {
-        throw toVideoError(error);
-    });
+const call = invokeOr(toVideoError);
 
-/** What the admitted video behind `identity` holds. Rejects with a {@link VideoError}. */
-export const probeVideo = (identity: string) => call<VideoProbe>("probe_video", { identity });
+/**
+ * Each video's probe, by identity. An identity names one file as it was admitted, unchanged, so its probe never goes
+ * stale, and a player mounted again, as on a tab switch, doesn't read the header again.
+ */
+const probes = new Map<string, Promise<VideoProbe>>();
+
+/**
+ * What the admitted video behind `identity` holds, read once per identity. Rejects with a {@link VideoError}; a probe
+ * that failed isn't kept, so the next call asks again.
+ */
+export const probeVideo = (identity: string): Promise<VideoProbe> => {
+    const known = probes.get(identity);
+    if (known) return known;
+
+    const probe = call<VideoProbe>("probe_video", { identity });
+    probes.set(identity, probe);
+    probe.catch(() => {
+        if (probes.get(identity) === probe) probes.delete(identity);
+    });
+    return probe;
+};
+
+/** Forget every probe read so far, so each test starts with none. */
+export const forgetVideoProbes = () => probes.clear();
 
 /**
  * Open a session for the admitted video behind `identity`, starting at or before `at` seconds, carrying its main

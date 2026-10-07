@@ -1,8 +1,8 @@
 import { type ReactNode, useRef } from "react";
 import type { MediaFile } from "@/ipc/thumbs";
-import { cn } from "@/lib/utils";
 import { Picture } from "./Picture";
 import { PlayerBar } from "./PlayerBar";
+import { PlayerVideo } from "./PlayerVideo";
 import { useVideoPlayback } from "./useVideoPlayback";
 import { useVideoSource } from "./useVideoSource";
 
@@ -28,17 +28,8 @@ export const VideoPlayer = ({ file, ...picture }: VideoPlayerProps) => {
             file={file}
             {...picture}
             media={
-                <video
-                    ref={video}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    // Hidden until it first plays, so the still shows; and again if it fails, so the still stays.
-                    className={cn(
-                        "absolute inset-0 size-full object-contain",
-                        (!playback.started || playback.failed) && "invisible",
-                    )}
-                />
+                // Hidden until it first plays, so the still shows; and again if it fails, so the still stays.
+                <PlayerVideo ref={video} visible={playback.started && !playback.failed} />
             }
             bar={<PlayerBar name={file.name} playback={playback} ready={ready} noSound={noSound} />}
         />

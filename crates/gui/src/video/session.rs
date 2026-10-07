@@ -14,12 +14,14 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use media::prelude::{MediaReader, MediaWriter, Packet, StreamKind};
+use media::codec::VideoEncoder;
+use media::prelude::{MediaReader, MediaWriter, Packet, Rational, StreamKind};
 use serde::Deserialize;
 
 use super::audio::AudioSource;
 use super::cache::Segments;
 use super::encoder::{Candidate, init_segment};
+use super::packets::{first_keyframe, packet_ts, seconds};
 use super::transcode::{EncodeError, VideoEncode, segment_at, segment_start};
 
 /// How a session carries the main video stream.
@@ -81,17 +83,15 @@ enum Phase {
 struct CopiedVideo {
     reader: MediaReader,
     index: usize,
+    time_base: Rational,
     /// The keyframe that begins the next segment, read but not yet written.
     held: Option<Packet>,
 }
 
 impl CopiedVideo {
     /// When `packet` is shown on the file's clock, in seconds.
-    fn seconds(&self, packet: &Packet) -> media::Result<f64> {
-        let ts = if packet.pts() == i64::MIN { packet.dts() } else { packet.pts() };
-        #[expect(clippy::cast_precision_loss, reason = "a timestamp is far below 2^52 ticks")]
-        let seconds = ts as f64 * self.reader.stream_time_base(self.index)?.as_f64();
-        Ok(seconds)
+    fn seconds(&self, packet: &Packet) -> f64 {
+        seconds(packet_ts(packet), self.time_base)
     }
 
     /// The packets from the held keyframe up to the next one, which is held back in turn. Empty at the end.
@@ -115,8 +115,7 @@ impl CopiedVideo {
 /// The main video stream, encoded on the grid; see [`super::transcode`].
 struct EncodedVideo {
     encode: VideoEncode,
-    /// The video's identity and the hash of its init segment: with the segment, the cache's key.
-    identity: String,
+    /// The hash of its init segment: with the video's identity and the segment, the cache's key.
     init: String,
     /// The next segment to hand over.
     next: u64,
@@ -130,6 +129,8 @@ enum VideoSource {
 
 /// A session's state machine over its video and audio sources and a fragmented-MP4 [`MediaWriter`].
 pub(crate) struct Session {
+    /// The identity of the video the session reads.
+    identity: String,
     video: VideoSource,
     /// The sound and its output stream, when the session carries one.
     audio: Option<(AudioSource, usize)>,
@@ -176,18 +177,23 @@ impl Session {
         choose: impl FnOnce() -> Candidate,
         audio: AudioMode,
     ) -> media::Result<(Self, f64)> {
-        let (video, start, from) = match video {
+        let (mut writer, sink) = writer()?;
+        let (video, video_out, start, from) = match video {
             VideoMode::Copy => {
                 let (video, start, from) = open_copy(path, at)?;
-                (VideoSource::Copy(video), start, from)
+                let video_out = writer.add_stream_copy(&video.reader, video.index)?;
+                (VideoSource::Copy(video), video_out, start, from)
             }
             VideoMode::Encode => {
                 let encode = VideoEncode::open(path, choose())?;
                 let segment = segment_at(at);
                 let from = encode.boundary(segment);
-                let init = init_hash(&encode)?;
-                let video = EncodedVideo { encode, identity: identity.to_owned(), init, next: segment };
-                (VideoSource::Encode(Box::new(video)), segment_start(segment), from)
+                // One encoder gives both the init segment the cache is keyed by and the session's own.
+                let encoder = encode.settings().encoder()?;
+                let init = init_hash(&encoder)?;
+                let video_out = writer.add_stream_from_encoder(&encoder)?;
+                let video = EncodedVideo { encode, init, next: segment };
+                (VideoSource::Encode(Box::new(video)), video_out, segment_start(segment), from)
             }
         };
 
@@ -197,12 +203,6 @@ impl Session {
             AudioMode::Copy => AudioSource::copy(path, from)?,
             AudioMode::Encode => AudioSource::encode(path, from)?,
         };
-
-        let (mut writer, sink) = writer()?;
-        let video_out = match &video {
-            VideoSource::Copy(copy) => writer.add_stream_copy(&copy.reader, copy.index)?,
-            VideoSource::Encode(encoded) => writer.add_stream_from_encoder(&encoded.encode.settings().encoder()?)?,
-        };
         let audio = match audio {
             Some(audio) => {
                 let output = audio.add_to(&mut writer)?;
@@ -211,7 +211,13 @@ impl Session {
             None => None,
         };
 
-        Ok((Self { video, audio, writer, sink, video_out, phase: Phase::Init }, start))
+        let session = Self { identity: identity.to_owned(), video, audio, writer, sink, video_out, phase: Phase::Init };
+        Ok((session, start))
+    }
+
+    /// The identity of the video the session reads.
+    pub(crate) fn identity(&self) -> &str {
+        &self.identity
     }
 
     /// The encoder of an encoded video, or `None` when the video is copied.
@@ -251,12 +257,13 @@ impl Session {
         let (packets, until) = match &mut self.video {
             VideoSource::Copy(copy) => {
                 let packets = copy.segment()?;
-                let until = copy.held.as_ref().map(|next| copy.seconds(next)).transpose()?;
+                let until = copy.held.as_ref().map(|next| copy.seconds(next));
                 (packets, until)
             }
             VideoSource::Encode(encoded) => {
-                let EncodedVideo { encode, identity, init, next } = &mut **encoded;
-                let packets = segments.get_or_encode(identity, init, *next, cancel, || encode.encode(*next, cancel))?;
+                let EncodedVideo { encode, init, next } = &mut **encoded;
+                let packets =
+                    segments.get_or_encode(&self.identity, init, *next, cancel, || encode.encode(*next, cancel))?;
                 *next += 1;
                 (packets, Some(encode.boundary(*next)))
             }
@@ -293,33 +300,26 @@ impl Session {
 fn open_copy(path: &str, at: Duration) -> media::Result<(CopiedVideo, f64, f64)> {
     let mut reader = MediaReader::open(path)?;
     let index = reader.best_stream(StreamKind::Video)?;
+    let time_base = reader.stream_time_base(index)?;
     if !at.is_zero() {
         reader.seek(index, at)?;
     }
 
     // A segment begins on a keyframe, so everything before the first one is dropped.
-    let mut held = None;
-    while let Some(packet) = reader.packets().next().transpose()? {
-        if packet.stream_index() == index && packet.is_keyframe() {
-            held = Some(packet);
-            break;
-        }
-    }
-
-    let mut video = CopiedVideo { reader, index, held: None };
-    let keyframe = held.as_ref().map(|packet| video.seconds(packet)).transpose()?.unwrap_or(0.0);
-    video.held = held;
+    let held = first_keyframe(&mut reader, index)?;
+    let video = CopiedVideo { reader, index, time_base, held };
+    let keyframe = video.held.as_ref().map_or(0.0, |packet| video.seconds(packet));
     // A seek before the first keyframe lands on it, after the time asked; that is still the start of the file.
     let start = if at.is_zero() || keyframe > at.as_secs_f64() { 0.0 } else { keyframe };
 
     Ok((video, start, keyframe))
 }
 
-/// The hash the cache keys `encode`'s segments by: of the init segment its encoder settings give a video-only file.
-/// It covers the encoder, its settings, the picture's shape and the encoder's build, but not the sound, which doesn't
+/// The hash the cache keys a session's encoded segments by: of the init segment `encoder` gives a video-only file. It
+/// covers the encoder, its settings, the picture's shape and the encoder's build, but not the sound, which doesn't
 /// change the video's packets, so sessions that carry the sound differently share segments.
-fn init_hash(encode: &VideoEncode) -> media::Result<String> {
-    Ok(rust_sak::crypto::xxh3_bytes(&init_segment(&encode.settings().encoder()?)?))
+fn init_hash(encoder: &VideoEncoder) -> media::Result<String> {
+    Ok(rust_sak::crypto::xxh3_bytes(&init_segment(encoder)?))
 }
 
 #[cfg(test)]

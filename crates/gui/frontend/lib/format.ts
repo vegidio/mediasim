@@ -1,3 +1,9 @@
+/** A media file count: `1 file`, `48 files`. */
+export const formatCount = (count: number) => (count === 1 ? "1 file" : `${count} files`);
+
+/** The combined size of `files`, in bytes. */
+export const totalSize = (files: readonly { size: number }[]) => files.reduce((total, file) => total + file.size, 0);
+
 const UNITS = ["kB", "MB", "GB", "TB"];
 
 /** A byte count in decimal units, as file managers on macOS and Linux show it: `512 B`, `3.1 MB`, `1.2 GB`. */
@@ -17,7 +23,8 @@ export const formatSize = (bytes: number) => {
     return `${value.toFixed(1)} ${UNITS[unit]}`;
 };
 
-const pad = (value: number) => String(value).padStart(2, "0");
+/** `value` with a leading zero below 10: `05`, `42`. */
+export const pad = (value: number) => String(value).padStart(2, "0");
 
 /** A duration as `M:SS` below an hour and `H:MM:SS` from an hour, with the seconds rounded down. */
 export const formatDuration = (seconds: number) => {

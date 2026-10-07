@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
-import { cn } from "@/lib/utils";
 import { PlayerBar } from "./PlayerBar";
+import { PlayerVideo } from "./PlayerVideo";
 import { SliderStage } from "./SliderStage";
 import { useSyncedPlayback } from "./useSyncedPlayback";
 import { useVideoSource } from "./useVideoSource";
@@ -31,10 +31,7 @@ export const SliderPlayer = ({ a, b, ...stage }: SliderPlayerProps) => {
 
     // Hidden until they first play, so the stills show; and both again if either fails, since a moving picture wiped
     // against a still one would mislead.
-    const className = cn(
-        "absolute inset-0 size-full object-contain",
-        (!playback.started || playback.failed) && "invisible",
-    );
+    const visible = playback.started && !playback.failed;
 
     return (
         <SliderStage
@@ -42,8 +39,8 @@ export const SliderPlayer = ({ a, b, ...stage }: SliderPlayerProps) => {
             b={b}
             {...stage}
             media={{
-                a: <video ref={videoA} muted playsInline preload="metadata" className={className} />,
-                b: <video ref={videoB} muted playsInline preload="metadata" className={className} />,
+                a: <PlayerVideo ref={videoA} visible={visible} />,
+                b: <PlayerVideo ref={videoB} visible={visible} />,
             }}
             bar={
                 <PlayerBar

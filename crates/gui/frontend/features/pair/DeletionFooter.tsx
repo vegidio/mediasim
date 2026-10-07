@@ -1,30 +1,25 @@
 import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
-import type { Slot } from "@/features/start/routePairDrop";
-import { formatSize } from "@/lib/format";
-import { usePairResultStore } from "@/stores/pairResult";
+import { formatCount, formatSize, totalSize } from "@/lib/format";
+import { selectMarkedFiles, usePairResultStore } from "@/stores/pairResult";
 import { useSettingsStore } from "@/stores/settings";
 import { ConfirmDeletionDialog } from "./ConfirmDeletionDialog";
 import { focusDismiss } from "./DeletionNotice";
-
-const SLOTS: Slot[] = ["a", "b"];
 
 /**
  * The bar along the bottom of the pair result screen: what is marked for deletion, the space it frees, and the button
  * that removes it in the deletion mode the settings choose, after a confirmation while the settings ask for one.
  */
 export const DeletionFooter = () => {
-    const files = usePairResultStore((state) => state.files);
-    const marked = usePairResultStore((state) => state.marked);
+    const chosen = usePairResultStore(useShallow(selectMarkedFiles));
     const gone = usePairResultStore((state) => state.gone);
     const deletion = usePairResultStore((state) => state.deletion);
     const requestDeletion = usePairResultStore((state) => state.requestDeletion);
     const mode = useSettingsStore((state) => state.deletionMode);
     const confirm = useSettingsStore((state) => state.confirmDeletion);
 
-    const chosen = files ? SLOTS.filter((slot) => marked[slot]).map((slot) => files[slot]) : [];
     const count = chosen.length;
-    const freed = chosen.reduce((total, file) => total + file.size, 0);
     // A run started without confirmation shows here, as the dialog isn't there to show it.
     const running = deletion.status === "removing" && !deletion.confirmed ? deletion.mode : undefined;
     const label = `${mode === "trash" ? `Move ${count} to Trash` : `Delete ${count} permanently`}${confirm ? "…" : ""}`;
@@ -48,8 +43,8 @@ export const DeletionFooter = () => {
                     )
                 ) : (
                     <>
-                        <span className="font-semibold">{count === 1 ? "1 file" : `${count} files`}</span> marked for
-                        deletion<span className="text-[#A1A1AA]"> · {formatSize(freed)} will be freed</span>
+                        <span className="font-semibold">{formatCount(count)}</span> marked for deletion
+                        <span className="text-[#A1A1AA]"> · {formatSize(totalSize(chosen))} will be freed</span>
                     </>
                 )}
             </p>

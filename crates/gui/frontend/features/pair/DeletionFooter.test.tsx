@@ -107,7 +107,7 @@ describe("DeletionFooter", () => {
     });
 
     it("says nothing is marked for deletion once a file is deleted", () => {
-        usePairResultStore.setState({ gone: { b: "deleted" } });
+        usePairResultStore.setState({ gone: { b: "permanent" } });
 
         render(<DeletionFooter />);
 

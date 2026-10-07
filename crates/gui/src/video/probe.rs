@@ -7,7 +7,7 @@ use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Manager};
 
 use super::VideoError;
-use crate::thumbs::{Admitted, ThumbState, locate};
+use crate::thumbs::{Admitted, Refusal, ThumbState, locate};
 
 /// A video's container, duration and main streams.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -36,11 +36,12 @@ pub struct StreamProbe {
     decodable: bool,
 }
 
-/// The admitted video behind `identity`, refused as not found when it is an image. Shared with the sessions.
-pub(crate) fn locate_video(state: &ThumbState, identity: &str) -> Result<Admitted, VideoError> {
+/// The admitted video behind `identity`, refused as not found when it is an image. Shared with the sessions and the
+/// `video` scheme.
+pub(crate) fn locate_video(state: &ThumbState, identity: &str) -> Result<Admitted, Refusal> {
     let admitted = locate(state, identity)?;
     if MediaType::from_path(&admitted.path) != Some(MediaType::Video) {
-        return Err(VideoError::NotFound);
+        return Err(Refusal::NotFound);
     }
 
     Ok(admitted)

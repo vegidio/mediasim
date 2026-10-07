@@ -13,9 +13,11 @@ use std::time::Duration;
 
 use media::codec::AudioEncoder;
 use media::prelude::{
-    AudioCodec, AudioFilter, AudioFilterChain, Bitrate, Channels, Decoder, MediaReader, MediaWriter, Packet, Rational,
-    SampleRate, StreamKind,
+    AudioCodec, AudioFilter, AudioFilterChain, Bitrate, Channels, Decoder, Frame, MediaReader, MediaWriter, Packet,
+    Rational, SampleRate, StreamKind,
 };
+
+use super::packets::{packet_ts, seconds};
 
 /// The samples `FFmpeg`'s AAC encoder puts before the first one it was given: its `initial_padding`.
 const AAC_PRIMING: i64 = 1024;
@@ -150,12 +152,6 @@ pub(crate) struct CopiedAudio {
 }
 
 impl CopiedAudio {
-    fn seconds(&self, ts: i64) -> f64 {
-        #[expect(clippy::cast_precision_loss, reason = "a timestamp, far below 2^52 ticks")]
-        let seconds = ts as f64 * self.time_base.as_f64();
-        seconds
-    }
-
     fn until(&mut self, until: f64) -> media::Result<Vec<Packet>> {
         let mut packets = Vec::new();
         loop {
@@ -172,8 +168,8 @@ impl CopiedAudio {
                 },
             };
 
-            let ts = if packet.pts() == i64::MIN { packet.dts() } else { packet.pts() };
-            let (begins, ends) = (self.seconds(ts), self.seconds(ts + packet.duration()));
+            let ts = packet_ts(&packet);
+            let (begins, ends) = (seconds(ts, self.time_base), seconds(ts + packet.duration(), self.time_base));
             // The packet holding the start is kept when most of it is after the start, so the sound lands within
             // half a packet of the picture.
             if f64::midpoint(begins, ends) < self.start {
@@ -232,29 +228,29 @@ impl EncodedAudio {
     /// Encodes the next packet of the stream, or flushes everything at its end.
     fn encode_more(&mut self) -> media::Result<()> {
         let mut encoded = Vec::new();
+        // A decoded frame, timed by its best-effort timestamp, trimmed, and what is kept of it encoded.
+        let mut encode = |frame: media::Result<Frame>| -> media::Result<()> {
+            let mut frame = frame?;
+            if let Some(pts) = frame.best_effort_timestamp() {
+                frame.set_pts(pts);
+            }
+            for kept in self.trim.filter(frame)? {
+                encoded.extend(self.encoder.encode(&kept)?);
+            }
+            Ok(())
+        };
+
         match self.reader.packets().next().transpose()? {
             Some(packet) if packet.stream_index() == self.index => {
                 for frame in self.decoder.decode(&packet)? {
-                    let mut frame = frame?;
-                    if let Some(pts) = frame.best_effort_timestamp() {
-                        frame.set_pts(pts);
-                    }
-                    for kept in self.trim.filter(frame)? {
-                        encoded.extend(self.encoder.encode(&kept)?);
-                    }
+                    encode(frame)?;
                 }
             }
             Some(_) => return Ok(()),
             None => {
                 self.at_end = true;
                 for frame in self.decoder.flush()? {
-                    let mut frame = frame?;
-                    if let Some(pts) = frame.best_effort_timestamp() {
-                        frame.set_pts(pts);
-                    }
-                    for kept in self.trim.filter(frame)? {
-                        encoded.extend(self.encoder.encode(&kept)?);
-                    }
+                    encode(frame)?;
                 }
                 for kept in self.trim.flush()? {
                     encoded.extend(self.encoder.encode(&kept)?);
@@ -277,7 +273,7 @@ impl EncodedAudio {
 mod tests {
     use std::path::Path;
 
-    use media::prelude::{Frame, SampleBuffer};
+    use media::prelude::SampleBuffer;
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;

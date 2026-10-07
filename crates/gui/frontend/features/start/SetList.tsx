@@ -8,8 +8,7 @@ import {
     pickFilesIntoSet,
     pickFoldersIntoSet,
 } from "@/features/start/AddToSetMenu";
-import { formatCount } from "@/features/start/format";
-import { formatSize } from "@/lib/format";
+import { formatCount, formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { type SourceRow, useStartStore } from "@/stores/start";
 

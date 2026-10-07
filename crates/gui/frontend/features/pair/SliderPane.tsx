@@ -8,6 +8,7 @@ import type { Details } from "./details";
 import { MarkButton } from "./MarkButton";
 import { SliderPlayer } from "./SliderPlayer";
 import { SliderStage } from "./SliderStage";
+import { SlotBadge } from "./SlotBadge";
 
 type SliderPaneProps = {
     files: Record<Slot, MediaFile>;
@@ -18,20 +19,9 @@ type SliderPaneProps = {
     /** Which files are marked for deletion. */
     marked: Record<Slot, boolean>;
     onToggleMark: (slot: Slot) => void;
-    /** How each file that has left went; neither by default. */
-    gone?: Partial<Record<Slot, GoneKind>>;
+    /** How each file that has left went. */
+    gone: Partial<Record<Slot, GoneKind>>;
 };
-
-const Badge = ({ slot, gone }: { slot: Slot; gone: boolean }) => (
-    <span
-        className={cn(
-            "flex size-6 shrink-0 items-center justify-center rounded-md font-semibold text-xs",
-            gone ? "border border-[#3F3F46] border-dashed bg-[#18181B] text-text-disabled" : "bg-secondary",
-        )}
-    >
-        {slot.toUpperCase()}
-    </span>
-);
 
 const Name = ({ file, gone }: { file: MediaFile; gone: boolean }) => (
     <span
@@ -49,8 +39,6 @@ const GonePill = ({ gone }: { gone: GoneKind }) => (
         {gone === "trash" ? "In Trash" : "Deleted"}
     </span>
 );
-
-const NONE_GONE: Partial<Record<Slot, GoneKind>> = {};
 
 /** A file's mark button, or the "In Trash" or "Deleted" pill once it is gone. */
 const Mark = ({
@@ -79,7 +67,7 @@ export const SliderPane = ({
     onPositionChange,
     marked,
     onToggleMark,
-    gone = NONE_GONE,
+    gone,
 }: SliderPaneProps) => (
     <article
         aria-label="Files A and B"
@@ -87,13 +75,13 @@ export const SliderPane = ({
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-border"
     >
         <div className="flex h-[52px] shrink-0 items-center gap-2.5 border-border border-b bg-card px-4">
-            <Badge slot="a" gone={gone.a !== undefined} />
+            <SlotBadge slot="a" gone={gone.a !== undefined} />
             <Name file={files.a} gone={gone.a !== undefined} />
             <Mark slot="a" marked={marked} gone={gone} onToggleMark={onToggleMark} />
             <span className="flex-1" />
             <Mark slot="b" marked={marked} gone={gone} onToggleMark={onToggleMark} />
             <Name file={files.b} gone={gone.b !== undefined} />
-            <Badge slot="b" gone={gone.b !== undefined} />
+            <SlotBadge slot="b" gone={gone.b !== undefined} />
         </div>
 
         {/* Two videos still in place play in step; anything else is stills, or one file's own player. */}

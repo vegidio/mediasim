@@ -82,8 +82,8 @@ const load = (container: HTMLElement, file: MediaFile) => fireEvent.load(picture
 describe("SliderStage", () => {
     it.each([
         [{ a: "trash", b: "trash" }, "Both files moved to Trash"],
-        [{ a: "deleted", b: "deleted" }, "Both files deleted"],
-        [{ a: "trash", b: "deleted" }, "Both files removed"],
+        [{ a: "permanent", b: "permanent" }, "Both files deleted"],
+        [{ a: "trash", b: "permanent" }, "Both files removed"],
     ] as const)("reads, with both files gone as %o, %s", (gone, line) => {
         render(<SliderStage a={A} b={B} position={50} onPositionChange={() => {}} marked={UNMARKED} gone={gone} />);
 
@@ -485,7 +485,7 @@ describe("SliderStage", () => {
                     position={50}
                     onPositionChange={() => {}}
                     marked={{ a: false, b: true }}
-                    gone={{ a: "deleted" }}
+                    gone={{ a: "permanent" }}
                 />,
             );
             load(container, VIDEO);

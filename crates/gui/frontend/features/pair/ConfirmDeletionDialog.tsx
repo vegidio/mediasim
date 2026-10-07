@@ -1,5 +1,7 @@
 import { type ReactNode, useRef, useState } from "react";
-import { ImageIcon, LoaderCircleIcon, Trash2Icon, TriangleAlertIcon, VideoIcon } from "lucide-react";
+import { LoaderCircleIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
+import { MediaKindIcon } from "@/components/MediaKindIcon";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -9,14 +11,11 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { Slot } from "@/features/start/routePairDrop";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
-import { formatSize } from "@/lib/format";
-import { usePairResultStore } from "@/stores/pairResult";
+import { formatCount, formatSize, totalSize } from "@/lib/format";
+import { selectMarkedFiles, usePairResultStore } from "@/stores/pairResult";
 import type { DeletionMode } from "@/stores/settings";
 import { focusDismiss } from "./DeletionNotice";
-
-const SLOTS: readonly Slot[] = ["a", "b"];
 
 /** Twice the 48×36 thumbnail's longer edge, for a sharp picture at 2×. */
 const THUMB_BOUND = 96;
@@ -29,11 +28,7 @@ const Row = ({ file }: { file: MediaFile }) => {
         <li className="flex items-center gap-3 border-[#1F1F23] border-b px-3 py-2 last:border-b-0">
             <span className="flex h-9 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#18181B] text-muted-foreground [&_svg]:size-4">
                 {failed ? (
-                    file.type === "video" ? (
-                        <VideoIcon aria-hidden="true" />
-                    ) : (
-                        <ImageIcon aria-hidden="true" />
-                    )
+                    <MediaKindIcon type={file.type} />
                 ) : (
                     // Decorative: the name follows.
                     <img
@@ -64,8 +59,7 @@ type ConfirmDeletionDialogProps = {
  * press outside, nor at all while the files are being removed.
  */
 export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) => {
-    const files = usePairResultStore((state) => state.files);
-    const marked = usePairResultStore((state) => state.marked);
+    const chosen = usePairResultStore(useShallow(selectMarkedFiles));
     const deletion = usePairResultStore((state) => state.deletion);
     const requestDeletion = usePairResultStore((state) => state.requestDeletion);
     const cancelDeletion = usePairResultStore((state) => state.cancelDeletion);
@@ -74,7 +68,6 @@ export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) 
     const moved = useRef(false);
 
     const removing = deletion.status === "removing" && deletion.confirmed;
-    const chosen = files ? SLOTS.filter((slot) => marked[slot]).map((slot) => files[slot]) : [];
 
     // The files and the mode as confirmed, kept while closing: a removal unmarks the files and ends the deletion, which
     // would otherwise empty the list and change the text as it fades.
@@ -89,8 +82,7 @@ export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) 
     }
 
     const count = listed.length;
-    const total = listed.reduce((sum, file) => sum + file.size, 0);
-    const counted = count === 1 ? "1 file" : `${count} files`;
+    const counted = formatCount(count);
 
     return (
         <AlertDialog
@@ -139,7 +131,7 @@ export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) 
                     <p className="mt-3 flex justify-between text-[#A1A1AA] text-[13px]">
                         <span>{counted}</span>
                         <span>
-                            Total <span className="font-semibold text-[#FAFAFA]">{formatSize(total)}</span>
+                            Total <span className="font-semibold text-[#FAFAFA]">{formatSize(totalSize(listed))}</span>
                         </span>
                     </p>
                 </div>

@@ -468,9 +468,9 @@ describe("usePairResultStore", () => {
 
                 expect(mockedDelete).toHaveBeenCalledExactlyOnceWith([B.identity]);
                 expect(mockedTrash).not.toHaveBeenCalled();
-                expect(state().gone).toEqual({ b: "deleted" });
+                expect(state().gone).toEqual({ b: "permanent" });
                 expect(state().marked).toEqual({ a: false, b: false });
-                expect(state().notice).toEqual({ action: "delete", done: ["b"], failed: [] });
+                expect(state().notice).toEqual({ action: "permanent", done: ["b"], failed: [] });
                 expect(usePairStore.getState().b).toBeUndefined();
             });
 
@@ -486,7 +486,7 @@ describe("usePairResultStore", () => {
                 expect(state().gone).toEqual({});
                 expect(state().marked).toEqual({ a: true, b: true });
                 expect(state().notice).toEqual({
-                    action: "delete",
+                    action: "permanent",
                     done: [],
                     failed: [
                         { slot: "a", message: "command delete_media not found" },
@@ -497,7 +497,7 @@ describe("usePairResultStore", () => {
 
             it.each([
                 ["trash", mockedTrash, { status: "trashed" }, "trash"],
-                ["permanent", mockedDelete, DELETED, "deleted"],
+                ["permanent", mockedDelete, DELETED, "permanent"],
             ] as const)("skips confirming with confirm off, in %s mode", async (mode, mocked, outcome, kind) => {
                 useSettingsStore.setState({ deletionMode: mode, confirmDeletion: false });
                 state().toggleMark("b");
@@ -539,7 +539,7 @@ describe("usePairResultStore", () => {
                 await state().restore(["a", "b"]);
 
                 expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([A.identity]);
-                expect(state().gone).toEqual({ b: "deleted" });
+                expect(state().gone).toEqual({ b: "permanent" });
             });
         });
 

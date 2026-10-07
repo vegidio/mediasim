@@ -4,14 +4,12 @@ import { Button } from "@/components/ui/button";
 import { EmptySlot } from "@/features/start/EmptySlot";
 import { FilledSlot } from "@/features/start/FilledSlot";
 import { ModeCard } from "@/features/start/ModeCard";
-import { route, type Slot } from "@/features/start/routePairDrop";
+import { route, SLOTS, type Slot } from "@/features/start/routePairDrop";
 import { hits, type Point, useDropTarget } from "@/features/start/useDropTarget";
 import { cn } from "@/lib/utils";
 import { selectCanCompare, selectMismatch, usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { useScreenStore } from "@/stores/screen";
-
-const SLOTS: Slot[] = ["a", "b"];
 
 /** The "Compare two files" mode card: two slots to choose or drop a file into, and Compare. */
 export const PairCard = () => {

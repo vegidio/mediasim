@@ -23,7 +23,35 @@ export type VideoPlayback = VideoPlaybackState & {
     toggleMute: () => void;
 };
 
-const INITIAL: VideoPlaybackState = { playing: false, time: 0, muted: true, started: false, failed: false };
+/** A player's state before its element has reported anything: paused at 0, muted. */
+export const INITIAL: VideoPlaybackState = { playing: false, time: 0, muted: true, started: false, failed: false };
+
+const STATE_KEYS = [
+    "playing",
+    "time",
+    "duration",
+    "muted",
+    "started",
+    "failed",
+] as const satisfies readonly (keyof VideoPlaybackState)[];
+
+/** `next`, or `previous` itself when they are equal, so a state update that changes nothing skips the render. */
+export const unlessUnchanged = (previous: VideoPlaybackState, next: VideoPlaybackState) =>
+    STATE_KEYS.every((key) => previous[key] === next[key]) ? previous : next;
+
+/** An element's duration, once it knows it. */
+export const knownDuration = (video: HTMLVideoElement) =>
+    Number.isFinite(video.duration) && video.duration > 0 ? video.duration : undefined;
+
+/** Plays `video`; one that can't also dispatches `error`, which is what the player shows. */
+export const play = (video: HTMLVideoElement) => {
+    video.play().catch(() => {});
+};
+
+/** Mutes `video` if it plays its sound, or unmutes it. */
+export const toggleMuted = (video: HTMLVideoElement | null) => {
+    if (video) video.muted = !video.muted;
+};
 
 /** The events whose state {@link useVideoPlayback} reads afresh. */
 const SYNCED = ["play", "pause", "timeupdate", "durationchange", "volumechange", "ended", "emptied"] as const;
@@ -41,15 +69,15 @@ export const useVideoPlayback = (ref: RefObject<HTMLVideoElement | null>): Video
 
         const sync = () =>
             setState((previous) => {
-                const { duration } = video;
+                const duration = knownDuration(video);
                 const { duration: _, ...rest } = previous;
-                return {
+                return unlessUnchanged(previous, {
                     ...rest,
                     playing: !video.paused,
                     time: video.currentTime,
                     muted: video.muted,
-                    ...(Number.isFinite(duration) && duration > 0 && { duration }),
-                };
+                    ...(duration !== undefined && { duration }),
+                });
             });
         const start = () => setState((previous) => ({ ...previous, started: true }));
         const fail = () => setState((previous) => ({ ...previous, failed: true, playing: false }));
@@ -77,17 +105,14 @@ export const useVideoPlayback = (ref: RefObject<HTMLVideoElement | null>): Video
             return;
         }
         if (video.ended) video.currentTime = 0;
-        // A video that can't play also dispatches `error`, which is what the player shows.
-        video.play().catch(() => {});
+        play(video);
     };
 
     const seek = (time: number) => {
         if (ref.current) ref.current.currentTime = time;
     };
 
-    const toggleMute = () => {
-        if (ref.current) ref.current.muted = !ref.current.muted;
-    };
+    const toggleMute = () => toggleMuted(ref.current);
 
     return { ...state, toggle, seek, toggleMute };
 };

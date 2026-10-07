@@ -13,7 +13,22 @@ mod trash;
 mod video;
 mod window;
 
+use serde::{Serialize, Serializer};
 use tauri::Manager;
+
+/// A command failed for a reason other than its input, which commands report per item instead: its blocking task
+/// panicked or was cancelled. Crosses to the window as its message.
+#[derive(Debug, thiserror::Error)]
+pub enum TaskError {
+    #[error("the background task did not finish: {0}")]
+    Task(#[from] tauri::Error),
+}
+
+impl Serialize for TaskError {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
 
 /// Build and run the application. Blocks until it exits.
 ///

@@ -3,25 +3,12 @@
 use std::path::{Path, PathBuf};
 
 use mediasim::MediaType;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
 use super::{Admitted, ThumbState, admit_one};
-
-/// Admitting failed for a reason other than a path, which only ever gets no identity.
-#[derive(Debug, thiserror::Error)]
-pub enum ThumbError {
-    /// The blocking admission task panicked or was cancelled.
-    #[error("the admission task did not finish: {0}")]
-    Task(#[from] tauri::Error),
-}
-
-impl Serialize for ThumbError {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
-    }
-}
+use crate::TaskError;
 
 /// Admits files for thumbnails and returns, in the same order, an identity for each one, or `None` for a path that is
 /// missing, is a folder or is not a supported media type, or a video whose path isn't Unicode. Admitting a file again
@@ -31,11 +18,11 @@ impl Serialize for ThumbError {
 ///
 /// If the blocking admission task fails to finish.
 #[tauri::command]
-pub async fn admit_media(state: State<'_, ThumbState>, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, ThumbError> {
+pub async fn admit_media(state: State<'_, ThumbState>, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, TaskError> {
     admit(&state, paths).await
 }
 
-pub(crate) async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, ThumbError> {
+pub(crate) async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, TaskError> {
     let admitted = admit_all(state, paths).await?;
 
     Ok(admitted.into_iter().map(|entry| entry.map(|(identity, ..)| identity)).collect())
@@ -62,11 +49,11 @@ pub struct MediaFile {
 pub async fn describe_media(
     state: State<'_, ThumbState>,
     paths: Vec<PathBuf>,
-) -> Result<Vec<Option<MediaFile>>, ThumbError> {
+) -> Result<Vec<Option<MediaFile>>, TaskError> {
     describe(&state, paths).await
 }
 
-async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, ThumbError> {
+async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, TaskError> {
     let admitted = admit_all(state, paths).await?;
 
     Ok(admitted
@@ -87,7 +74,7 @@ async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<
 async fn admit_all(
     state: &ThumbState,
     paths: Vec<PathBuf>,
-) -> Result<Vec<Option<(String, Admitted, MediaType)>>, ThumbError> {
+) -> Result<Vec<Option<(String, Admitted, MediaType)>>, TaskError> {
     // Stats run off the lock and off the async runtime; the registry is locked only to record the results.
     let admitted: Vec<_> = spawn_blocking(move || paths.iter().map(|path| admit_one(path)).collect()).await?;
 
@@ -97,7 +84,7 @@ async fn admit_all(
 }
 
 /// The last component of `path`, or the whole path when it has none.
-fn file_name(path: &Path) -> String {
+pub(crate) fn file_name(path: &Path) -> String {
     path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
 }
 

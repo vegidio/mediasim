@@ -2927,7 +2927,7 @@ dependencies = [
 [[package]]
 name = "media-rs"
 version = "26.10.0"
-source = "git+https://github.com/vegidio/media-rs?tag=26.10.0#34c13e930b77244aa2b375cbded2edec16612abd"
+source = "git+https://github.com/vegidio/media-rs?tag=26.10.0#0ea1ef2b38d5d07c37514bf4bd866fef76185116"
 dependencies = [
  "image",
  "rust-sak",

@@ -21,7 +21,8 @@ tauri-build = { version = "2", features = [] }
 # `DynamicImage`, which a preview is rendered to and the `thumb` scheme encodes. Already in the build through
 # `mediasim`, at the same version.
 image.workspace = true
-mediasim = { path = "../mediasim", features = ["serde"] }
+# `cache` for `DirCache`'s flush settings, which the thumbnail cache shares.
+mediasim = { path = "../mediasim", features = ["serde", "cache"] }
 # A video's preview frame, extracted at the thumbnail's size by `Resolution::Fit`.
 media.workspace = true
 # `memo` is the thumbnail cache and `crypto` the XXH3-64 behind an admitted file's identity.

@@ -2,6 +2,8 @@
 
 use tauri::http::HeaderValue;
 
+use crate::thumbs::digits_only;
+
 /// The most bytes one answer carries, from the range's start: 4 MiB. The player asks again for the rest.
 pub(super) const CAP: u64 = 4 * 1024 * 1024;
 
@@ -69,9 +71,9 @@ fn first_range(header: &HeaderValue) -> Option<Asked> {
     }
 }
 
-/// `digits` as a number, if it is only ASCII digits; `parse` alone would accept a leading `+`.
+/// `digits` as a number, if it is only ASCII digits; see [`digits_only`].
 fn number(digits: &str) -> Option<u64> {
-    if digits.bytes().all(|b| b.is_ascii_digit()) { digits.parse().ok() } else { None }
+    if digits_only(digits) { digits.parse().ok() } else { None }
 }
 
 #[cfg(test)]

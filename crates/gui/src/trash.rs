@@ -14,16 +14,18 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use rust_sak::fs::{FsError, Trashed};
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
+use crate::TaskError;
 use crate::thumbs::{Admitted, ThumbState, admit_one, current_identity};
 
-/// Why a file was not moved to the Trash.
+/// Why a file was not moved to the Trash or deleted. The window reads a move's failures as `unknown`, `changed`,
+/// `missing` or `trash`, and a deletion's as the same with `delete` in place of `trash`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum TrashFailure {
+pub enum RemoveFailure {
     /// The identity was never admitted.
     Unknown,
     /// The file is no longer the one admitted: its size, modification time or canonical path differs.
@@ -32,6 +34,30 @@ pub enum TrashFailure {
     Missing,
     /// The platform refused the move.
     Trash,
+    /// The platform refused the deletion.
+    Delete,
+}
+
+impl RemoveFailure {
+    /// The reason in words, to follow the file's name.
+    fn message(self) -> &'static str {
+        match self {
+            Self::Unknown => "it wasn't opened in this window",
+            Self::Changed => "it has changed since it was opened",
+            Self::Missing => "it no longer exists",
+            Self::Trash => "the Trash refused it",
+            Self::Delete => "it could not be deleted",
+        }
+    }
+}
+
+impl From<Mismatch> for RemoveFailure {
+    fn from(mismatch: Mismatch) -> Self {
+        match mismatch {
+            Mismatch::Changed => Self::Changed,
+            Mismatch::Missing => Self::Missing,
+        }
+    }
 }
 
 /// What happened to one file, as the window sees it: an object tagged by `status`.
@@ -43,35 +69,15 @@ pub enum TrashOutcome {
     /// The file was left where it was.
     Failed {
         /// Why.
-        reason: TrashFailure,
+        reason: RemoveFailure,
         /// The reason in words, to follow the file's name.
         message: String,
     },
 }
 
-/// The move could not be attempted at all.
-#[derive(Debug, thiserror::Error)]
-pub enum TrashError {
-    /// The blocking task panicked or was cancelled.
-    #[error("the Trash task did not finish: {0}")]
-    Task(#[from] tauri::Error),
-}
-
-impl Serialize for TrashError {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
-    }
-}
-
 impl TrashOutcome {
-    fn failed(reason: TrashFailure) -> Self {
-        let message = match reason {
-            TrashFailure::Unknown => "it wasn't opened in this window",
-            TrashFailure::Changed => "it has changed since it was opened",
-            TrashFailure::Missing => "it no longer exists",
-            TrashFailure::Trash => "the Trash refused it",
-        };
-        Self::Failed { reason, message: message.to_owned() }
+    fn failed(reason: RemoveFailure) -> Self {
+        Self::Failed { reason, message: reason.message().to_owned() }
     }
 }
 
@@ -126,6 +132,35 @@ impl<H: Restorable> TrashState<H> {
     }
 }
 
+/// Runs `act` on the blocking pool for each of `identities`, in order, with what `lookup` found for it, then `apply`s
+/// each result back here. `lookup` runs first, so the blocking task holds what it found rather than the state.
+async fn per_identity<T, R, O>(
+    identities: Vec<String>,
+    lookup: impl Fn(&str) -> Option<T>,
+    act: impl Fn(&str, Option<T>) -> R + Send + 'static,
+    mut apply: impl FnMut(String, R) -> O,
+) -> Result<Vec<O>, TaskError>
+where
+    T: Send + 'static,
+    R: Send + 'static,
+{
+    let found: Vec<_> = identities.iter().map(|identity| lookup(identity)).collect();
+
+    let results: Vec<_> = spawn_blocking(move || {
+        identities
+            .into_iter()
+            .zip(found)
+            .map(|(identity, found)| {
+                let result = act(&identity, found);
+                (identity, result)
+            })
+            .collect()
+    })
+    .await?;
+
+    Ok(results.into_iter().map(|(identity, result)| apply(identity, result)).collect())
+}
+
 /// Moves the admitted files named by `identities` to the platform's Trash and returns, in the same order, what
 /// happened to each. A file that fails never stops the next one.
 ///
@@ -137,7 +172,7 @@ pub async fn trash_media(
     thumbs: State<'_, ThumbState>,
     trash: State<'_, TrashState>,
     identities: Vec<String>,
-) -> Result<Vec<TrashOutcome>, TrashError> {
+) -> Result<Vec<TrashOutcome>, TaskError> {
     self::trash(&thumbs, &trash, identities).await
 }
 
@@ -145,36 +180,24 @@ async fn trash(
     thumbs: &ThumbState,
     trash: &TrashState,
     identities: Vec<String>,
-) -> Result<Vec<TrashOutcome>, TrashError> {
-    // Looked up here, so the blocking task holds paths rather than the state.
-    let admitted: Vec<_> = identities.iter().map(|identity| thumbs.lookup(identity)).collect();
-
-    let results: Vec<_> = spawn_blocking(move || {
-        identities
-            .into_iter()
-            .zip(admitted)
-            .map(|(identity, admitted)| {
-                let result = match admitted {
-                    Some(admitted) => trash_one(&identity, &admitted.path),
-                    None => Err(TrashOutcome::failed(TrashFailure::Unknown)),
-                };
-                (identity, result)
-            })
-            .collect()
-    })
-    .await?;
-
-    Ok(results
-        .into_iter()
-        .map(|(identity, result)| match result {
+) -> Result<Vec<TrashOutcome>, TaskError> {
+    per_identity(
+        identities,
+        |identity| thumbs.lookup(identity),
+        |identity, admitted| match admitted {
+            Some(admitted) => trash_one(identity, &admitted.path),
+            None => Err(TrashOutcome::failed(RemoveFailure::Unknown)),
+        },
+        |identity, result| match result {
             Ok(handle) => {
                 // A newer move of the same identity replaces the older handle, whose item it would have found anyway.
                 trash.insert(identity, handle);
                 TrashOutcome::Trashed
             }
             Err(outcome) => outcome,
-        })
-        .collect())
+        },
+    )
+    .await
 }
 
 /// Why the file at an admitted path is no longer the one admitted.
@@ -198,33 +221,14 @@ fn check_admitted(identity: &str, path: &Path) -> Result<(), Mismatch> {
 
 /// Moves the file at `path` to the Trash if it is still the one admitted as `identity`, and returns its handle.
 fn trash_one(identity: &str, path: &Path) -> Result<Trashed, TrashOutcome> {
-    check_admitted(identity, path).map_err(|mismatch| {
-        TrashOutcome::failed(match mismatch {
-            Mismatch::Changed => TrashFailure::Changed,
-            Mismatch::Missing => TrashFailure::Missing,
-        })
-    })?;
+    check_admitted(identity, path).map_err(|mismatch| TrashOutcome::failed(mismatch.into()))?;
 
     rust_sak::fs::move_to_trash(path).map_err(|err| match err {
         // Removed between the check and the move.
-        FsError::Io(err) if err.kind() == ErrorKind::NotFound => TrashOutcome::failed(TrashFailure::Missing),
-        FsError::Trash { message, .. } => TrashOutcome::Failed { reason: TrashFailure::Trash, message },
-        err => TrashOutcome::Failed { reason: TrashFailure::Trash, message: err.to_string() },
+        FsError::Io(err) if err.kind() == ErrorKind::NotFound => TrashOutcome::failed(RemoveFailure::Missing),
+        FsError::Trash { message, .. } => TrashOutcome::Failed { reason: RemoveFailure::Trash, message },
+        err => TrashOutcome::Failed { reason: RemoveFailure::Trash, message: err.to_string() },
     })
-}
-
-/// Why a file was not deleted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum DeleteFailure {
-    /// The identity was never admitted.
-    Unknown,
-    /// The file is no longer the one admitted: its size, modification time or canonical path differs.
-    Changed,
-    /// The file no longer exists.
-    Missing,
-    /// The platform refused the deletion.
-    Delete,
 }
 
 /// What happened to one file, as the window sees it: an object tagged by `status`.
@@ -236,21 +240,15 @@ pub enum DeleteOutcome {
     /// The file was left where it was.
     Failed {
         /// Why.
-        reason: DeleteFailure,
+        reason: RemoveFailure,
         /// The reason in words, to follow the file's name.
         message: String,
     },
 }
 
 impl DeleteOutcome {
-    fn failed(reason: DeleteFailure) -> Self {
-        let message = match reason {
-            DeleteFailure::Unknown => "it wasn't opened in this window",
-            DeleteFailure::Changed => "it has changed since it was opened",
-            DeleteFailure::Missing => "it no longer exists",
-            DeleteFailure::Delete => "it could not be deleted",
-        };
-        Self::Failed { reason, message: message.to_owned() }
+    fn failed(reason: RemoveFailure) -> Self {
+        Self::Failed { reason, message: reason.message().to_owned() }
     }
 }
 
@@ -264,41 +262,34 @@ impl DeleteOutcome {
 pub async fn delete_media(
     thumbs: State<'_, ThumbState>,
     identities: Vec<String>,
-) -> Result<Vec<DeleteOutcome>, TrashError> {
+) -> Result<Vec<DeleteOutcome>, TaskError> {
     delete(&thumbs, identities).await
 }
 
-async fn delete(thumbs: &ThumbState, identities: Vec<String>) -> Result<Vec<DeleteOutcome>, TrashError> {
-    // Looked up here, so the blocking task holds paths rather than the state.
-    let admitted: Vec<_> = identities.iter().map(|identity| thumbs.lookup(identity)).collect();
-
-    Ok(spawn_blocking(move || {
-        identities
-            .iter()
-            .zip(admitted)
-            .map(|(identity, admitted)| match admitted {
-                Some(admitted) => delete_one(identity, &admitted.path),
-                None => DeleteOutcome::failed(DeleteFailure::Unknown),
-            })
-            .collect()
-    })
-    .await?)
+async fn delete(thumbs: &ThumbState, identities: Vec<String>) -> Result<Vec<DeleteOutcome>, TaskError> {
+    per_identity(
+        identities,
+        |identity| thumbs.lookup(identity),
+        |identity, admitted| match admitted {
+            Some(admitted) => delete_one(identity, &admitted.path),
+            None => DeleteOutcome::failed(RemoveFailure::Unknown),
+        },
+        |_, outcome| outcome,
+    )
+    .await
 }
 
 /// Deletes the file at `path` if it is still the one admitted as `identity`.
 fn delete_one(identity: &str, path: &Path) -> DeleteOutcome {
     if let Err(mismatch) = check_admitted(identity, path) {
-        return DeleteOutcome::failed(match mismatch {
-            Mismatch::Changed => DeleteFailure::Changed,
-            Mismatch::Missing => DeleteFailure::Missing,
-        });
+        return DeleteOutcome::failed(mismatch.into());
     }
 
     match std::fs::remove_file(path) {
         Ok(()) => DeleteOutcome::Deleted,
         // Removed between the check and the deletion.
-        Err(err) if err.kind() == ErrorKind::NotFound => DeleteOutcome::failed(DeleteFailure::Missing),
-        Err(err) => DeleteOutcome::Failed { reason: DeleteFailure::Delete, message: err.to_string() },
+        Err(err) if err.kind() == ErrorKind::NotFound => DeleteOutcome::failed(RemoveFailure::Missing),
+        Err(err) => DeleteOutcome::Failed { reason: RemoveFailure::Delete, message: err.to_string() },
     }
 }
 
@@ -358,7 +349,7 @@ pub async fn restore_media(
     thumbs: State<'_, ThumbState>,
     trash: State<'_, TrashState>,
     identities: Vec<String>,
-) -> Result<Vec<RestoreOutcome>, TrashError> {
+) -> Result<Vec<RestoreOutcome>, TaskError> {
     restore(&thumbs, &trash, identities).await
 }
 
@@ -366,36 +357,24 @@ async fn restore<H: Restorable>(
     thumbs: &ThumbState,
     trash: &TrashState<H>,
     identities: Vec<String>,
-) -> Result<Vec<RestoreOutcome>, TrashError> {
-    // Cloned out here, so the blocking task holds handles rather than the state.
-    let handles: Vec<_> = identities.iter().map(|identity| trash.get(identity)).collect();
-
-    let results: Vec<_> = spawn_blocking(move || {
-        identities
-            .into_iter()
-            .zip(handles)
-            .map(|(identity, handle)| {
-                let result = match handle {
-                    Some(handle) => restore_one(&identity, &handle),
-                    None => Err(RestoreOutcome::failed(RestoreFailure::Unknown)),
-                };
-                (identity, result)
-            })
-            .collect()
-    })
-    .await?;
-
-    Ok(results
-        .into_iter()
-        .map(|(identity, result)| match result {
+) -> Result<Vec<RestoreOutcome>, TaskError> {
+    per_identity(
+        identities,
+        |identity| trash.get(identity),
+        |identity, handle| match handle {
+            Some(handle) => restore_one(identity, &handle),
+            None => Err(RestoreOutcome::failed(RestoreFailure::Unknown)),
+        },
+        |identity, result| match result {
             Ok((current, admitted)) => {
                 thumbs.admit([(current.clone(), admitted)]);
                 trash.remove(&identity);
                 RestoreOutcome::Restored { identity: current }
             }
             Err(outcome) => outcome,
-        })
-        .collect())
+        },
+    )
+    .await
 }
 
 /// Restores the file moved as `identity`, and returns the identity it is admitted as now and what was recorded.
@@ -504,7 +483,7 @@ mod tests {
     fn an_unknown_identity_is_unknown() {
         let outcomes = trash(&state(), vec!["0123456789abcdef".into()]);
 
-        assert_eq!(outcomes, [TrashOutcome::failed(TrashFailure::Unknown)]);
+        assert_eq!(outcomes, [TrashOutcome::failed(RemoveFailure::Unknown)]);
     }
 
     #[test]
@@ -519,7 +498,7 @@ mod tests {
         std::fs::write(&path, b"rewritten").unwrap();
         set_modified(&path, UNIX_EPOCH + Duration::from_secs(1_700_000_001));
 
-        assert_eq!(trash(&state, identities), [TrashOutcome::failed(TrashFailure::Changed)]);
+        assert_eq!(trash(&state, identities), [TrashOutcome::failed(RemoveFailure::Changed)]);
         assert!(path.exists());
     }
 
@@ -533,7 +512,7 @@ mod tests {
 
         std::fs::remove_file(&path).unwrap();
 
-        assert_eq!(trash(&state, identities), [TrashOutcome::failed(TrashFailure::Missing)]);
+        assert_eq!(trash(&state, identities), [TrashOutcome::failed(RemoveFailure::Missing)]);
     }
 
     #[test]
@@ -548,7 +527,7 @@ mod tests {
 
         assert_eq!(
             trash(&state, identities),
-            [TrashOutcome::failed(TrashFailure::Unknown), TrashOutcome::failed(TrashFailure::Missing)]
+            [TrashOutcome::failed(RemoveFailure::Unknown), TrashOutcome::failed(RemoveFailure::Missing)]
         );
     }
 
@@ -556,7 +535,7 @@ mod tests {
     fn outcomes_serialize_as_tagged_objects() {
         assert_eq!(serde_json::to_value(TrashOutcome::Trashed).unwrap(), serde_json::json!({ "status": "trashed" }));
         assert_eq!(
-            serde_json::to_value(TrashOutcome::failed(TrashFailure::Changed)).unwrap(),
+            serde_json::to_value(TrashOutcome::failed(RemoveFailure::Changed)).unwrap(),
             serde_json::json!({
                 "status": "failed",
                 "reason": "changed",
@@ -573,7 +552,7 @@ mod tests {
     fn deleting_an_unknown_identity_is_unknown() {
         let outcomes = delete(&state(), vec!["0123456789abcdef".into()]);
 
-        assert_eq!(outcomes, [DeleteOutcome::failed(DeleteFailure::Unknown)]);
+        assert_eq!(outcomes, [DeleteOutcome::failed(RemoveFailure::Unknown)]);
     }
 
     #[test]
@@ -586,7 +565,7 @@ mod tests {
         std::fs::write(&path, b"rewritten").unwrap();
         set_modified(&path, UNIX_EPOCH + Duration::from_secs(1_700_000_001));
 
-        assert_eq!(delete(&state, identities), [DeleteOutcome::failed(DeleteFailure::Changed)]);
+        assert_eq!(delete(&state, identities), [DeleteOutcome::failed(RemoveFailure::Changed)]);
         assert!(path.exists());
     }
 
@@ -598,7 +577,7 @@ mod tests {
 
         std::fs::remove_file(&path).unwrap();
 
-        assert_eq!(delete(&state, identities), [DeleteOutcome::failed(DeleteFailure::Missing)]);
+        assert_eq!(delete(&state, identities), [DeleteOutcome::failed(RemoveFailure::Missing)]);
     }
 
     #[test]
@@ -626,7 +605,7 @@ mod tests {
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
 
         assert!(
-            matches!(&outcomes[..], [DeleteOutcome::Failed { reason: DeleteFailure::Delete, message }] if !message.is_empty())
+            matches!(&outcomes[..], [DeleteOutcome::Failed { reason: RemoveFailure::Delete, message }] if !message.is_empty())
         );
         assert!(path.exists());
     }
@@ -640,7 +619,7 @@ mod tests {
 
         assert_eq!(
             delete(&state, identities),
-            [DeleteOutcome::failed(DeleteFailure::Unknown), DeleteOutcome::Deleted]
+            [DeleteOutcome::failed(RemoveFailure::Unknown), DeleteOutcome::Deleted]
         );
     }
 
@@ -651,7 +630,7 @@ mod tests {
             serde_json::json!({ "status": "deleted" })
         );
         assert_eq!(
-            serde_json::to_value(DeleteOutcome::failed(DeleteFailure::Missing)).unwrap(),
+            serde_json::to_value(DeleteOutcome::failed(RemoveFailure::Missing)).unwrap(),
             serde_json::json!({
                 "status": "failed",
                 "reason": "missing",

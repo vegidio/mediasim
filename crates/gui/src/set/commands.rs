@@ -7,11 +7,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use serde::{Serialize, Serializer};
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
 use super::{Job, Listing, Set, SetView, classify, home, list_folder};
+use crate::TaskError;
 
 /// The set, as Tauri managed state.
 #[derive(Debug, Default)]
@@ -28,20 +28,6 @@ impl SetState {
     }
 }
 
-/// A set command failed for a reason other than the filesystem, which the set reports per source instead.
-#[derive(Debug, thiserror::Error)]
-pub enum SetError {
-    /// A blocking classification or listing task panicked or was cancelled.
-    #[error("a set task did not finish: {0}")]
-    Task(#[from] tauri::Error),
-}
-
-impl Serialize for SetError {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
-    }
-}
-
 /// Adds files and folders to the set, skipping unsupported, missing and already-added paths, and returns the set once
 /// every folder added here has been listed.
 ///
@@ -51,7 +37,11 @@ impl Serialize for SetError {
 ///
 /// If a classification or listing task fails to finish.
 #[tauri::command]
-pub async fn add_to_set(state: State<'_, SetState>, paths: Vec<PathBuf>, recursive: bool) -> Result<SetView, SetError> {
+pub async fn add_to_set(
+    state: State<'_, SetState>,
+    paths: Vec<PathBuf>,
+    recursive: bool,
+) -> Result<SetView, TaskError> {
     add(&state, paths, recursive, list_folder).await
 }
 
@@ -65,7 +55,7 @@ pub async fn add_to_set(state: State<'_, SetState>, paths: Vec<PathBuf>, recursi
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value, reason = "Tauri passes command arguments by value")]
 #[allow(clippy::unused_async, reason = "Tauri runs a command off the main thread only if it is async")]
-pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Result<SetView, SetError> {
+pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Result<SetView, TaskError> {
     Ok(remove(&state, &path))
 }
 
@@ -75,11 +65,11 @@ pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Resul
 ///
 /// If a listing task fails to finish.
 #[tauri::command]
-pub async fn rescan_set(state: State<'_, SetState>, recursive: bool) -> Result<SetView, SetError> {
+pub async fn rescan_set(state: State<'_, SetState>, recursive: bool) -> Result<SetView, TaskError> {
     rescan(&state, recursive, list_folder).await
 }
 
-async fn add<L>(state: &SetState, paths: Vec<PathBuf>, recursive: bool, list: L) -> Result<SetView, SetError>
+async fn add<L>(state: &SetState, paths: Vec<PathBuf>, recursive: bool, list: L) -> Result<SetView, TaskError>
 where
     L: Fn(&Path, bool) -> Listing + Clone + Send + 'static,
 {
@@ -96,7 +86,7 @@ fn remove(state: &SetState, path: &Path) -> SetView {
     state.view()
 }
 
-async fn rescan<L>(state: &SetState, recursive: bool, list: L) -> Result<SetView, SetError>
+async fn rescan<L>(state: &SetState, recursive: bool, list: L) -> Result<SetView, TaskError>
 where
     L: Fn(&Path, bool) -> Listing + Clone + Send + 'static,
 {
@@ -107,7 +97,7 @@ where
 }
 
 /// Lists every job's folder in parallel and commits each result as it arrives.
-async fn run<L>(state: &SetState, jobs: Vec<Job>, list: L) -> Result<(), SetError>
+async fn run<L>(state: &SetState, jobs: Vec<Job>, list: L) -> Result<(), TaskError>
 where
     L: Fn(&Path, bool) -> Listing + Clone + Send + 'static,
 {

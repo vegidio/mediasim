@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { MediaType } from "./formats";
+import { invokeOr, isRecord } from "./wire";
 
 /** A file's details, read from its header by `probe_media` in `crates/gui/src/pair.rs`. */
 export type MediaInfo = {
@@ -37,9 +38,7 @@ type WireMediaInfo = Omit<MediaInfo, OptionalKey> & { [K in OptionalKey]-?: NonN
 
 /** Read one file's details from its header, without decoding it. Rejects with a {@link PairFailure}. */
 export const probeMedia = async (path: string): Promise<MediaInfo> => {
-    const info = await invoke<WireMediaInfo>("probe_media", { path }).catch((error: unknown) => {
-        throw toFailure(error);
-    });
+    const info = await call<WireMediaInfo>("probe_media", { path });
 
     // Rust's `None` arrives as JSON `null`, which this project spells as an absent property.
     const { duration, created, modified, format, colorProfile, frameRate, ...always } = info;
@@ -60,15 +59,10 @@ export const probeMedia = async (path: string): Promise<MediaInfo> => {
  * comparison cancels any earlier one still running, which then rejects as `cancelled`. Rejects with a
  * {@link PairFailure}.
  */
-export const comparePair = (a: string, b: string): Promise<number> =>
-    invoke<number>("compare_pair", { a, b }).catch((error: unknown) => {
-        throw toFailure(error);
-    });
+export const comparePair = (a: string, b: string): Promise<number> => call<number>("compare_pair", { a, b });
 
 /** Cancel the comparison in flight, if any. */
 export const cancelComparison = () => invoke<void>("cancel_comparison");
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 /** The {@link PairFailure} a rejection carries, or a `task` failure for anything else, such as a missing command. */
 const toFailure = (error: unknown): PairFailure => {
@@ -87,3 +81,5 @@ const toFailure = (error: unknown): PairFailure => {
 
     return { kind: "task", message: String(error) };
 };
+
+const call = invokeOr(toFailure);

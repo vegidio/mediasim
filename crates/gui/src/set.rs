@@ -14,11 +14,11 @@ use std::path::{Path, PathBuf};
 use mediasim::{LoadOptions, Media, MediaType};
 use serde::Serialize;
 
+use crate::thumbs::commands::file_name;
+
 /// The sources the user added, in the order they were added.
 #[derive(Debug, Default)]
 pub struct Set {
-    /// Whether folders are listed with their subfolders ("Scan subfolders").
-    recursive: bool,
     sources: Vec<Source>,
     /// Bumped on every change, so views can be ordered by the state they show.
     revision: u64,
@@ -38,7 +38,14 @@ struct Source {
 #[derive(Debug)]
 enum SourceKind {
     Folder(Listing),
-    File { media_type: MediaType, size: u64 },
+    File(FileInfo),
+}
+
+/// What an added file is: its media type and size in bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FileInfo {
+    pub media_type: MediaType,
+    pub size: u64,
 }
 
 /// A folder's media files, as far as they are known.
@@ -56,7 +63,7 @@ pub enum Listing {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Classified {
     Folder,
-    File { media_type: MediaType, size: u64 },
+    File(FileInfo),
 }
 
 /// A folder listing to run outside the lock, then hand back to [`Set::commit`].
@@ -116,7 +123,7 @@ pub fn classify(path: &Path) -> Option<Classified> {
     }
 
     let media_type = MediaType::from_path(path)?;
-    metadata.is_file().then_some(Classified::File { media_type, size: metadata.len() })
+    metadata.is_file().then_some(Classified::File(FileInfo { media_type, size: metadata.len() }))
 }
 
 /// Lists the media files in `folder`, with their sizes, as a directory load would find them.
@@ -137,11 +144,8 @@ pub fn list_folder(folder: &Path, recursive: bool) -> Listing {
 impl Set {
     /// Adds the classified paths in order, skipping any already in the set, and returns the folder listings to run.
     ///
-    /// `recursive` is "Scan subfolders" as the frontend shows it; it becomes the set's setting.
+    /// `recursive` is "Scan subfolders" as the frontend shows it, which the folders added here are listed with.
     pub fn add(&mut self, paths: Vec<(PathBuf, Classified)>, recursive: bool) -> Vec<Job> {
-        // Normally unchanged; a mismatch only means the frontend's rescan is still on its way.
-        self.recursive = recursive;
-
         let mut jobs = Vec::new();
 
         for (path, classified) in paths {
@@ -155,7 +159,7 @@ impl Set {
                     jobs.push(Job { path: path.clone(), generation, recursive });
                     SourceKind::Folder(Listing::Pending)
                 }
-                Classified::File { media_type, size } => SourceKind::File { media_type, size },
+                Classified::File(info) => SourceKind::File(info),
             };
 
             self.sources.push(Source { path, generation, kind });
@@ -195,7 +199,6 @@ impl Set {
 
     /// Switches "Scan subfolders" and starts relisting every folder with it. Files are unaffected.
     pub fn rescan(&mut self, recursive: bool) -> Vec<Job> {
-        self.recursive = recursive;
         self.revision += 1;
 
         let mut jobs = Vec::new();
@@ -225,7 +228,7 @@ impl Set {
             match &source.kind {
                 SourceKind::Folder(Listing::Listed(files)) => distinct.extend(files.iter().map(|(p, _)| p.as_path())),
                 SourceKind::Folder(_) => {}
-                SourceKind::File { .. } => {
+                SourceKind::File(_) => {
                     distinct.insert(&source.path);
                 }
             }
@@ -255,7 +258,7 @@ impl Set {
 
 impl Source {
     fn view(&self, home: Option<&Path>) -> SourceView {
-        let name = self.path.file_name().map_or_else(|| display(&self.path), |n| n.to_string_lossy().into_owned());
+        let name = file_name(&self.path);
         let path = display(&self.path);
 
         match &self.kind {
@@ -276,7 +279,7 @@ impl Source {
                     pending: *listing == Listing::Pending,
                 }
             }
-            SourceKind::File { media_type, size } => SourceView {
+            SourceKind::File(FileInfo { media_type, size }) => SourceView {
                 path,
                 name,
                 location: abbreviate(self.path.parent().unwrap_or(&self.path), home),
@@ -590,9 +593,9 @@ mod tests {
 
         let jobs = set.rescan(false);
         assert!(rows(&set)[0].pending);
+        assert!(jobs.iter().all(|job| !job.recursive));
         run(&mut set, &jobs);
 
-        assert!(!set.recursive);
         assert_eq!(rows(&set)[0].count, 5);
         assert_eq!(set.total(), 5);
     }

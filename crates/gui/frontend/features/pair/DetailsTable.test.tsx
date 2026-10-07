@@ -49,7 +49,7 @@ const row = (badge: string) =>
         .map((cell) => cell.textContent);
 
 describe("DetailsTable", () => {
-    it.each(["trash", "deleted"] as const)("fades and strikes through a file gone to %s", (kind) => {
+    it.each(["trash", "permanent"] as const)("fades and strikes through a file gone to %s", (kind) => {
         render(
             <DetailsTable
                 files={IMAGES}

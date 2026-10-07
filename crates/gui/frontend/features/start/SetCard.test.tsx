@@ -24,7 +24,8 @@ const folder = (overrides: Partial<SourceView> = {}): SourceView => ({
     ...overrides,
 });
 
-const withSources = (sources: SourceRow[], total: number) => useStartStore.setState({ sources, total });
+const withSources = (sources: SourceRow[], total: number) =>
+    useStartStore.setState((state) => ({ sources, view: { ...state.view, total } }));
 
 /** Send a drag event to every listener the card registered. */
 const drag = (event: DragDropEvent) =>

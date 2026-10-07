@@ -15,7 +15,8 @@ mod cache;
 mod encoder;
 mod error;
 #[cfg(test)]
-mod fixtures;
+pub(crate) mod fixtures;
+mod packets;
 pub mod probe;
 mod range;
 mod serve;
@@ -25,7 +26,7 @@ mod transcode;
 
 use std::path::Path;
 
-use tauri::http::Uri;
+use mediasim::MediaFormat;
 
 pub use cache::Segments;
 pub use encoder::Encoders;
@@ -37,43 +38,26 @@ pub use sessions::SessionState;
 /// The URI scheme videos are served over. Registered in `src/lib.rs`.
 pub const SCHEME: &str = "video";
 
-/// Length of an identity: XXH3-64 as 16 lowercase hex characters.
-const IDENTITY_LENGTH: usize = 16;
-
-/// The identity `<path>` asks for, or `None` if it isn't exactly one.
-///
-/// Only the path is read, so `video://localhost/…` and `http://video.localhost/…` read the same, and the query is
-/// ignored. The path must be exactly [`IDENTITY_LENGTH`] lowercase hex characters, so a filesystem path is refused
-/// before the registry is consulted.
-fn parse(uri: &Uri) -> Option<String> {
-    let identity = uri.path().strip_prefix('/')?;
-    let well_formed =
-        identity.len() == IDENTITY_LENGTH && identity.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'));
-
-    well_formed.then(|| identity.to_owned())
-}
-
-/// The content type a video is served as, from its extension. Every video extension `mediasim` admits is listed.
+/// The content type a video is served as, from its extension: the MIME type `mediasim` gives its format.
 fn content_type(path: &Path) -> &'static str {
-    let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or_default().to_ascii_lowercase();
+    let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or_default();
 
-    match extension.as_str() {
-        "mp4" | "m4v" => "video/mp4",
-        "mov" => "video/quicktime",
-        "webm" => "video/webm",
-        "mkv" => "video/x-matroska",
-        "avi" => "video/x-msvideo",
-        "wmv" => "video/x-ms-wmv",
-        _ => "application/octet-stream",
-    }
+    MediaFormat::all()
+        .find(|format| format.extensions.iter().any(|ext| ext.eq_ignore_ascii_case(extension)))
+        .and_then(|format| format.mime)
+        .unwrap_or("application/octet-stream")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use tauri::http::Uri;
 
+    use super::*;
+    use crate::thumbs::parse_identity;
+
+    /// The identity a `video` request asks for: its path, as the `thumb` scheme reads it, with the query ignored.
     fn asked(url: &str) -> Option<String> {
-        parse(&url.parse::<Uri>().unwrap())
+        parse_identity(&url.parse::<Uri>().unwrap()).map(str::to_owned)
     }
 
     #[test]

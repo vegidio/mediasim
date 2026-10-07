@@ -23,19 +23,13 @@ use super::VideoError;
 use super::cache::Segments;
 use super::encoder::Encoders;
 use super::probe::locate_video;
-use super::session::{AudioMode, Session as Pipeline, VideoMode};
+use super::session::{AudioMode, Session, VideoMode};
 use super::transcode::EncodeError;
 use crate::thumbs::{ThumbState, locate};
 
 /// The most sessions open at once: both views' two players, a reopen after a seek while the old session is still
 /// closing, and React's `StrictMode` rehearsal mount, with room to spare.
 const LIMIT: usize = 8;
-
-/// One open session and the file it reads.
-struct Session {
-    pipeline: Pipeline,
-    identity: String,
-}
 
 /// A session in the registry, and when it was last requested from.
 struct Entry {
@@ -100,8 +94,8 @@ impl SessionState {
     ) -> Result<Opened, VideoError> {
         let admitted = locate_video(thumbs, identity)?;
         let path = admitted.path.to_str().ok_or(VideoError::Gone)?;
-        let (pipeline, start) = Pipeline::open(path, identity, at, video, || encoders.current(), audio)?;
-        let session = Arc::new(Mutex::new(Session { pipeline, identity: identity.to_owned() }));
+        let (session, start) = Session::open(path, identity, at, video, || encoders.current(), audio)?;
+        let session = Arc::new(Mutex::new(session));
 
         let mut registry = self.registry();
         let id = registry.next_id;
@@ -147,13 +141,13 @@ impl SessionState {
             return Err(VideoError::NotFound);
         }
 
-        if locate(thumbs, &session.identity).is_err() {
+        if locate(thumbs, session.identity()).is_err() {
             self.close(id);
             return Err(VideoError::Gone);
         }
 
-        let segment = session.pipeline.next(segments, &cancel).map_err(|err| {
-            if let (EncodeError::Encoder(_), Some(encoder)) = (&err, session.pipeline.encoder()) {
+        let segment = session.next(segments, &cancel).map_err(|err| {
+            if let (EncodeError::Encoder(_), Some(encoder)) = (&err, session.encoder()) {
                 encoders.retire(&encoder);
             }
             let err = VideoError::from(err);

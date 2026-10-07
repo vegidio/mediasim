@@ -1,9 +1,10 @@
-import type { Slot } from "@/features/start/routePairDrop";
+import { SLOTS, type Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 import type { GoneKind } from "@/stores/pairResult";
 import { DetailValue } from "./DetailValue";
 import { type Details, detailRows } from "./details";
+import { SlotBadge } from "./SlotBadge";
 
 type DetailsTableProps = {
     files: Record<Slot, MediaFile>;
@@ -11,8 +12,6 @@ type DetailsTableProps = {
     /** How each file that has left went; their rows are faded and struck through. */
     gone?: Partial<Record<Slot, GoneKind>>;
 };
-
-const SLOTS: readonly Slot[] = ["a", "b"];
 
 const HEADER = "px-4 pt-3 pb-1.5 text-left font-normal text-[11px] text-muted-foreground uppercase tracking-[0.06em]";
 
@@ -53,9 +52,7 @@ export const DetailsTable = ({ files, details, gone }: DetailsTableProps) => {
                         className={cn("border-border-subtle border-t", gone?.[slot] && "line-through opacity-40")}
                     >
                         <th scope="row" className="px-4 py-2 text-left">
-                            <span className="flex size-6 items-center justify-center rounded-md bg-secondary font-semibold text-xs">
-                                {slot.toUpperCase()}
-                            </span>
+                            <SlotBadge slot={slot} />
                         </th>
                         {rows[slot].map(({ key, ...row }) => (
                             <td key={key} className="px-4 py-2">

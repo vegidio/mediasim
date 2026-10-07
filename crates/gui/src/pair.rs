@@ -194,10 +194,7 @@ mod tests {
     use tauri::async_runtime::block_on;
 
     use super::*;
-
-    fn fixture(name: &str) -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
-    }
+    use crate::thumbs::tests::fixture;
 
     /// Waits until a comparison is registered in `state`.
     fn wait_until_running(state: &PairState) {

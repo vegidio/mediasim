@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { ImageIcon, VideoIcon } from "lucide-react";
+import { MediaKindIcon } from "@/components/MediaKindIcon";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +57,7 @@ export const Picture = ({ file, className, overlay, media, bar, onRatio }: Pictu
         <div className={cn("relative [container-type:size]", className)}>
             {!loaded && (
                 <span className="absolute inset-0 flex items-center justify-center text-muted-foreground [&_svg]:size-8">
-                    {file.type === "video" ? <VideoIcon aria-hidden="true" /> : <ImageIcon aria-hidden="true" />}
+                    <MediaKindIcon type={file.type} />
                 </span>
             )}
             {/*

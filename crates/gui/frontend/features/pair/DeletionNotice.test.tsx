@@ -161,10 +161,10 @@ describe("DeletionNotice", () => {
 
     describe("delete", () => {
         it("reports one file deleted with the space freed, Dismiss and no Undo", () => {
-            usePairResultStore.setState({ gone: { b: "deleted" } });
+            usePairResultStore.setState({ gone: { b: "permanent" } });
             const { container } = render(<DeletionNotice />);
 
-            show({ action: "delete", done: ["b"], failed: [] });
+            show({ action: "permanent", done: ["b"], failed: [] });
 
             expect(status()).toHaveTextContent(/^1 file deleted · 1\.1 MB freed$/);
             expect(screen.getByText("1 file")).toHaveClass("font-semibold");
@@ -176,7 +176,11 @@ describe("DeletionNotice", () => {
         it("reports a file that couldn't be deleted, with the reason and the error icon", () => {
             const { container } = render(<DeletionNotice />);
 
-            show({ action: "delete", done: [], failed: [{ slot: "b", message: "Permission denied (os error 13)" }] });
+            show({
+                action: "permanent",
+                done: [],
+                failed: [{ slot: "b", message: "Permission denied (os error 13)" }],
+            });
 
             expect(status()).toHaveTextContent(
                 /^Couldn't delete IMG_2041-edit\.jpg: Permission denied \(os error 13\)$/,
@@ -185,7 +189,7 @@ describe("DeletionNotice", () => {
         });
 
         it("offers Undo only for the trashed file of a mixed pair", () => {
-            usePairResultStore.setState({ gone: { a: "trash", b: "deleted" } });
+            usePairResultStore.setState({ gone: { a: "trash", b: "permanent" } });
             render(<DeletionNotice />);
 
             show({ action: "trash", done: ["a", "b"], failed: [] });

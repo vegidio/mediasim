@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Details } from "@/features/pair/details";
-import type { Slot } from "@/features/start/routePairDrop";
+import { SLOTS, type Slot } from "@/features/start/routePairDrop";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import {
@@ -22,8 +22,11 @@ export type Comparison =
     | { status: "done"; similarity: number }
     | { status: "failed"; error: PairFailure };
 
-/** How a file left: moved to the Trash, which Undo can reverse, or deleted from disk, which nothing can. */
-export type GoneKind = "trash" | "deleted";
+/**
+ * How a file left, as the deletion mode it was removed in: moved to the Trash, which Undo can reverse, or deleted from
+ * disk, which nothing can.
+ */
+export type GoneKind = DeletionMode;
 
 /**
  * Where the deletion of the marked files stands: not started, awaiting confirmation, removing them, or restoring files
@@ -41,7 +44,7 @@ export type Deletion =
  * wasn't with the reason.
  */
 export type Notice = {
-    action: "trash" | "delete" | "restore";
+    action: DeletionMode | "restore";
     done: Slot[];
     failed: { slot: Slot; message: string }[];
 };
@@ -85,9 +88,13 @@ type PairResultStore = {
 
 const LOADING: Details = { status: "loading" };
 const UNMARKED: Record<Slot, boolean> = { a: false, b: false };
-const NONE_GONE: Partial<Record<Slot, GoneKind>> = {};
+/** No file gone, as a pair opens. */
+export const NONE_GONE: Partial<Record<Slot, GoneKind>> = {};
 const IDLE: Deletion = { status: "idle" };
-const SLOTS: readonly Slot[] = ["a", "b"];
+
+/** The files marked for deletion, A first; none before a pair is open. */
+export const selectMarkedFiles = ({ files, marked }: PairResultStore): MediaFile[] =>
+    files ? SLOTS.filter((slot) => marked[slot]).map((slot) => files[slot]) : [];
 
 /** `state` without a notice, for a replacing `set`. */
 const withoutNotice = ({ notice: _dropped, ...rest }: PairResultStore): PairResultStore => rest;
@@ -149,19 +156,18 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
                   );
         if (run !== opened) return;
 
-        const notice: Notice = { action: mode === "trash" ? "trash" : "delete", done: [], failed: [] };
+        const notice: Notice = { action: mode, done: [], failed: [] };
         slots.forEach((slot, index) => {
             const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
             if (outcome.status === "failed") notice.failed.push({ slot, message: outcome.message });
             else notice.done.push(slot);
         });
 
-        const kind: GoneKind = mode === "trash" ? "trash" : "deleted";
         set((state) => {
             const gone = { ...state.gone };
             const marked = { ...state.marked };
             for (const slot of notice.done) {
-                gone[slot] = kind;
+                gone[slot] = mode;
                 marked[slot] = false;
             }
             return { gone, marked, deletion: IDLE, notice };

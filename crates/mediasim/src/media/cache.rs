@@ -15,12 +15,6 @@ const CACHE_DIR: &str = ".mediasim";
 /// The database file inside [`CACHE_DIR`].
 const CACHE_FILE: &str = "cache.redb";
 
-/// A write is made durable at least every this many writes...
-const FLUSH_EVERY: u32 = 64;
-
-/// ...or once this long has passed since the last durable one.
-const FLUSH_INTERVAL: Duration = Duration::from_secs(1);
-
 /// How long an entry lives.
 const TTL: Duration = Duration::from_hours(30 * 24);
 
@@ -72,6 +66,13 @@ pub struct DirCache {
 }
 
 impl DirCache {
+    /// A write is made durable at least every this many writes...
+    pub const FLUSH_EVERY: u32 = 64;
+
+    /// ...or once this long has passed since the last durable one. Losing the last second's writes on a crash only
+    /// costs decoding those files again.
+    pub const FLUSH_INTERVAL: Duration = Duration::from_secs(1);
+
     /// Opens the cache of `dir`, creating `dir/.mediasim/cache.redb` if it does not exist.
     ///
     /// Returns `None` when no cache is available: for example when `dir` is read-only, when `.mediasim` is not a
@@ -83,7 +84,7 @@ impl DirCache {
     #[must_use]
     pub fn open(dir: impl AsRef<Path>) -> Option<Self> {
         let root = dir.as_ref().to_path_buf();
-        let opts = CacheOpts::new().flush_every(FLUSH_EVERY).flush_interval(FLUSH_INTERVAL);
+        let opts = CacheOpts::new().flush_every(Self::FLUSH_EVERY).flush_interval(Self::FLUSH_INTERVAL);
         let memo = Memo::disk_file(root.join(CACHE_DIR).join(CACHE_FILE), opts).ok()?;
 
         Some(Self { root, memo })

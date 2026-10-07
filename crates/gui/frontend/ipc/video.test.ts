@@ -1,6 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { probeVideo, type VideoError, videoClose, videoNext, videoOpen, videoUrl } from "./video";
+import { forgetVideoProbes, probeVideo, type VideoError, videoClose, videoNext, videoOpen, videoUrl } from "./video";
 
 vi.mock("@tauri-apps/api/core", () => ({
     convertFileSrc: vi.fn((path: string, scheme: string) => `${scheme}://localhost/${encodeURIComponent(path)}`),
@@ -14,6 +14,7 @@ const ID = "0123456789abcdef";
 
 beforeEach(() => {
     mockedInvoke.mockReset();
+    forgetVideoProbes();
 });
 
 describe("videoUrl", () => {
@@ -43,6 +44,31 @@ describe("video commands", () => {
 
         await expect(probeVideo(ID)).resolves.toEqual(probe);
         expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("probe_video", { identity: ID });
+    });
+
+    it("probes each identity once, sharing the probe with every later call", async () => {
+        mockedInvoke.mockResolvedValue({ format: "mp4", duration: 1 });
+
+        const first = probeVideo(ID);
+        await first;
+
+        expect(probeVideo(ID)).toBe(first);
+        await probeVideo("another");
+        expect(mockedInvoke.mock.calls).toEqual([
+            ["probe_video", { identity: ID }],
+            ["probe_video", { identity: "another" }],
+        ]);
+    });
+
+    it("probes again after a failure, keeping only the probe that succeeded", async () => {
+        mockedInvoke.mockRejectedValueOnce({ kind: "unreadable", message: "busy" });
+        mockedInvoke.mockResolvedValueOnce({ format: "mp4", duration: 1 });
+
+        await expect(probeVideo(ID)).rejects.toEqual({ kind: "unreadable", message: "busy" });
+        await expect(probeVideo(ID)).resolves.toEqual({ format: "mp4", duration: 1 });
+        await probeVideo(ID);
+
+        expect(mockedInvoke).toHaveBeenCalledTimes(2);
     });
 
     it("opens a session at a time, with a mode for each stream", async () => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CircleCheckIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatSize } from "@/lib/format";
+import { formatCount, formatSize, totalSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePairResultStore } from "@/stores/pairResult";
 
@@ -65,11 +65,9 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
     }, [notice, hovered, focused, dismissNotice]);
 
     const done = files && notice ? notice.done.map((slot) => files[slot]) : [];
-    const freed = done.reduce((total, file) => total + file.size, 0);
-    const counted = (count: number) => (count === 1 ? "1 file" : `${count} files`);
     // What Undo puts back: the files this move moved that are still in the Trash.
     const undoable = notice?.action === "trash" ? notice.done.filter((slot) => gone[slot] === "trash") : [];
-    const failedVerb = { trash: "move", delete: "delete", restore: "restore" }[notice?.action ?? "trash"];
+    const failedVerb = { trash: "move", permanent: "delete", restore: "restore" }[notice?.action ?? "trash"];
 
     return (
         <div role="status" className={cn("w-max max-w-[min(640px,calc(100%-32px))]", className)}>
@@ -93,13 +91,13 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
                         {done.length > 0 &&
                             (notice.action !== "restore" ? (
                                 <p className="whitespace-nowrap">
-                                    <span className="font-semibold">{counted(done.length)}</span>{" "}
+                                    <span className="font-semibold">{formatCount(done.length)}</span>{" "}
                                     {notice.action === "trash" ? "moved to Trash" : "deleted"}
-                                    <span className="text-[#A1A1AA]"> · {formatSize(freed)} freed</span>
+                                    <span className="text-[#A1A1AA]"> · {formatSize(totalSize(done))} freed</span>
                                 </p>
                             ) : (
                                 <p className="whitespace-nowrap">
-                                    <span className="font-semibold">{counted(done.length)}</span> restored
+                                    <span className="font-semibold">{formatCount(done.length)}</span> restored
                                 </p>
                             ))}
                         {notice.failed.map(({ slot, message }) => (
@@ -112,7 +110,7 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
                     {undoable.length > 0 && (
                         <Button
                             variant="outline"
-                            aria-label={`Undo moving ${counted(undoable.length)} to Trash`}
+                            aria-label={`Undo moving ${formatCount(undoable.length)} to Trash`}
                             disabled={restoring}
                             onClick={() => restore(undoable).then(focusDismiss)}
                             className="h-[30px] shrink-0 self-center rounded-[6px] border-[#3F3F46] bg-transparent px-3 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"

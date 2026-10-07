@@ -4,7 +4,7 @@ import { Slider } from "radix-ui";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
-import type { GoneKind } from "@/stores/pairResult";
+import { type GoneKind, NONE_GONE } from "@/stores/pairResult";
 import { MarkWash } from "./MarkWash";
 import { BAR_BOX, barStyle, Picture } from "./Picture";
 import { VideoPlayer } from "./VideoPlayer";
@@ -23,8 +23,6 @@ const KEY_MOVES: Record<string, (position: number) => number> = {
     Home: () => 0,
     End: () => 100,
 };
-
-const NONE_GONE: Partial<Record<Slot, GoneKind>> = {};
 
 const clamp = (position: number) => Math.min(100, Math.max(0, position));
 
@@ -99,7 +97,7 @@ export const SliderStage = ({
                 <Trash2Icon aria-hidden="true" className="size-[22px]" />
                 {gone.a === "trash" && gone.b === "trash"
                     ? "Both files moved to Trash"
-                    : gone.a === "deleted" && gone.b === "deleted"
+                    : gone.a === "permanent" && gone.b === "permanent"
                       ? "Both files deleted"
                       : "Both files removed"}
             </div>

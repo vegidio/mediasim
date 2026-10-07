@@ -16,8 +16,6 @@ type StartStore = {
     scanSubfolders: boolean;
     /** The set list's rows, in the order they were added. */
     sources: SourceRow[];
-    /** The distinct media files across every counted source. */
-    total: number;
 
     /** Add files and folders to the set. */
     add: (paths: string[]) => Promise<void>;
@@ -42,15 +40,27 @@ const baseName = (path: string) => path.split(/[\\/]/).findLast((part) => part !
  * counted, since a view taken before the rescan started still carries the old counts.
  */
 const merge = (view: SetView, optimistic: Optimistic[], rescanning: boolean): SourceRow[] => {
-    const known = new Set(view.sources.map((source) => source.path));
     const sources = rescanning
         ? view.sources.map((source) => (source.kind === "folder" ? { ...source, pending: true } : source))
         : view.sources;
-    const pending = optimistic
-        .filter(({ path }, index) => !known.has(path) && optimistic.findIndex((row) => row.path === path) === index)
-        .map(({ path, name }): PendingRow => ({ path, name, pending: true }));
+    // Each path once: Rust's row when it has one, else the first optimistic row for it.
+    const seen = new Set(view.sources.map((source) => source.path));
+    const pending: PendingRow[] = [];
+    for (const { path, name } of optimistic) {
+        if (seen.has(path)) continue;
+        seen.add(path);
+        pending.push({ path, name, pending: true });
+    }
 
     return [...sources, ...pending];
+};
+
+type RowInputs = Pick<StartStore, "view" | "optimistic" | "rescans">;
+
+/** `changes`, together with the rows they give once applied to `state`. */
+const withRows = (state: RowInputs, changes: Partial<RowInputs>) => {
+    const { view, optimistic, rescans } = { ...state, ...changes };
+    return { ...changes, sources: merge(view, optimistic, rescans > 0) };
 };
 
 const EMPTY: SetView = { revision: 0, sources: [], total: 0 };
@@ -65,42 +75,35 @@ export const useStartStore = create<StartStore>()((set, get) => {
     const apply = (view: SetView) =>
         set((state) => {
             if (view.revision <= state.view.revision) return {};
-            return { view, total: view.total, sources: merge(view, state.optimistic, state.rescans > 0) };
+            return withRows(state, { view });
         });
 
     /** Drop the pending rows `request` added, now that it has settled either way. */
     const settle = (request: number) =>
-        set((state) => {
-            const optimistic = state.optimistic.filter((row) => row.request !== request);
-            return { optimistic, sources: merge(state.view, optimistic, state.rescans > 0) };
-        });
+        set((state) => withRows(state, { optimistic: state.optimistic.filter((row) => row.request !== request) }));
 
     /** Count a rescan as started or finished, and show the folders as being recounted for as long as one runs. */
-    const rescanning = (delta: 1 | -1) =>
-        set((state) => {
-            const rescans = state.rescans + delta;
-            return { rescans, sources: merge(state.view, state.optimistic, rescans > 0) };
-        });
+    const rescanning = (delta: 1 | -1) => set((state) => withRows(state, { rescans: state.rescans + delta }));
 
     const report = (action: string) => (error: unknown) => console.error(`could not ${action}`, error);
 
     return {
         scanSubfolders: true,
         sources: [],
-        total: 0,
         view: EMPTY,
         optimistic: [],
         rescans: 0,
 
         add: async (paths) => {
             const request = ++requests;
-            set((state) => {
-                const optimistic = [
-                    ...state.optimistic,
-                    ...paths.map((path): Optimistic => ({ path, name: baseName(path), pending: true, request })),
-                ];
-                return { optimistic, sources: merge(state.view, optimistic, state.rescans > 0) };
-            });
+            set((state) =>
+                withRows(state, {
+                    optimistic: [
+                        ...state.optimistic,
+                        ...paths.map((path): Optimistic => ({ path, name: baseName(path), pending: true, request })),
+                    ],
+                }),
+            );
 
             try {
                 apply(await addToSet(paths, get().scanSubfolders));
@@ -112,10 +115,7 @@ export const useStartStore = create<StartStore>()((set, get) => {
         },
 
         remove: async (path) => {
-            set((state) => {
-                const optimistic = state.optimistic.filter((row) => row.path !== path);
-                return { optimistic, sources: merge(state.view, optimistic, state.rescans > 0) };
-            });
+            set((state) => withRows(state, { optimistic: state.optimistic.filter((row) => row.path !== path) }));
 
             await removeFromSet(path).then(apply, report("remove from the set"));
         },

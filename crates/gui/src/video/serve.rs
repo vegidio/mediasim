@@ -5,13 +5,13 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
-use mediasim::MediaType;
 use tauri::http::{HeaderValue, Request, Response, StatusCode, header};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 
+use super::content_type;
+use super::probe::locate_video;
 use super::range::{Answer, answer};
-use super::{content_type, parse};
-use crate::thumbs::{Refusal, ThumbState, locate};
+use crate::thumbs::{Refusal, ThumbState, parse_identity, refusal_response};
 
 /// What a request is answered with.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,13 +34,10 @@ enum Outcome {
 /// The answer to a request for `identity` with `range`: locate, refuse a non-video, then read only the answered range.
 /// Split from [`serve`] so it can be tested without a webview.
 fn produce(state: &ThumbState, identity: &str, range: Option<&HeaderValue>) -> Outcome {
-    let admitted = match locate(state, identity) {
+    let admitted = match locate_video(state, identity) {
         Ok(admitted) => admitted,
         Err(refusal) => return Outcome::Refused(refusal),
     };
-    if MediaType::from_path(&admitted.path) != Some(MediaType::Video) {
-        return Outcome::Refused(Refusal::NotFound);
-    }
 
     // `locate` has just checked that the file still has the size it was admitted with.
     let size = admitted.size;
@@ -71,33 +68,24 @@ fn read(path: &Path, start: u64, end: u64) -> std::io::Result<Vec<u8>> {
 fn respond(outcome: Outcome) -> Response<Vec<u8>> {
     let builder = Response::builder().header(header::CACHE_CONTROL, "no-store");
 
-    let response = match outcome {
+    match outcome {
         Outcome::Partial { start, end, size, content_type, bytes } => builder
             .status(StatusCode::PARTIAL_CONTENT)
             .header(header::CONTENT_TYPE, content_type)
             .header(header::CONTENT_RANGE, format!("bytes {start}-{end}/{size}"))
             .header(header::CONTENT_LENGTH, bytes.len())
             .header(header::ACCEPT_RANGES, "bytes")
-            .body(bytes),
+            .body(bytes)
+            .expect("the response is built from valid parts and cannot be malformed"),
         Outcome::Unsatisfiable { size } => builder
             .status(StatusCode::RANGE_NOT_SATISFIABLE)
             .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
             .header(header::CONTENT_RANGE, format!("bytes */{size}"))
             .header(header::ACCEPT_RANGES, "bytes")
-            .body(b"that range starts past the end of the file".to_vec()),
-        Outcome::Refused(refusal) => {
-            let (status, body): (StatusCode, &[u8]) = match refusal {
-                Refusal::NotFound => (StatusCode::NOT_FOUND, b"no video with that identity has been admitted"),
-                Refusal::Gone => (StatusCode::GONE, b"that file has changed or can no longer be read; admit it again"),
-            };
-            builder
-                .status(status)
-                .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
-                .body(body.to_vec())
-        }
-    };
-
-    response.expect("the response is built from valid parts and cannot be malformed")
+            .body(b"that range starts past the end of the file".to_vec())
+            .expect("the response is built from valid parts and cannot be malformed"),
+        Outcome::Refused(refusal) => refusal_response(builder, refusal, "video"),
+    }
 }
 
 /// Serves part of a video to the window. The handler registered under [`SCHEME`](super::SCHEME) in `src/lib.rs`.
@@ -106,7 +94,7 @@ fn respond(outcome: Outcome) -> Response<Vec<u8>> {
 /// the window.
 #[allow(clippy::needless_pass_by_value, reason = "Tauri passes the handler's arguments by value")]
 pub fn serve<R: Runtime>(context: UriSchemeContext<'_, R>, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
-    let Some(identity) = parse(request.uri()) else {
+    let Some(identity) = parse_identity(request.uri()).map(str::to_owned) else {
         responder.respond(respond(Outcome::Refused(Refusal::NotFound)));
         return;
     };
@@ -126,16 +114,9 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::admit_one;
     use crate::thumbs::tests::{fixture, set_modified, state};
+    use crate::video::fixtures::admit;
     use crate::video::range::CAP;
-
-    /// Admits `path` into `state` and returns its identity.
-    fn admit(state: &ThumbState, path: &Path) -> String {
-        let (identity, entry, _) = admit_one(path).unwrap();
-        state.admit([(identity.clone(), entry)]);
-        identity
-    }
 
     /// The response to a request for `identity`, with `range` as its `Range` header if any.
     fn request(state: &ThumbState, identity: &str, range: Option<&str>) -> Response<Vec<u8>> {

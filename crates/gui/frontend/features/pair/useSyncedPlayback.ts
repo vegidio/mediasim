@@ -1,17 +1,11 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { nextLead, SYNC_COOLDOWN, type SyncReading, syncStep } from "./syncStep";
-import type { VideoPlayback, VideoPlaybackState } from "./useVideoPlayback";
+import { INITIAL, knownDuration, play, toggleMuted, unlessUnchanged, type VideoPlayback } from "./useVideoPlayback";
 
 type VideoRef = RefObject<HTMLVideoElement | null>;
 
-const INITIAL: VideoPlaybackState = { playing: false, time: 0, muted: true, started: false, failed: false };
-
 /** The events whose state {@link useSyncedPlayback} reads afresh. */
 const SYNCED = ["play", "pause", "timeupdate", "durationchange", "volumechange", "ended", "emptied", "seeked"] as const;
-
-/** An element's duration, once it knows it. */
-const knownDuration = (video: HTMLVideoElement) =>
-    Number.isFinite(video.duration) && video.duration > 0 ? video.duration : undefined;
 
 const reading = (video: HTMLVideoElement): SyncReading => {
     const duration = knownDuration(video);
@@ -21,11 +15,6 @@ const reading = (video: HTMLVideoElement): SyncReading => {
         paused: video.paused,
         ended: video.ended,
     };
-};
-
-/** Plays `video`; one that can't also dispatches `error`, which is what the player shows. */
-const play = (video: HTMLVideoElement) => {
-    video.play().catch(() => {});
 };
 
 /** The leader and the follower: the longer video leads, or A while they are equal or a duration is unknown. */
@@ -134,13 +123,13 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
                 const durationA = knownDuration(a);
                 const durationB = knownDuration(b);
                 const { duration: _, ...rest } = previous;
-                return {
+                return unlessUnchanged(previous, {
                     ...rest,
                     time: leader.currentTime,
                     muted: a.muted,
                     ...(durationA !== undefined &&
                         durationB !== undefined && { duration: Math.max(durationA, durationB) }),
-                };
+                });
             });
         const start = () => setState((previous) => ({ ...previous, started: true }));
         const fail = () => {
@@ -245,9 +234,7 @@ export const useSyncedPlayback = (refA: VideoRef, refB: VideoRef): VideoPlayback
         step();
     };
 
-    const toggleMute = () => {
-        if (refA.current) refA.current.muted = !refA.current.muted;
-    };
+    const toggleMute = () => toggleMuted(refA.current);
 
     return { ...state, toggle, seek, toggleMute };
 };

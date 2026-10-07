@@ -6,7 +6,7 @@ use std::path::Path;
 
 use image::DynamicImage;
 use rust_sak::image::{EncodeOptions, ImageFormat};
-use tauri::http::{Request, Response, StatusCode, Uri, header};
+use tauri::http::{Request, Response, StatusCode, Uri, header, response};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 
 use super::cache::{Rendition, RenditionType};
@@ -38,21 +38,33 @@ pub(crate) enum Refusal {
     Gone,
 }
 
+/// The identity `uri`'s path names, or `None` if it isn't exactly one. Shared with the `video` scheme.
+///
+/// Only the path is read, so `thumb://localhost/…` and `http://thumb.localhost/…` read the same. It must be exactly
+/// [`IDENTITY_LENGTH`] lowercase hex characters, so a filesystem path is refused before the registry is consulted.
+pub(crate) fn parse_identity(uri: &Uri) -> Option<&str> {
+    let identity = uri.path().strip_prefix('/')?;
+    let well_formed =
+        identity.len() == IDENTITY_LENGTH && identity.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'));
+
+    well_formed.then_some(identity)
+}
+
+/// Whether `text` is only ASCII digits, which a number in a request must be: `parse` alone accepts a leading `+`, which
+/// no URL or header this application builds has. Shared with the `video` scheme.
+pub(crate) fn digits_only(text: &str) -> bool {
+    text.bytes().all(|b| b.is_ascii_digit())
+}
+
 /// What `<path>?size=<bound>` asked for, or `None` if it asked for nothing that can be served.
 ///
-/// Only the path and the query are read, so `thumb://localhost/…` and `http://thumb.localhost/…` read the same. The
-/// path must be exactly [`IDENTITY_LENGTH`] lowercase hex characters, so a filesystem path is refused before the
-/// registry is consulted. `size` must be a whole number in [`BOUNDS`]; absent or malformed is refused, never read as a
-/// default. Other query parameters are ignored.
+/// The path must be an identity, as [`parse_identity`] reads it. `size` must be a whole number in [`BOUNDS`]; absent or
+/// malformed is refused, never read as a default. Other query parameters are ignored.
 fn parse(uri: &Uri) -> Option<Asked> {
-    let identity = uri.path().strip_prefix('/')?;
-    if identity.len() != IDENTITY_LENGTH || !identity.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f')) {
-        return None;
-    }
+    let identity = parse_identity(uri)?;
 
     let size = uri.query()?.split('&').find_map(|pair| pair.strip_prefix("size="))?;
-    // `parse` alone accepts a leading `+`, which no URL this application builds has.
-    if !size.bytes().all(|b| b.is_ascii_digit()) {
+    if !digits_only(size) {
         return None;
     }
     let bound = size.parse().ok().filter(|bound| BOUNDS.contains(bound))?;
@@ -130,27 +142,35 @@ where
         .ok_or(Refusal::Gone)
 }
 
-/// The response a rendition or a refusal crosses as.
-fn respond(outcome: Result<Rendition, Refusal>) -> Response<Vec<u8>> {
-    let (status, body): (StatusCode, &[u8]) = match outcome {
-        Ok(rendition) => {
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, rendition.media_type.mime())
-                // Safe because an identity's file never changes: a changed file gets a new identity.
-                .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
-                .body(rendition.bytes)
-                .expect("the response is built from constants and cannot be malformed");
+/// The plain-text response `refusal` crosses as, from `builder`, which may carry headers already: `what` names what
+/// was not found, such as `media`. Shared with the `video` scheme.
+pub(crate) fn refusal_response(builder: response::Builder, refusal: Refusal, what: &str) -> Response<Vec<u8>> {
+    let (status, body) = match refusal {
+        Refusal::NotFound => (StatusCode::NOT_FOUND, format!("no {what} with that identity has been admitted")),
+        Refusal::Gone => {
+            (StatusCode::GONE, "that file has changed or can no longer be read; admit it again".to_owned())
         }
-        Err(Refusal::NotFound) => (StatusCode::NOT_FOUND, b"no media with that identity has been admitted"),
-        Err(Refusal::Gone) => (StatusCode::GONE, b"that file has changed or can no longer be read; admit it again"),
     };
 
-    Response::builder()
+    builder
         .status(status)
         .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
-        .body(body.to_vec())
+        .body(body.into_bytes())
         .expect("the response is built from constants and cannot be malformed")
+}
+
+/// The response a rendition or a refusal crosses as.
+fn respond(outcome: Result<Rendition, Refusal>) -> Response<Vec<u8>> {
+    match outcome {
+        Ok(rendition) => Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, rendition.media_type.mime())
+            // Safe because an identity's file never changes: a changed file gets a new identity.
+            .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .body(rendition.bytes)
+            .expect("the response is built from constants and cannot be malformed"),
+        Err(refusal) => refusal_response(Response::builder(), refusal, "media"),
+    }
 }
 
 /// Serves a thumbnail to the window. The handler registered under [`SCHEME`](super::SCHEME) in `src/lib.rs`.
@@ -180,8 +200,8 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::admit_one;
     use crate::thumbs::tests::{fixture, state};
+    use crate::video::fixtures::admit;
 
     fn asked(url: &str) -> Option<Asked> {
         parse(&url.parse::<Uri>().unwrap())
@@ -189,13 +209,6 @@ mod tests {
 
     fn asking(identity: &str, bound: u32) -> Asked {
         Asked { identity: identity.to_owned(), bound: NonZeroU32::new(bound).unwrap() }
-    }
-
-    /// Admits `path` into `state` and returns its identity.
-    fn admit(state: &ThumbState, path: &Path) -> String {
-        let (identity, entry, _) = admit_one(path).unwrap();
-        state.admit([(identity.clone(), entry)]);
-        identity
     }
 
     #[test]

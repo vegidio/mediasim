@@ -1,6 +1,9 @@
 /** One of the two slots of the "Compare two files" card. */
 export type Slot = "a" | "b";
 
+/** Both slots, A first. */
+export const SLOTS: readonly Slot[] = ["a", "b"];
+
 /**
  * The slots a drop onto the pair card fills, in file order: the first file goes to the first slot returned.
  *

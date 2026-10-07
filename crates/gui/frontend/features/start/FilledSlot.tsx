@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ImageIcon, VideoIcon, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
+import { MediaKindIcon } from "@/components/MediaKindIcon";
 import { Button } from "@/components/ui/button";
 import { slotLabel } from "@/features/start/EmptySlot";
 import type { Slot } from "@/features/start/routePairDrop";
@@ -26,7 +27,7 @@ const Thumbnail = ({ file }: { file: MediaFile }) => {
         <>
             {!loaded && (
                 <span className="absolute inset-0 flex items-center justify-center bg-surface-sunken text-muted-foreground [&_svg]:size-[22px]">
-                    {file.type === "video" ? <VideoIcon aria-hidden="true" /> : <ImageIcon aria-hidden="true" />}
+                    <MediaKindIcon type={file.type} />
                 </span>
             )}
             {/* Decorative: the bar names the file. */}

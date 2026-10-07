@@ -1,6 +1,6 @@
 import type { MediaType } from "@/ipc/formats";
 import type { MediaInfo } from "@/ipc/pair";
-import { formatDuration, formatSize } from "@/lib/format";
+import { formatDuration, formatSize, pad } from "@/lib/format";
 
 /** What is known of a file's details: still being read, read, or unreadable. */
 export type Details = { status: "loading" } | { status: "ready"; info: MediaInfo } | { status: "failed" };
@@ -20,8 +20,6 @@ const UNKNOWN = "Unknown";
 
 /** The sRGB profile almost every camera and phone embeds, whose full name would break the row. */
 const SRGB = "sRGB IEC61966-2.1";
-
-const pad = (value: number) => String(value).padStart(2, "0");
 
 /** Frames per second with at most two decimals and no trailing zeros: `29.97 fps`, `30 fps`. */
 export const formatFrameRate = (fps: number) => `${fps.toFixed(2).replace(/\.?0+$/, "")} fps`;

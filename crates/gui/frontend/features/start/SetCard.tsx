@@ -10,10 +10,10 @@ import {
     pickFilesIntoSet,
     pickFoldersIntoSet,
 } from "@/features/start/AddToSetMenu";
-import { formatCount } from "@/features/start/format";
 import { dropTargetClassName, ModeCard } from "@/features/start/ModeCard";
 import { SetList } from "@/features/start/SetList";
 import { useDropTarget } from "@/features/start/useDropTarget";
+import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useStartStore } from "@/stores/start";
 
@@ -23,7 +23,7 @@ export const SetCard = () => {
     const scanSubfolders = useStartStore((state) => state.scanSubfolders);
     const toggleScanSubfolders = useStartStore((state) => state.toggleScanSubfolders);
     const sources = useStartStore((state) => state.sources);
-    const total = useStartStore((state) => state.total);
+    const total = useStartStore((state) => state.view.total);
     const add = useStartStore((state) => state.add);
     const dropAreaRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
