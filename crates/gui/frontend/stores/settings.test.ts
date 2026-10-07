@@ -10,10 +10,21 @@ const relaunchWith = async (state: unknown) => {
 };
 
 const data = () => {
-    const { deletionMode, confirmDeletion } = useSettingsStore.getState();
+    const { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip } =
+        useSettingsStore.getState();
 
-    return { deletionMode, confirmDeletion };
+    return { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip };
 };
+
+/** A stored record with every setting off its default. */
+const CHANGED = {
+    deletionMode: "permanent",
+    confirmDeletion: false,
+    matchThreshold: 90,
+    scanSubfolders: true,
+    frameRotate: false,
+    frameFlip: false,
+} as const;
 
 beforeEach(() => {
     localStorage.clear();
@@ -25,38 +36,72 @@ describe("useSettingsStore", () => {
     it("starts on the defaults with nothing stored", async () => {
         await useSettingsStore.persist.rehydrate();
 
-        expect(data()).toEqual({ deletionMode: "trash", confirmDeletion: true });
+        expect(data()).toEqual({
+            deletionMode: "trash",
+            confirmDeletion: true,
+            matchThreshold: 80,
+            scanSubfolders: false,
+            frameRotate: true,
+            frameFlip: true,
+        });
     });
 
     it("restores a stored valid record", async () => {
-        await relaunchWith({ deletionMode: "permanent", confirmDeletion: false });
+        await relaunchWith(CHANGED);
 
-        expect(data()).toEqual({ deletionMode: "permanent", confirmDeletion: false });
+        expect(data()).toEqual(CHANGED);
     });
 
     it("replaces an unknown deletion mode alone, keeping the stored confirm setting", async () => {
-        await relaunchWith({ deletionMode: "shred", confirmDeletion: false });
+        await relaunchWith({ ...CHANGED, deletionMode: "shred" });
 
-        expect(data()).toEqual({ deletionMode: "trash", confirmDeletion: false });
+        expect(data()).toEqual({ ...CHANGED, deletionMode: "trash" });
     });
 
     it("replaces a confirm setting that isn't a boolean", async () => {
-        await relaunchWith({ deletionMode: "permanent", confirmDeletion: "no" });
+        await relaunchWith({ ...CHANGED, confirmDeletion: "no" });
 
-        expect(data()).toEqual({ deletionMode: "permanent", confirmDeletion: true });
+        expect(data()).toEqual({ ...CHANGED, confirmDeletion: true });
+    });
+
+    it.each([120, 49, 101, 85.5, "90", null])("replaces a match threshold of %j alone with 80", async (threshold) => {
+        await relaunchWith({ ...CHANGED, matchThreshold: threshold });
+
+        expect(data()).toEqual({ ...CHANGED, matchThreshold: 80 });
+    });
+
+    it.each([50, 100])("keeps a match threshold at the bound %i", async (threshold) => {
+        await relaunchWith({ ...CHANGED, matchThreshold: threshold });
+
+        expect(data().matchThreshold).toBe(threshold);
+    });
+
+    it.each(["scanSubfolders", "frameRotate", "frameFlip"] as const)(
+        "replaces a %s that isn't a boolean alone with its default",
+        async (key) => {
+            await relaunchWith({ ...CHANGED, [key]: "yes" });
+
+            expect(data()).toEqual({ ...CHANGED, [key]: SETTINGS_DEFAULTS[key] });
+        },
+    );
+
+    it("keeps an earlier version's two settings and defaults the Comparison ones", async () => {
+        await relaunchWith({ deletionMode: "permanent", confirmDeletion: false });
+
+        expect(data()).toEqual({ ...SETTINGS_DEFAULTS, deletionMode: "permanent", confirmDeletion: false });
     });
 
     it("writes each update to localStorage", () => {
         useSettingsStore.getState().update({ deletionMode: "permanent" });
 
         expect(JSON.parse(localStorage.getItem(KEY) ?? "{}")).toEqual({
-            state: { deletionMode: "permanent", confirmDeletion: true },
+            state: { ...SETTINGS_DEFAULTS, deletionMode: "permanent" },
             version: 1,
         });
     });
 
-    it("resets to the defaults", () => {
-        useSettingsStore.getState().update({ deletionMode: "permanent", confirmDeletion: false });
+    it("resets every setting to the defaults", () => {
+        useSettingsStore.getState().update(CHANGED);
 
         useSettingsStore.getState().reset();
 

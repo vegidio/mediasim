@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { ComparisonSection } from "@/features/settings/ComparisonSection";
 import { type DragDropEvent, onDragDrop } from "@/ipc/dragDrop";
 import { addToSet, rescanSet, type SourceView } from "@/ipc/set";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { type SourceRow, useStartStore } from "@/stores/start";
 import { SetCard } from "./SetCard";
 
@@ -42,6 +44,9 @@ const dropArea = () => screen.getByRole("button", { name: /Drop files or folders
 
 describe("SetCard", () => {
     beforeEach(() => {
+        localStorage.clear();
+        // Settings first: resetting them afterwards would reach the start store through its subscription.
+        useSettingsStore.setState(SETTINGS_DEFAULTS);
         useStartStore.setState(useStartStore.getInitialState(), true);
         (rescanSet as Mock).mockResolvedValue({ revision: 0, sources: [], total: 0 });
         mockedAddToSet.mockResolvedValue({ revision: 0, sources: [], total: 0 });
@@ -122,7 +127,7 @@ describe("SetCard", () => {
 
         drag({ type: "drop", paths: ["/Pictures", "/photo.jpg"], position: { x: 300, y: 200 } } as DragDropEvent);
 
-        expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/Pictures", "/photo.jpg"], true);
+        expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/Pictures", "/photo.jpg"], false);
     });
 
     it("ignores a drop outside the drop area", () => {
@@ -143,7 +148,7 @@ describe("SetCard", () => {
 
         drag({ type: "drop", paths: ["/more.png"], position: { x: 50, y: 50 } } as DragDropEvent);
 
-        expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/more.png"], true);
+        expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/more.png"], false);
     });
 
     it("highlights the drop area while a drag is over it", () => {
@@ -178,10 +183,10 @@ describe("SetCard", () => {
         expect(box).not.toHaveClass("bg-card");
     });
 
-    it("starts with Scan subfolders checked", () => {
+    it("starts with Scan subfolders unchecked", () => {
         render(<SetCard />);
 
-        expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).toBeChecked();
+        expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).not.toBeChecked();
     });
 
     it("toggles Scan subfolders from the box", () => {
@@ -189,12 +194,12 @@ describe("SetCard", () => {
         const checkbox = screen.getByRole("checkbox", { name: "Scan subfolders" });
 
         fireEvent.click(checkbox);
-        expect(checkbox).not.toBeChecked();
-        expect(useStartStore.getState().scanSubfolders).toBe(false);
-        expect(rescanSet).toHaveBeenCalledExactlyOnceWith(false);
+        expect(checkbox).toBeChecked();
+        expect(useStartStore.getState().scanSubfolders).toBe(true);
+        expect(rescanSet).toHaveBeenCalledExactlyOnceWith(true);
 
         fireEvent.click(checkbox);
-        expect(checkbox).toBeChecked();
+        expect(checkbox).not.toBeChecked();
     });
 
     it("toggles Scan subfolders from its label", () => {
@@ -202,7 +207,39 @@ describe("SetCard", () => {
 
         fireEvent.click(screen.getByText("Scan subfolders"));
 
+        expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).toBeChecked();
+        expect(useStartStore.getState().scanSubfolders).toBe(true);
+    });
+
+    it("starts with Scan subfolders checked when the setting is stored as on", async () => {
+        localStorage.setItem(
+            "settings-storage",
+            JSON.stringify({ state: { ...SETTINGS_DEFAULTS, scanSubfolders: true }, version: 1 }),
+        );
+        vi.resetModules();
+
+        // A fresh launch: the stores are created anew, and read the stored setting.
+        const { SetCard: LaunchedSetCard } = await import("./SetCard");
+        render(<LaunchedSetCard />);
+
+        expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).toBeChecked();
+    });
+
+    it("follows the Scan subfolders setting while shown", () => {
+        render(
+            <>
+                <SetCard />
+                <ComparisonSection />
+            </>,
+        );
+
+        fireEvent.click(screen.getByRole("switch", { name: "Scan subfolders" }));
+
+        expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).toBeChecked();
+        expect(rescanSet).toHaveBeenCalledExactlyOnceWith(true);
+
+        fireEvent.click(screen.getByRole("switch", { name: "Scan subfolders" }));
+
         expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).not.toBeChecked();
-        expect(useStartStore.getState().scanSubfolders).toBe(false);
     });
 });

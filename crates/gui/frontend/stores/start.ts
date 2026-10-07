@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { addToSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+import { useSettingsStore } from "@/stores/settings";
 
 /** A row added a moment ago, shown until Rust describes it; its kind is not known yet. */
 export type PendingRow = { path: string; name: string; pending: true; kind?: undefined };
@@ -12,7 +13,10 @@ type Optimistic = PendingRow & { request: number };
 
 /** State of the start screen, kept for as long as the application runs. */
 type StartStore = {
-    /** Whether folders added to a set are scanned recursively. */
+    /**
+     * Whether folders added to a set are scanned recursively. It starts from the "Scan subfolders" setting and follows
+     * it when it changes, but toggling it here lasts only for the session and never writes the setting.
+     */
     scanSubfolders: boolean;
     /** The set list's rows, in the order they were added. */
     sources: SourceRow[];
@@ -21,6 +25,8 @@ type StartStore = {
     add: (paths: string[]) => Promise<void>;
     /** Remove the source added as `path`. */
     remove: (path: string) => Promise<void>;
+    /** Set "Scan subfolders" and recount every folder to match; nothing happens when it already has that value. */
+    setScanSubfolders: (value: boolean) => Promise<void>;
     /** Flip "Scan subfolders" and recount every folder to match. */
     toggleScanSubfolders: () => Promise<void>;
 
@@ -88,7 +94,8 @@ export const useStartStore = create<StartStore>()((set, get) => {
     const report = (action: string) => (error: unknown) => console.error(`could not ${action}`, error);
 
     return {
-        scanSubfolders: true,
+        // The settings store rehydrates synchronously at import, so this already reads what the user chose.
+        scanSubfolders: useSettingsStore.getState().scanSubfolders,
         sources: [],
         view: EMPTY,
         optimistic: [],
@@ -120,8 +127,8 @@ export const useStartStore = create<StartStore>()((set, get) => {
             await removeFromSet(path).then(apply, report("remove from the set"));
         },
 
-        toggleScanSubfolders: async () => {
-            const scanSubfolders = !get().scanSubfolders;
+        setScanSubfolders: async (scanSubfolders) => {
+            if (scanSubfolders === get().scanSubfolders) return;
             set({ scanSubfolders });
             rescanning(1);
 
@@ -131,5 +138,14 @@ export const useStartStore = create<StartStore>()((set, get) => {
                 rescanning(-1);
             }
         },
+
+        toggleScanSubfolders: () => get().setScanSubfolders(!get().scanSubfolders),
     };
+});
+
+// Follow the "Scan subfolders" setting, whether the user changed it, reset it, or it was rehydrated.
+useSettingsStore.subscribe((settings, previous) => {
+    if (settings.scanSubfolders !== previous.scanSubfolders) {
+        void useStartStore.getState().setScanSubfolders(settings.scanSubfolders);
+    }
 });

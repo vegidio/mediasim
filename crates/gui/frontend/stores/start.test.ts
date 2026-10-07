@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { addToSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { useStartStore } from "@/stores/start";
 
 vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
@@ -35,11 +36,14 @@ const state = () => useStartStore.getState();
 
 describe("useStartStore", () => {
     beforeEach(() => {
+        localStorage.clear();
+        // Settings first: resetting them afterwards would reach the start store through its subscription.
+        useSettingsStore.setState(SETTINGS_DEFAULTS);
         useStartStore.setState(useStartStore.getInitialState(), true);
     });
 
-    it("starts with subfolders scanned and an empty set", () => {
-        expect(state().scanSubfolders).toBe(true);
+    it("starts with subfolders not scanned and an empty set", () => {
+        expect(state().scanSubfolders).toBe(false);
         expect(state().sources).toEqual([]);
         expect(state().view.total).toBe(0);
     });
@@ -54,7 +58,7 @@ describe("useStartStore", () => {
             { path: "/Pictures/Holiday 2025", name: "Holiday 2025", pending: true },
             { path: "C:\\Users\\me\\clip.mp4", name: "clip.mp4", pending: true },
         ]);
-        expect(mockedAdd).toHaveBeenCalledExactlyOnceWith(["/Pictures/Holiday 2025", "C:\\Users\\me\\clip.mp4"], true);
+        expect(mockedAdd).toHaveBeenCalledExactlyOnceWith(["/Pictures/Holiday 2025", "C:\\Users\\me\\clip.mp4"], false);
 
         response.resolve(view(2, [folder("/Pictures/Holiday 2025", { count: 48 })], 48));
         await adding;
@@ -127,15 +131,15 @@ describe("useStartStore", () => {
 
         await state().toggleScanSubfolders();
 
-        expect(state().scanSubfolders).toBe(false);
-        expect(mockedRescan).toHaveBeenCalledExactlyOnceWith(false);
+        expect(state().scanSubfolders).toBe(true);
+        expect(mockedRescan).toHaveBeenCalledExactlyOnceWith(true);
         expect(state().view.total).toBe(5);
 
         mockedRescan.mockResolvedValueOnce(view(2, [folder("/a", { count: 25 })], 25));
         await state().toggleScanSubfolders();
 
-        expect(state().scanSubfolders).toBe(true);
-        expect(mockedRescan).toHaveBeenLastCalledWith(true);
+        expect(state().scanSubfolders).toBe(false);
+        expect(mockedRescan).toHaveBeenLastCalledWith(false);
         expect(state().view.total).toBe(25);
     });
 
@@ -195,6 +199,65 @@ describe("useStartStore", () => {
         await state().toggleScanSubfolders();
         await state().add(["/a"]);
 
-        expect(mockedAdd).toHaveBeenCalledExactlyOnceWith(["/a"], false);
+        expect(mockedAdd).toHaveBeenCalledExactlyOnceWith(["/a"], true);
+    });
+
+    describe("following the Scan subfolders setting", () => {
+        it("starts from a stored setting of on", async () => {
+            localStorage.setItem(
+                "settings-storage",
+                JSON.stringify({ state: { ...SETTINGS_DEFAULTS, scanSubfolders: true }, version: 1 }),
+            );
+            vi.resetModules();
+
+            const { useStartStore: launched } = await import("@/stores/start");
+
+            expect(launched.getState().scanSubfolders).toBe(true);
+        });
+
+        it("checks and recounts when the setting is turned on", async () => {
+            const rescan = deferred<SetView>();
+            mockedRescan.mockReturnValueOnce(rescan.promise);
+
+            useSettingsStore.getState().update({ scanSubfolders: true });
+
+            expect(state().scanSubfolders).toBe(true);
+            expect(mockedRescan).toHaveBeenCalledExactlyOnceWith(true);
+            expect(state().rescans).toBe(1);
+
+            rescan.resolve(view(1, [folder("/a", { count: 5 })], 5));
+            await vi.waitFor(() => expect(state().rescans).toBe(0));
+            expect(state().view.total).toBe(5);
+        });
+
+        it("doesn't recount when the setting changes to what the checkbox already shows", async () => {
+            mockedRescan.mockResolvedValueOnce(view(1, []));
+            await state().toggleScanSubfolders();
+            mockedRescan.mockClear();
+
+            useSettingsStore.getState().update({ scanSubfolders: true });
+
+            expect(state().scanSubfolders).toBe(true);
+            expect(mockedRescan).not.toHaveBeenCalled();
+        });
+
+        it("unchecks it again on Reset to defaults", () => {
+            mockedRescan.mockResolvedValue(view(1, []));
+            useSettingsStore.getState().update({ scanSubfolders: true });
+
+            useSettingsStore.getState().reset();
+
+            expect(state().scanSubfolders).toBe(false);
+            expect(mockedRescan).toHaveBeenLastCalledWith(false);
+        });
+
+        it("leaves the setting alone when the checkbox is toggled", async () => {
+            mockedRescan.mockResolvedValueOnce(view(1, []));
+
+            await state().toggleScanSubfolders();
+
+            expect(state().scanSubfolders).toBe(true);
+            expect(useSettingsStore.getState().scanSubfolders).toBe(false);
+        });
     });
 });

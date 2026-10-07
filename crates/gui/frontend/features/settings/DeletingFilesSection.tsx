@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
 import { DELETION_MODES, type DeletionMode, useSettingsStore } from "@/stores/settings";
+import { SettingSwitch } from "./SettingSwitch";
 import { SettingRow, SettingsSection } from "./SettingsSection";
 
 /** Each mode's option: its name, its explanation, and the colour its indicator takes when selected. */
@@ -52,7 +52,6 @@ export const DeletingFilesSection = () => {
     const deletionMode = useSettingsStore((state) => state.deletionMode);
     const confirmDeletion = useSettingsStore((state) => state.confirmDeletion);
     const update = useSettingsStore((state) => state.update);
-    const confirmHint = useId();
 
     return (
         <SettingsSection title="Deleting files">
@@ -68,20 +67,11 @@ export const DeletingFilesSection = () => {
                     <ModeOption key={mode} mode={mode} />
                 ))}
             </RadioGroup>
-            <SettingRow
+            <SettingSwitch
                 name="Confirm before deleting"
                 hint="Show a summary of the marked files before anything is removed."
-                hintId={confirmHint}
-                control={
-                    <Switch
-                        aria-label="Confirm before deleting"
-                        aria-describedby={confirmHint}
-                        checked={confirmDeletion}
-                        onCheckedChange={(checked) => update({ confirmDeletion: checked })}
-                        className="border-0 p-0.5 data-[size=default]:h-[22px] data-[size=default]:w-10 data-checked:bg-[#BEF264] data-unchecked:bg-[#3F3F46] dark:data-unchecked:bg-[#3F3F46]"
-                        thumbClassName="bg-[#FAFAFA] shadow-[0_1px_2px_rgba(0,0,0,.4)] group-data-[size=default]/switch:size-[18px] group-data-[size=default]/switch:data-checked:translate-x-[18px] dark:data-checked:bg-[#FAFAFA] dark:data-unchecked:bg-[#FAFAFA]"
-                    />
-                }
+                checked={confirmDeletion}
+                onCheckedChange={(checked) => update({ confirmDeletion: checked })}
             />
         </SettingsSection>
     );

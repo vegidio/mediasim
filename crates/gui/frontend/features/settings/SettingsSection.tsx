@@ -36,18 +36,32 @@ type SettingRowProps = {
     control: ReactNode;
     /** Whether the control comes before the name, as a radio option's indicator does, rather than at the row's end. */
     leading?: boolean;
+    /**
+     * The row's element. A `label` (the default) makes a press anywhere on the row activate the control, which suits a
+     * switch or a radio; a `div` suits a control such as a slider, which a press on the row's text shouldn't move.
+     */
+    as?: "label" | "div";
     className?: string;
 };
 
 /**
- * One setting: its name with its explanation, and its control. The whole row is a label, so pressing anywhere on it
- * activates the control.
+ * One setting: its name with its explanation, and its control. Unless rendered `as="div"`, the whole row is a label,
+ * so pressing anywhere on it activates the control.
  */
-export const SettingRow = ({ name, hint, nameId, hintId, control, leading = false, className }: SettingRowProps) => (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in, and rendered inside the label.
-    <label
+export const SettingRow = ({
+    name,
+    hint,
+    nameId,
+    hintId,
+    control,
+    leading = false,
+    as: Row = "label",
+    className,
+}: SettingRowProps) => (
+    <Row
         className={cn(
-            "flex cursor-pointer items-center px-[18px] py-3.5",
+            "flex items-center px-[18px] py-3.5",
+            Row === "label" && "cursor-pointer",
             leading ? "gap-3.5" : "justify-between gap-6",
             className,
         )}
@@ -62,5 +76,5 @@ export const SettingRow = ({ name, hint, nameId, hintId, control, leading = fals
             </span>
         </span>
         {!leading && control}
-    </label>
+    </Row>
 );

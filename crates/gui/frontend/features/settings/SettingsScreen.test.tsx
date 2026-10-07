@@ -1,6 +1,6 @@
 import { act } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { SettingsScreen } from "./SettingsScreen";
@@ -8,10 +8,13 @@ import { SettingsScreen } from "./SettingsScreen";
 const group = () => screen.getByRole("radiogroup", { name: "When deleting marked files" });
 const option = (name: string) => screen.getByRole("radio", { name });
 const confirm = () => screen.getByRole("switch", { name: "Confirm before deleting" });
+const threshold = () => screen.getByRole("slider", { name: "Default match threshold" });
+const toggle = (name: string) => screen.getByRole("switch", { name });
 const settings = () => {
-    const { deletionMode, confirmDeletion } = useSettingsStore.getState();
+    const { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip } =
+        useSettingsStore.getState();
 
-    return { deletionMode, confirmDeletion };
+    return { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip };
 };
 
 describe("SettingsScreen", () => {
@@ -21,13 +24,124 @@ describe("SettingsScreen", () => {
         useScreenStore.setState(useScreenStore.getInitialState(), true);
     });
 
-    it("shows Back, the heading, Reset to defaults and the Deleting files section", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("shows Back, the heading, Reset to defaults, then the Comparison and Deleting files sections", () => {
         render(<SettingsScreen />);
 
         expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
         expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Reset to defaults" })).toBeInTheDocument();
-        expect(screen.getByRole("region", { name: "Deleting files" })).toBeInTheDocument();
+        expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-labelledby"))).toEqual([
+            screen.getByRole("heading", { level: 2, name: "Comparison" }).id,
+            screen.getByRole("heading", { level: 2, name: "Deleting files" }).id,
+        ]);
+    });
+
+    it("shows the Comparison defaults, each control named and described by its row", () => {
+        render(<SettingsScreen />);
+
+        expect(threshold()).toHaveAttribute("aria-valuenow", "80");
+        expect(threshold()).toHaveAttribute("aria-valuemin", "50");
+        expect(threshold()).toHaveAttribute("aria-valuemax", "100");
+        expect(threshold()).toHaveAccessibleDescription(
+            "Files at or above this similarity are grouped. You can still change it per scan.",
+        );
+        expect(screen.getByText("80%")).toBeInTheDocument();
+        expect(toggle("Scan subfolders")).not.toBeChecked();
+        expect(toggle("Scan subfolders")).toHaveAccessibleDescription(
+            "Include files inside nested folders by default.",
+        );
+        expect(toggle("Frame rotate")).toBeChecked();
+        expect(toggle("Frame rotate")).toHaveAccessibleDescription(
+            "Also compare each frame rotated 90°, 180° and 270°.",
+        );
+        expect(toggle("Frame flip")).toBeChecked();
+        expect(toggle("Frame flip")).toHaveAccessibleDescription(
+            "Also compare each frame flipped vertically and horizontally.",
+        );
+    });
+
+    it("shows the threshold's value as it changes", () => {
+        render(<SettingsScreen />);
+
+        act(() => useSettingsStore.getState().update({ matchThreshold: 92 }));
+
+        expect(threshold()).toHaveAttribute("aria-valuenow", "92");
+        expect(screen.getByText("92%")).toBeInTheDocument();
+    });
+
+    it("shows the threshold's value while the slider is dragged", () => {
+        // jsdom has no layout or pointer capture, so the track gets a 500 px box: 10 px per percent from 50 to 100.
+        render(<SettingsScreen />);
+        const root = threshold().closest<HTMLElement>("[data-slot='slider']");
+        if (!root) throw new Error("the threshold slider has no root");
+        const captured = new Set<number>();
+        Object.assign(root, {
+            setPointerCapture: (id: number) => void captured.add(id),
+            hasPointerCapture: (id: number) => captured.has(id),
+            releasePointerCapture: (id: number) => void captured.delete(id),
+        });
+        vi.spyOn(root, "getBoundingClientRect").mockReturnValue(
+            DOMRect.fromRect({ x: 0, y: 0, width: 500, height: 4 }),
+        );
+
+        fireEvent.pointerDown(root, { pointerId: 1, button: 0, clientX: 300 });
+        fireEvent.pointerMove(root, { pointerId: 1, clientX: 420 });
+
+        expect(threshold()).toHaveAttribute("aria-valuenow", "92");
+        expect(screen.getByText("92%")).toBeInTheDocument();
+        expect(settings().matchThreshold).toBe(92);
+
+        fireEvent.pointerUp(root, { pointerId: 1, clientX: 420 });
+    });
+
+    it("moves the threshold by 1% with the arrow keys, in the store at once", () => {
+        render(<SettingsScreen />);
+
+        fireEvent.keyDown(threshold(), { key: "ArrowRight" });
+
+        expect(screen.getByText("81%")).toBeInTheDocument();
+        expect(settings().matchThreshold).toBe(81);
+
+        fireEvent.keyDown(threshold(), { key: "ArrowLeft" });
+        fireEvent.keyDown(threshold(), { key: "ArrowLeft" });
+
+        expect(screen.getByText("79%")).toBeInTheDocument();
+        expect(settings().matchThreshold).toBe(79);
+    });
+
+    it("keeps the threshold at 100% at its top", () => {
+        useSettingsStore.setState({ matchThreshold: 100 });
+        render(<SettingsScreen />);
+
+        fireEvent.keyDown(threshold(), { key: "ArrowRight" });
+
+        expect(screen.getByText("100%")).toBeInTheDocument();
+        expect(settings().matchThreshold).toBe(100);
+    });
+
+    it("doesn't move the threshold when its row's text is pressed", () => {
+        render(<SettingsScreen />);
+
+        fireEvent.click(screen.getByText("Default match threshold"));
+
+        expect(settings().matchThreshold).toBe(80);
+    });
+
+    it.each([
+        ["Scan subfolders", "scanSubfolders", true],
+        ["Frame rotate", "frameRotate", false],
+        ["Frame flip", "frameFlip", false],
+    ] as const)("toggles %s, in the store at once", (name, key, toggled) => {
+        render(<SettingsScreen />);
+
+        fireEvent.click(toggle(name));
+
+        expect(toggle(name)).toHaveAttribute("aria-checked", String(toggled));
+        expect(settings()[key]).toBe(toggled);
     });
 
     it("shows the defaults: Move to Trash selected, and confirmation on", () => {
@@ -80,6 +194,20 @@ describe("SettingsScreen", () => {
 
         expect(confirm()).not.toBeChecked();
         expect(settings().confirmDeletion).toBe(false);
+    });
+
+    it("resets the Comparison settings to their defaults", () => {
+        useSettingsStore.setState({ matchThreshold: 65, scanSubfolders: true, frameRotate: false, frameFlip: false });
+        render(<SettingsScreen />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
+
+        expect(threshold()).toHaveAttribute("aria-valuenow", "80");
+        expect(screen.getByText("80%")).toBeInTheDocument();
+        expect(toggle("Scan subfolders")).not.toBeChecked();
+        expect(toggle("Frame rotate")).toBeChecked();
+        expect(toggle("Frame flip")).toBeChecked();
+        expect(settings()).toEqual(SETTINGS_DEFAULTS);
     });
 
     it("resets both settings to their defaults", () => {

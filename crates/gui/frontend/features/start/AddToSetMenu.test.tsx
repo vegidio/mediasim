@@ -107,7 +107,7 @@ describe("AddToSetMenu", () => {
 
         await choose(/Files…/);
 
-        await waitFor(() => expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/a.jpg", "/b.jpg"], true));
+        await waitFor(() => expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/a.jpg", "/b.jpg"], false));
         expect(mockedPickFiles).toHaveBeenCalledExactlyOnceWith([{ type: "image", extensions: ["jpg"] }]);
     });
 
@@ -117,7 +117,7 @@ describe("AddToSetMenu", () => {
 
         await choose(/Folder…/);
 
-        await waitFor(() => expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/Pictures"], true));
+        await waitFor(() => expect(mockedAddToSet).toHaveBeenCalledExactlyOnceWith(["/Pictures"], false));
     });
 
     it("adds nothing when a picker is cancelled", async () => {

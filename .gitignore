@@ -21,3 +21,5 @@ node_modules/
 .env.local
 fixtures/
 .idea/workspace.xml
+
+CLAUDE.md
