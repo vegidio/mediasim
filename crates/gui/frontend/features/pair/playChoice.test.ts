@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { VideoProbe } from "@/ipc/video";
-import { H264_STAND_IN, playChoice, type Webview } from "./playChoice";
+import type { StreamProbe, VideoProbe } from "@/ipc/video";
+import { H264_STAND_IN, type MsePlan, playChoice, type Webview } from "./playChoice";
 
 /** What WKWebView answered in the spike: no Matroska, AVI or WMV directly; no DTS, Opus or AV1 through MSE. */
 const MSE_CODECS = new Set(["avc1.640028", H264_STAND_IN, "hvc1.1.6.L120.90", "mp4a.40.2", "ac-3", "mp4v.20"]);
@@ -25,61 +25,124 @@ const NO_MSE: Webview = { canPlayType: WEBKIT.canPlayType };
 
 const MP4 = "mov,mp4,m4a,3gp,3g2,mj2";
 const MKV = "matroska,webm";
-const H264 = { codec: "h264", codecString: "avc1.640028" };
-const AAC = { codec: "aac", codecString: "mp4a.40.2" };
-const DTS = { codec: "dts" };
+const H264: StreamProbe = { codec: "h264", codecString: "avc1.640028", decodable: true };
+const AAC: StreamProbe = { codec: "aac", codecString: "mp4a.40.2", decodable: true };
+const DTS: StreamProbe = { codec: "dts", decodable: true };
+const WMV3: StreamProbe = { codec: "wmv3", decodable: true };
+const WMA: StreamProbe = { codec: "wmav2", decodable: true };
 
-const probe = (format: string, video?: VideoProbe["video"], audio?: VideoProbe["audio"]): VideoProbe => ({
+const probe = (format: string, video?: StreamProbe, audio?: StreamProbe): VideoProbe => ({
     format,
     duration: 42,
     ...(video && { video }),
     ...(audio && { audio }),
 });
 
+const plan = (video: MsePlan["video"], audio: MsePlan["audio"], codecs: string, noSound = false): MsePlan => ({
+    video,
+    audio,
+    mime: `video/mp4; codecs="${codecs}"`,
+    noSound,
+});
+
+/** The transcode plan with AAC sound encoded. */
+const TRANSCODE = plan("encode", "encode", `${H264_STAND_IN},mp4a.40.2`);
+
 describe("playChoice", () => {
-    it("plays H.264 and AAC in MP4 directly, with remux as the fallback", () => {
+    it("plays H.264 and AAC in MP4 directly, with remux and then transcode as the fallbacks", () => {
         expect(playChoice(probe(MP4, H264, AAC), WEBKIT)).toEqual({
             kind: "direct",
-            fallback: { mime: 'video/mp4; codecs="avc1.640028,mp4a.40.2"', audio: true, noSound: false },
+            fallbacks: [
+                plan("copy", "copy", "avc1.640028,mp4a.40.2"),
+                plan("encode", "copy", `${H264_STAND_IN},mp4a.40.2`),
+            ],
         });
     });
 
-    it("remuxes H.264 and AAC in Matroska with the sound", () => {
+    it("remuxes H.264 and AAC in Matroska with the sound copied", () => {
         expect(playChoice(probe(MKV, H264, AAC), WEBKIT)).toEqual({
-            kind: "remux",
-            plan: { mime: 'video/mp4; codecs="avc1.640028,mp4a.40.2"', audio: true, noSound: false },
+            kind: "mse",
+            plan: plan("copy", "copy", "avc1.640028,mp4a.40.2"),
+            fallbacks: [plan("encode", "copy", `${H264_STAND_IN},mp4a.40.2`)],
         });
     });
 
-    it("remuxes H.264 and DTS in Matroska without sound, flagged noSound", () => {
-        expect(playChoice(probe(MKV, H264, DTS), WEBKIT)).toEqual({
-            kind: "remux",
-            plan: { mime: 'video/mp4; codecs="avc1.640028"', audio: false, noSound: true },
+    it("remuxes H.264 and DTS in Matroska with the sound encoded, and no noSound", () => {
+        const choice = playChoice(probe(MKV, H264, DTS), WEBKIT);
+
+        expect(choice).toEqual({
+            kind: "mse",
+            plan: plan("copy", "encode", "avc1.640028,mp4a.40.2"),
+            fallbacks: [TRANSCODE],
         });
     });
 
-    it("remuxes Opus it can't play without sound, though Opus has a codec string", () => {
-        const choice = playChoice(probe(MKV, H264, { codec: "opus", codecString: "opus" }), WEBKIT);
+    it("encodes Opus it can't play, though Opus has a codec string", () => {
+        const opus = { codec: "opus", codecString: "opus", decodable: true };
 
-        expect(choice).toEqual({ kind: "remux", plan: expect.objectContaining({ audio: false, noSound: true }) });
-    });
-
-    it("remuxes a video-only Matroska file without flagging noSound", () => {
-        expect(playChoice(probe(MKV, H264), WEBKIT)).toEqual({
-            kind: "remux",
-            plan: { mime: 'video/mp4; codecs="avc1.640028"', audio: false, noSound: false },
+        expect(playChoice(probe(MKV, H264, opus), WEBKIT)).toMatchObject({
+            kind: "mse",
+            plan: { video: "copy", audio: "encode", noSound: false },
         });
     });
 
-    it("gives the note to WMV3, which has no codec string", () => {
-        expect(playChoice(probe("asf", { codec: "wmv3" }, { codec: "wmav2" }), WEBKIT)).toEqual({ kind: "none" });
+    it("remuxes without sound, flagged noSound, when the sound can't be decoded", () => {
+        const choice = playChoice(probe(MKV, H264, { ...DTS, decodable: false }), WEBKIT);
+
+        expect(choice).toEqual({
+            kind: "mse",
+            plan: plan("copy", "none", "avc1.640028", true),
+            fallbacks: [plan("encode", "none", H264_STAND_IN, true)],
+        });
     });
 
-    it("gives the note to MPEG-4 Part 2 in AVI where MSE can't play it", () => {
-        const mpeg4 = { codec: "mpeg4", codecString: "mp4v.20" };
+    it("remuxes without sound, flagged noSound, when the window can play neither the sound nor AAC", () => {
+        const noAac: Webview = { ...WEBKIT, isTypeSupported: (type) => !type.includes("mp4a") };
+
+        expect(playChoice(probe(MKV, H264, DTS), noAac)).toMatchObject({
+            kind: "mse",
+            plan: { audio: "none", noSound: true },
+        });
+    });
+
+    it("transcodes WMV3 and WMA, which have no codec strings, with the sound encoded", () => {
+        expect(playChoice(probe("asf", WMV3, WMA), WEBKIT)).toEqual({ kind: "mse", plan: TRANSCODE, fallbacks: [] });
+    });
+
+    it("remuxes MPEG-4 Part 2 in AVI where MSE claims it, with transcode as the fallback", () => {
+        const mpeg4 = { codec: "mpeg4", codecString: "mp4v.20", decodable: true };
+
+        expect(playChoice(probe("avi", mpeg4, AAC), WEBKIT)).toEqual({
+            kind: "mse",
+            plan: plan("copy", "copy", "mp4v.20,mp4a.40.2"),
+            fallbacks: [plan("encode", "copy", `${H264_STAND_IN},mp4a.40.2`)],
+        });
+    });
+
+    it("transcodes MPEG-4 Part 2 in AVI where MSE can't play it", () => {
+        const mpeg4 = { codec: "mpeg4", codecString: "mp4v.20", decodable: true };
         const noMpeg4: Webview = { ...WEBKIT, isTypeSupported: (type) => !type.includes("mp4v") };
 
-        expect(playChoice(probe("avi", mpeg4, AAC), noMpeg4)).toEqual({ kind: "none" });
+        expect(playChoice(probe("avi", mpeg4, AAC), noMpeg4)).toEqual({
+            kind: "mse",
+            plan: plan("encode", "copy", `${H264_STAND_IN},mp4a.40.2`),
+            fallbacks: [],
+        });
+    });
+
+    it("transcodes AV1 the window can play neither directly nor through MSE", () => {
+        const av1 = { codec: "av1", codecString: "av01.0.08M.08", decodable: true };
+        const noAv1: Webview = { ...WEBKIT, canPlayType: () => "" };
+
+        expect(playChoice(probe(MP4, av1, AAC), noAv1)).toEqual({
+            kind: "mse",
+            plan: plan("encode", "copy", `${H264_STAND_IN},mp4a.40.2`),
+            fallbacks: [],
+        });
+    });
+
+    it("gives the note to a video that can't be decoded and has no codec MSE plays", () => {
+        expect(playChoice(probe("asf", { ...WMV3, decodable: false }, WMA), WEBKIT)).toEqual({ kind: "none" });
     });
 
     it("asks about Annex B H.264 in AVI with the stand-in codec string", () => {
@@ -95,12 +158,9 @@ describe("playChoice", () => {
             },
         };
 
-        const choice = playChoice(probe("avi", { codec: "h264" }, AAC), webview);
+        const choice = playChoice(probe("avi", { codec: "h264", decodable: true }, AAC), webview);
 
-        expect(choice).toEqual({
-            kind: "remux",
-            plan: { mime: `video/mp4; codecs="${H264_STAND_IN},mp4a.40.2"`, audio: true, noSound: false },
-        });
+        expect(choice).toMatchObject({ kind: "mse", plan: plan("copy", "copy", `${H264_STAND_IN},mp4a.40.2`) });
         expect(asked).toContain(`video/x-msvideo; codecs="${H264_STAND_IN},mp4a.40.2"`);
     });
 
@@ -119,18 +179,35 @@ describe("playChoice", () => {
         ]);
     });
 
-    it("gives the note to a file it can't play directly when there is no MediaSource", () => {
+    it("gives the note to anything it can't play directly when there is no MediaSource", () => {
         expect(playChoice(probe(MKV, H264, AAC), NO_MSE)).toEqual({ kind: "none" });
+        expect(playChoice(probe("asf", WMV3, WMA), NO_MSE)).toEqual({ kind: "none" });
     });
 
     it("still plays directly what it can when there is no MediaSource, with no fallback", () => {
-        expect(playChoice(probe(MP4, H264, AAC), NO_MSE)).toEqual({ kind: "direct" });
+        expect(playChoice(probe(MP4, H264, AAC), NO_MSE)).toEqual({ kind: "direct", fallbacks: [] });
     });
 
-    it("plays VP9 and Opus in WebM directly", () => {
-        const vp9 = { codec: "vp9", codecString: "vp09.00.40.08" };
+    it("plays VP9 and Opus in WebM directly, with transcode as the fallback", () => {
+        const vp9 = { codec: "vp9", codecString: "vp09.00.40.08", decodable: true };
+        const opus = { codec: "opus", codecString: "opus", decodable: true };
 
-        expect(playChoice(probe(MKV, vp9, { codec: "opus", codecString: "opus" }), WEBKIT)).toEqual({ kind: "direct" });
+        expect(playChoice(probe(MKV, vp9, opus), WEBKIT)).toEqual({
+            kind: "direct",
+            fallbacks: [plan("encode", "encode", `${H264_STAND_IN},mp4a.40.2`)],
+        });
+    });
+
+    it("never flags noSound for a video-only file", () => {
+        for (const video of [H264, WMV3]) {
+            const choice = playChoice(probe(MKV, video), WEBKIT);
+            const plans = choice.kind === "mse" ? [choice.plan, ...choice.fallbacks] : [];
+
+            expect(plans.length).toBeGreaterThan(0);
+            for (const { audio, noSound } of plans) {
+                expect({ audio, noSound }).toEqual({ audio: "none", noSound: false });
+            }
+        }
     });
 
     it("gives the note to a file with no video stream", () => {

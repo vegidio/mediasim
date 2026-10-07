@@ -10,23 +10,23 @@ vi.mock("@/ipc/thumbs", () => ({
 }));
 vi.mock("@/ipc/video", () => ({
     videoUrl: (identity: string) => `video://localhost/${identity}`,
-    // H.264 and AAC in MP4, which the test setup's `canPlayType` plays directly; a `-dts.mkv` file has DTS sound, which
-    // it can't play, and a `-silent.mkv` file has none, so both are remuxed.
+    // H.264 and AAC in MP4, which the test setup's `canPlayType` plays directly; a `-dts.mkv` file has DTS sound that
+    // can be neither played nor decoded, and a `-silent.mkv` file has none, so both are remuxed.
     probeVideo: async (identity: string) => ({
         format: identity.endsWith(".mkv") ? "matroska,webm" : "mov,mp4,m4a,3gp,3g2,mj2",
         duration: 42,
-        video: { codec: "h264", codecString: "avc1.640028" },
-        ...(identity.endsWith("-dts.mkv") && { audio: { codec: "dts" } }),
-        ...(identity.endsWith(".mp4") && { audio: { codec: "aac", codecString: "mp4a.40.2" } }),
+        video: { codec: "h264", codecString: "avc1.640028", decodable: true },
+        ...(identity.endsWith("-dts.mkv") && { audio: { codec: "dts", decodable: false } }),
+        ...(identity.endsWith(".mp4") && { audio: { codec: "aac", codecString: "mp4a.40.2", decodable: true } }),
     }),
-    // A remux of an `.mkv` file works; any other, which an error before the first frame falls back to, fails too:
+    // A session for an `.mkv` file works; any other, which an error before the first frame falls back to, fails too:
     // those files can't be played at all.
-    remuxOpen: vi.fn(async (identity: string) => {
+    videoOpen: vi.fn(async (identity: string) => {
         if (identity.endsWith(".mkv")) return { session: 1, start: 0 };
         throw { kind: "unreadable", message: "not a video" };
     }),
-    remuxNext: vi.fn(async () => new ArrayBuffer(0)),
-    remuxClose: vi.fn(async () => {}),
+    videoNext: vi.fn(async () => new ArrayBuffer(0)),
+    videoClose: vi.fn(async () => {}),
 }));
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({

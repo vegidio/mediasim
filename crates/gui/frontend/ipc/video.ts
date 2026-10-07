@@ -15,6 +15,8 @@ export type StreamProbe = {
     codec: string;
     /** The RFC 6381 codec string, such as `avc1.640028`, when FFmpeg has one. */
     codecString?: string;
+    /** Whether the application can decode the stream, and so encode it for the window. */
+    decodable: boolean;
 };
 
 /** What an admitted video holds, read from its header by `probe_video`. */
@@ -27,20 +29,32 @@ export type VideoProbe = {
     audio?: StreamProbe;
 };
 
-/** A remux session just opened. */
-export type RemuxOpened = {
+/** How a session carries the main video stream: copied unchanged, or encoded to H.264. */
+export type VideoMode = "copy" | "encode";
+
+/** How a session carries the main audio stream: left out, copied unchanged, or encoded to AAC. */
+export type AudioMode = "none" | "copy" | "encode";
+
+/** How a session carries each main stream. */
+export type SessionModes = { video: VideoMode; audio: AudioMode };
+
+/** A session just opened. */
+export type VideoOpened = {
     session: number;
-    /** The time, in seconds, the session starts from: the last keyframe at or before the time asked. */
+    /**
+     * The time, in seconds, the session starts from: the last keyframe at or before the time asked when the video is
+     * copied, the last 2-second boundary when it is encoded.
+     */
     start: number;
 };
 
-/** Why a probe or a remux request was refused, as `RemuxError` in `crates/gui/src/video/error.rs` serializes it. */
-export type RemuxError = { kind: "notfound" } | { kind: "gone" } | { kind: "unreadable"; message: string };
+/** Why a probe or a session request was refused, as `VideoError` in `crates/gui/src/video/error.rs` serializes it. */
+export type VideoError = { kind: "notfound" } | { kind: "gone" } | { kind: "unreadable"; message: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-/** The {@link RemuxError} a rejection carries, or an `unreadable` one for anything else, such as a missing command. */
-const toRemuxError = (error: unknown): RemuxError => {
+/** The {@link VideoError} a rejection carries, or an `unreadable` one for anything else, such as a missing command. */
+const toVideoError = (error: unknown): VideoError => {
     if (isRecord(error)) {
         const { kind, message } = error;
         if (kind === "notfound" || kind === "gone") return { kind };
@@ -52,24 +66,25 @@ const toRemuxError = (error: unknown): RemuxError => {
 
 const call = <T>(command: string, args: Record<string, unknown>): Promise<T> =>
     invoke<T>(command, args).catch((error: unknown) => {
-        throw toRemuxError(error);
+        throw toVideoError(error);
     });
 
-/** What the admitted video behind `identity` holds. Rejects with a {@link RemuxError}. */
+/** What the admitted video behind `identity` holds. Rejects with a {@link VideoError}. */
 export const probeVideo = (identity: string) => call<VideoProbe>("probe_video", { identity });
 
 /**
- * Open a remux session for the admitted video behind `identity`, starting at the last keyframe at or before `at`
- * seconds, with its main audio stream if `audio` is set. Rejects with a {@link RemuxError}.
+ * Open a session for the admitted video behind `identity`, starting at or before `at` seconds, carrying its main
+ * streams as `modes` says. Rejects with a {@link VideoError}.
  */
-export const remuxOpen = (identity: string, at: number, audio: boolean) =>
-    call<RemuxOpened>("remux_open", { identity, at, audio });
+export const videoOpen = (identity: string, at: number, { video, audio }: SessionModes) =>
+    call<VideoOpened>("video_open", { identity, at, video, audio });
 
 /**
- * The next segment of a session, as raw bytes: the fragmented MP4 init segment, then one fragment per call, each
- * beginning on a keyframe, then empty once the video has ended. Rejects with a {@link RemuxError}.
+ * The next segment of a session, as raw bytes: the fragmented MP4 init segment, then one segment's fragments per call,
+ * each beginning on a keyframe, then empty once the video has ended. Rejects with a {@link VideoError}; `notfound`
+ * also when the session was closed while this was answered.
  */
-export const remuxNext = (session: number) => call<ArrayBuffer>("remux_next", { session });
+export const videoNext = (session: number) => call<ArrayBuffer>("video_next", { session });
 
-/** Close a session. Closing one already closed does nothing. */
-export const remuxClose = (session: number) => invoke<void>("remux_close", { session });
+/** Close a session, stopping any encode in progress for it. Closing one already closed does nothing. */
+export const videoClose = (session: number) => invoke<void>("video_close", { session });

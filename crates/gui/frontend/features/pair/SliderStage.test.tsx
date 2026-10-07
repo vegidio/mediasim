@@ -14,15 +14,16 @@ vi.mock("@/ipc/video", () => ({
     probeVideo: async () => ({
         format: "mov,mp4,m4a,3gp,3g2,mj2",
         duration: 42,
-        video: { codec: "h264", codecString: "avc1.640028" },
-        audio: { codec: "aac", codecString: "mp4a.40.2" },
+        video: { codec: "h264", codecString: "avc1.640028", decodable: true },
+        audio: { codec: "aac", codecString: "mp4a.40.2", decodable: true },
     }),
-    // A remux, which an error before the first frame falls back to, fails too: these files can't be played at all.
-    remuxOpen: vi.fn(async () => {
+    // A remux and a transcode, which an error before the first frame falls back to, fail too: these files can't be
+    // played at all.
+    videoOpen: vi.fn(async () => {
         throw { kind: "unreadable", message: "not a video" };
     }),
-    remuxNext: vi.fn(),
-    remuxClose: vi.fn(async () => {}),
+    videoNext: vi.fn(),
+    videoClose: vi.fn(async () => {}),
 }));
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({

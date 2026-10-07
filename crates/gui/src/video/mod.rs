@@ -5,26 +5,30 @@
 //! is played with bounded memory. A request names an identity, never a path, so the window can only reach files that
 //! were admitted.
 //!
-//! A video whose container the window can't open is played through Media Source Extensions instead: [`probe`] tells the
-//! window what the file holds, and a remux session in [`sessions`] copies its main streams into fragmented MP4, one
-//! segment per request.
+//! A video the window can't play from its own bytes is played through Media Source Extensions instead: [`probe`] tells
+//! the window what the file holds, and a session in [`sessions`] copies or encodes its main streams into fragmented
+//! MP4, one segment per request. Encoded segments are kept in [`Segments`].
 
+mod audio;
+mod cache;
 mod error;
 #[cfg(test)]
 mod fixtures;
 pub mod probe;
 mod range;
-mod remux;
 mod serve;
+mod session;
 pub mod sessions;
+mod transcode;
 
 use std::path::Path;
 
 use tauri::http::Uri;
 
-pub use error::RemuxError;
+pub use cache::Segments;
+pub use error::VideoError;
 pub use serve::serve;
-pub use sessions::RemuxState;
+pub use sessions::SessionState;
 
 // Must stay in sync with `tauri.conf.json`'s `media-src`, which needs both platform forms of it.
 /// The URI scheme videos are served over. Registered in `src/lib.rs`.

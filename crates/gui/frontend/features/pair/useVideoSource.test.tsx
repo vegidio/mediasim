@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
-import { probeVideo, remuxNext, remuxOpen, type VideoProbe } from "@/ipc/video";
+import { probeVideo, type StreamProbe, type VideoProbe, videoNext, videoOpen } from "@/ipc/video";
 import { mediaSources } from "@/test/mediaSource";
 import { VideoPlayer } from "./VideoPlayer";
 
@@ -12,14 +12,14 @@ vi.mock("@/ipc/thumbs", () => ({
 vi.mock("@/ipc/video", () => ({
     videoUrl: (identity: string) => `video://localhost/${identity}`,
     probeVideo: vi.fn(),
-    remuxOpen: vi.fn(),
-    remuxNext: vi.fn(),
-    remuxClose: vi.fn(async () => {}),
+    videoOpen: vi.fn(),
+    videoNext: vi.fn(),
+    videoClose: vi.fn(async () => {}),
 }));
 
 const mockedProbe = probeVideo as Mock;
-const mockedOpen = remuxOpen as Mock;
-const mockedNext = remuxNext as Mock;
+const mockedOpen = videoOpen as Mock;
+const mockedNext = videoNext as Mock;
 
 const FILE: MediaFile = {
     path: "/Movies/VID_0714.mkv",
@@ -29,18 +29,34 @@ const FILE: MediaFile = {
     identity: "fedcba9876543210",
 };
 
-const H264 = { codec: "h264", codecString: "avc1.640028" };
-const AAC = { codec: "aac", codecString: "mp4a.40.2" };
+const H264: StreamProbe = { codec: "h264", codecString: "avc1.640028", decodable: true };
+const AAC: StreamProbe = { codec: "aac", codecString: "mp4a.40.2", decodable: true };
+const DTS: StreamProbe = { codec: "dts", decodable: true };
 
-const probe = (format: string, audio?: VideoProbe["audio"]): VideoProbe => ({
+const probe = (format: string, audio?: StreamProbe, video: StreamProbe = H264): VideoProbe => ({
     format,
     duration: 42,
-    video: H264,
+    video,
     ...(audio && { audio }),
 });
 
 const MP4 = probe("mov,mp4,m4a,3gp,3g2,mj2", AAC);
 const MKV = probe("matroska,webm", AAC);
+const WMV = probe("asf", { codec: "wmav2", decodable: true }, { codec: "wmv3", decodable: true });
+
+const REMUX = { video: "copy", audio: "copy" };
+const TRANSCODE = { video: "encode", audio: "copy" };
+
+/** The modes of each session opened so far. */
+const opened = () => mockedOpen.mock.calls.map(([, , modes]) => modes);
+
+/** Fails the element as a decoder failing before the first frame would, and lets the hook react. */
+const failBeforeFirstFrame = async (video: HTMLVideoElement) => {
+    act(() => {
+        fireEvent.error(video);
+    });
+    await act(async () => {});
+};
 
 const mount = (strict = false) => {
     const player = <VideoPlayer file={FILE} />;
@@ -90,17 +106,30 @@ describe("useVideoSource", () => {
         await decided();
 
         expect(video.getAttribute("src")).toMatch(/^blob:/);
-        await waitFor(() => expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, true));
+        await waitFor(() => expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, REMUX));
         expect(mediaSources[0]?.sourceBuffers[0]?.mime).toBe('video/mp4; codecs="avc1.640028,mp4a.40.2"');
         expect(screen.getByRole("button", { name: "Unmute VID_0714.mkv" })).toBeEnabled();
     });
 
-    it("plays without sound, and says so, when the window can't play the audio", async () => {
-        mockedProbe.mockResolvedValue(probe("matroska,webm", { codec: "dts" }));
+    it("plays sound the window can't play encoded, with a working mute button", async () => {
+        mockedProbe.mockResolvedValue(probe("matroska,webm", DTS));
         mount();
         await decided();
 
-        await waitFor(() => expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, false));
+        await waitFor(() => {
+            expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, { video: "copy", audio: "encode" });
+        });
+        expect(screen.getByRole("button", { name: "Unmute VID_0714.mkv" })).toBeEnabled();
+    });
+
+    it("plays without sound, and says so, when the sound can be neither copied nor encoded", async () => {
+        mockedProbe.mockResolvedValue(probe("matroska,webm", { ...DTS, decodable: false }));
+        mount();
+        await decided();
+
+        await waitFor(() => {
+            expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, { video: "copy", audio: "none" });
+        });
         const mute = screen.getByRole("button", { name: "No playable sound in VID_0714.mkv" });
         expect(mute).toBeDisabled();
         expect(screen.queryByRole("button", { name: /^(Un)?mute/ })).not.toBeInTheDocument();
@@ -111,12 +140,27 @@ describe("useVideoSource", () => {
         mount();
         await decided();
 
-        await waitFor(() => expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, false));
+        await waitFor(() => {
+            expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, { video: "copy", audio: "none" });
+        });
         expect(screen.getByRole("button", { name: "Unmute VID_0714.mkv" })).toBeEnabled();
     });
 
-    it("shows the note for a file it can play neither way", async () => {
-        mockedProbe.mockResolvedValue({ format: "asf", duration: 42, video: { codec: "wmv3" } });
+    it("transcodes a video the window can't decode, with its sound encoded", async () => {
+        mockedProbe.mockResolvedValue(WMV);
+        const { video } = mount();
+        await decided();
+
+        expect(video.getAttribute("src")).toMatch(/^blob:/);
+        await waitFor(() => {
+            expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, { video: "encode", audio: "encode" });
+        });
+        expect(mediaSources[0]?.sourceBuffers[0]?.mime).toBe('video/mp4; codecs="avc1.640033,mp4a.40.2"');
+        expect(screen.getByRole("button", { name: "Unmute VID_0714.mkv" })).toBeEnabled();
+    });
+
+    it("shows the note for a video it can neither play nor decode", async () => {
+        mockedProbe.mockResolvedValue(probe("asf", undefined, { codec: "wmv3", decodable: false }));
         const { video } = mount();
 
         await waitFor(() => expect(note()).toBeInTheDocument());
@@ -145,11 +189,29 @@ describe("useVideoSource", () => {
         expect(note()).not.toBeInTheDocument();
         expect(seen).not.toHaveBeenCalled();
         expect(video.getAttribute("src")).toMatch(/^blob:/);
-        await waitFor(() => expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, true));
+        await waitFor(() => expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(FILE.identity, 0, REMUX));
         expect(note()).not.toBeInTheDocument();
     });
 
-    it("shows the note when the remux it fell back to fails too", async () => {
+    it("goes from direct to remux to transcode on two failures before the first frame, with no note", async () => {
+        mockedProbe.mockResolvedValue(MP4);
+        const { video } = mount();
+        await decided();
+        const seen = vi.fn();
+        video.addEventListener("error", seen);
+
+        await failBeforeFirstFrame(video);
+        await waitFor(() => expect(opened()).toEqual([REMUX]));
+        await failBeforeFirstFrame(video);
+        await waitFor(() => expect(opened()).toEqual([REMUX, TRANSCODE]));
+
+        expect(seen).not.toHaveBeenCalled();
+        expect(note()).not.toBeInTheDocument();
+        expect(video.getAttribute("src")).toMatch(/^blob:/);
+        expect(mediaSources.at(-1)?.sourceBuffers[0]?.mime).toBe('video/mp4; codecs="avc1.640033,mp4a.40.2"');
+    });
+
+    it("shows the note once every way it fell back to has failed too", async () => {
         mockedProbe.mockResolvedValue(MP4);
         mockedNext.mockRejectedValue({ kind: "unreadable", message: "bad file" });
         const { video } = mount();
@@ -160,6 +222,22 @@ describe("useVideoSource", () => {
         });
 
         await waitFor(() => expect(note()).toBeInTheDocument());
+        expect(opened()).toEqual([REMUX, TRANSCODE]);
+    });
+
+    it("shows the note when a remuxed video fails after its first frame, without trying another way", async () => {
+        mockedProbe.mockResolvedValue(MKV);
+        const { video } = mount();
+        await decided();
+        await waitFor(() => expect(opened()).toEqual([REMUX]));
+
+        act(() => {
+            fireEvent(video, new Event("loadeddata"));
+            fireEvent.error(video);
+        });
+
+        expect(note()).toBeInTheDocument();
+        expect(opened()).toEqual([REMUX]);
     });
 
     it("shows the note when a direct file fails after its first frame, as a removed one does", async () => {

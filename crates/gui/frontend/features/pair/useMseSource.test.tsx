@@ -1,15 +1,16 @@
 import { StrictMode, useRef } from "react";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { remuxClose, remuxNext, remuxOpen } from "@/ipc/video";
+import { videoClose, videoNext, videoOpen } from "@/ipc/video";
 import { mediaSources, revokedUrls, type StubMediaSource, type StubSourceBuffer } from "@/test/mediaSource";
-import { AHEAD, BEHIND, type MseSource, useMseSource } from "./useMseSource";
+import { H264_STAND_IN } from "./playChoice";
+import { AHEAD, BEHIND, ENCODE_AHEAD, type MseSource, useMseSource } from "./useMseSource";
 
-vi.mock("@/ipc/video", () => ({ remuxOpen: vi.fn(), remuxNext: vi.fn(), remuxClose: vi.fn() }));
+vi.mock("@/ipc/video", () => ({ videoOpen: vi.fn(), videoNext: vi.fn(), videoClose: vi.fn() }));
 
-const mockedOpen = remuxOpen as Mock;
-const mockedNext = remuxNext as Mock;
-const mockedClose = remuxClose as Mock;
+const mockedOpen = videoOpen as Mock;
+const mockedNext = videoNext as Mock;
+const mockedClose = videoClose as Mock;
 
 /** The length of every fragment the mocked sessions return, in seconds. */
 const FRAGMENT = 2;
@@ -17,7 +18,13 @@ const FRAGMENT = 2;
 const SOURCE: MseSource = {
     identity: "0123456789abcdef",
     duration: 120,
-    plan: { mime: 'video/mp4; codecs="avc1.640028,mp4a.40.2"', audio: true, noSound: false },
+    plan: { video: "copy", audio: "copy", mime: 'video/mp4; codecs="avc1.640028,mp4a.40.2"', noSound: false },
+};
+
+/** A transcode: the video encoded, and DTS sound encoded to AAC. */
+const TRANSCODE: MseSource = {
+    ...SOURCE,
+    plan: { video: "encode", audio: "encode", mime: `video/mp4; codecs="${H264_STAND_IN},mp4a.40.2"`, noSound: false },
 };
 
 const INIT = new ArrayBuffer(4);
@@ -52,8 +59,8 @@ const Harness = ({ source }: { source?: MseSource }) => {
     return <video ref={ref} muted data-testid="video" />;
 };
 
-const mount = ({ strict = false } = {}) => {
-    const harness = <Harness source={SOURCE} />;
+const mount = ({ strict = false, source = SOURCE } = {}) => {
+    const harness = <Harness source={source} />;
     const view = render(strict ? <StrictMode>{harness}</StrictMode> : harness);
     return { ...view, video: view.getByTestId("video") as HTMLVideoElement };
 };
@@ -103,11 +110,43 @@ describe("useMseSource", () => {
 
         expect(source().duration).toBe(120);
         expect(buffer().mime).toBe(SOURCE.plan.mime);
-        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(SOURCE.identity, 0, true);
+        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(SOURCE.identity, 0, { video: "copy", audio: "copy" });
         const [first, ...rest] = buffer().appended;
         expect(first).toBe(INIT);
         expect(rest).toHaveLength(AHEAD / FRAGMENT);
         expect(ranges()).toEqual([[0, AHEAD]]);
+    });
+
+    it("opens a transcode with the plan's modes, and stops asking once 10 s are buffered ahead", async () => {
+        const { video } = mount({ source: TRANSCODE });
+        await settled(ENCODE_AHEAD);
+        const asked = mockedNext.mock.calls.length;
+
+        act(() => {
+            fireEvent(video, new Event("timeupdate"));
+        });
+        await act(async () => {});
+
+        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(SOURCE.identity, 0, { video: "encode", audio: "encode" });
+        expect(buffer().mime).toBe(TRANSCODE.plan.mime);
+        // The init segment, then five 2-second segments.
+        expect(asked).toBe(1 + ENCODE_AHEAD / FRAGMENT);
+        expect(mockedNext).toHaveBeenCalledTimes(asked);
+        expect(ranges()).toEqual([[0, ENCODE_AHEAD]]);
+
+        await playTo(video, 4);
+        await settled(ENCODE_AHEAD + 4);
+        expect(mockedNext).toHaveBeenCalledTimes(asked + 2);
+    });
+
+    it("closes a transcode's session on unmount, under StrictMode too", async () => {
+        const { unmount } = mount({ strict: true, source: TRANSCODE });
+        await settled(ENCODE_AHEAD);
+
+        unmount();
+
+        expect(mockedOpen).toHaveBeenCalledOnce();
+        expect(mockedClose).toHaveBeenCalledExactlyOnceWith(1);
     });
 
     it("asks for no more once enough is buffered ahead, and for more as the playhead moves", async () => {
@@ -148,7 +187,7 @@ describe("useMseSource", () => {
         await settled(92);
 
         expect(mockedClose).toHaveBeenCalledExactlyOnceWith(1);
-        expect(mockedOpen).toHaveBeenLastCalledWith(SOURCE.identity, 61, true);
+        expect(mockedOpen).toHaveBeenLastCalledWith(SOURCE.identity, 61, { video: "copy", audio: "copy" });
         expect(buffer().timestampOffset).toBe(60);
         expect(ranges()).toEqual([[60, 92]]);
     });

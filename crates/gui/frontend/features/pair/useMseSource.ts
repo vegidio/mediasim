@@ -1,9 +1,15 @@
 import { type RefObject, useEffect } from "react";
-import { remuxClose, remuxNext, remuxOpen } from "@/ipc/video";
-import type { RemuxPlan } from "./playChoice";
+import { videoClose, videoNext, videoOpen } from "@/ipc/video";
+import type { MsePlan } from "./playChoice";
 
-/** How far ahead of the playhead to keep buffered, in seconds. */
+/** How far ahead of the playhead to keep buffered when the video is copied, in seconds. */
 export const AHEAD = 30;
+
+/**
+ * How far ahead to keep buffered when the video is encoded, in seconds: five segments. Encoding costs CPU that copying
+ * doesn't, so less is made ahead of need; it is still enough to have the first frames ready before play is pressed.
+ */
+export const ENCODE_AHEAD = 10;
 
 /** How much to keep buffered behind the playhead, in seconds; anything older is removed. */
 export const BEHIND = 10;
@@ -17,12 +23,12 @@ const MIN_AHEAD = 5;
  */
 const SLACK = 0.5;
 
-/** What {@link useMseSource} plays: an admitted video, remuxed as `plan` says. */
+/** What {@link useMseSource} plays: an admitted video, remuxed or transcoded as `plan` says. */
 export type MseSource = {
     identity: string;
     /** In seconds, from the probe: fragmented MP4 declares none of its own. */
     duration: number;
-    plan: RemuxPlan;
+    plan: MsePlan;
 };
 
 type MediaSourceClass = typeof MediaSource;
@@ -72,14 +78,15 @@ const wantsMore = (ranges: TimeRanges, time: number, ahead: number) => {
 const isQuotaExceeded = (error: unknown) => error instanceof DOMException && error.name === "QuotaExceededError";
 
 /**
- * Plays `source` in the `<video>` in `ref` through Media Source Extensions, from a remux session, while the caller is
- * mounted and `source` is set.
+ * Plays `source` in the `<video>` in `ref` through Media Source Extensions, from a session carrying its streams as the
+ * plan says, while the caller is mounted and `source` is set.
  *
  * Once the source opens, it sets the duration from the probe, opens a session at 0 and appends its init segment. It
- * then keeps {@link AHEAD} seconds buffered ahead of the playhead, asking for one segment at a time, and removes what
- * is more than {@link BEHIND} seconds behind it. An empty segment ends the stream. A seek outside what is buffered
- * closes the session and opens another at the target, placed at its start time with `timestampOffset`, since every
- * session's media begins at 0.
+ * then keeps {@link AHEAD} seconds buffered ahead of the playhead, or {@link ENCODE_AHEAD} when the video is encoded,
+ * asking for one segment at a time, and removes what is more than {@link BEHIND} seconds behind it. This starts at
+ * mount, before any play, so the first segments are ready by the time the user presses play. An empty segment ends
+ * the stream. A seek outside what is buffered closes the session and opens another at the target, placed at its start
+ * time with `timestampOffset`, since every session's media begins at 0.
  *
  * A refused request or a failed append ends the stream with a decode error, so the element dispatches `error`, which
  * is what the player shows. On unmount it closes the session, revokes the object URL and clears the element.
@@ -104,7 +111,7 @@ export const useMseSource = (ref: RefObject<HTMLVideoElement | null>, source?: M
         let session: number | undefined;
         let buffer: SourceBuffer | undefined;
         let ended = false;
-        let ahead = AHEAD;
+        let ahead = plan.video === "encode" ? ENCODE_AHEAD : AHEAD;
         let pumping = false;
         /** Every change to the buffer runs in turn, in this chain. */
         let queue = Promise.resolve();
@@ -113,7 +120,7 @@ export const useMseSource = (ref: RefObject<HTMLVideoElement | null>, source?: M
 
         const closeSession = () => {
             if (session === undefined) return;
-            remuxClose(session).catch(() => {});
+            videoClose(session).catch(() => {});
             session = undefined;
         };
 
@@ -163,27 +170,27 @@ export const useMseSource = (ref: RefObject<HTMLVideoElement | null>, source?: M
 
         /** Opens a session at `at` and appends its init segment. Resolves to whether it is still current. */
         const open = async (target: SourceBuffer, at: number, asOf: number) => {
-            const opened = await remuxOpen(identity, at, plan.audio);
+            const opened = await videoOpen(identity, at, { video: plan.video, audio: plan.audio });
             if (stale(asOf)) {
-                remuxClose(opened.session).catch(() => {});
+                videoClose(opened.session).catch(() => {});
                 return false;
             }
             session = opened.session;
             ended = false;
 
-            const init = await remuxNext(opened.session);
+            const init = await videoNext(opened.session);
             if (stale(asOf)) return false;
             await append(target, init);
             target.timestampOffset = opened.start;
             return !stale(asOf);
         };
 
-        /** Requests and appends segments until {@link AHEAD} seconds are buffered or the stream ends. */
+        /** Requests and appends segments until `ahead` seconds are buffered or the stream ends. */
         const pump = async (target: SourceBuffer, asOf: number) => {
             while (!stale(asOf) && !ended && session !== undefined) {
                 if (!wantsMore(target.buffered, element.currentTime, ahead)) return;
 
-                const segment = await remuxNext(session);
+                const segment = await videoNext(session);
                 if (stale(asOf)) return;
                 if (segment.byteLength === 0) {
                     ended = true;

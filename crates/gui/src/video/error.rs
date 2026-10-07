@@ -1,20 +1,22 @@
-//! Why a probe or a remux request was refused, as the window sees it.
+//! Why a probe or a session request was refused, as the window sees it.
 
 use serde::Serialize;
 
+use super::transcode::EncodeError;
 use crate::thumbs::Refusal;
 
-/// Why the window's probe or remux request was refused: an object tagged by `kind`.
+/// Why the window's probe or session request was refused: an object tagged by `kind`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-pub enum RemuxError {
-    /// An identity that was never admitted or names an image, or a session that is closed or never existed.
+pub enum VideoError {
+    /// An identity that was never admitted or names an image, or a session that is closed or never existed, or was
+    /// closed while its request was being answered.
     #[error("no such video or session")]
     NotFound,
     /// An admitted file that has been removed or changed since.
     #[error("the file has changed or can no longer be read")]
     Gone,
-    /// A file that can't be read or remuxed as a video.
+    /// A file that can't be read, remuxed, decoded or encoded as asked.
     #[error("{message}")]
     Unreadable {
         /// What went wrong.
@@ -22,7 +24,7 @@ pub enum RemuxError {
     },
 }
 
-impl From<Refusal> for RemuxError {
+impl From<Refusal> for VideoError {
     fn from(refusal: Refusal) -> Self {
         match refusal {
             Refusal::NotFound => Self::NotFound,
@@ -31,14 +33,24 @@ impl From<Refusal> for RemuxError {
     }
 }
 
-impl From<media::Error> for RemuxError {
+impl From<media::Error> for VideoError {
     fn from(err: media::Error) -> Self {
         Self::Unreadable { message: err.to_string() }
     }
 }
 
-impl From<tauri::Error> for RemuxError {
+impl From<tauri::Error> for VideoError {
     fn from(err: tauri::Error) -> Self {
         Self::Unreadable { message: format!("the video task did not finish: {err}") }
+    }
+}
+
+impl From<EncodeError> for VideoError {
+    fn from(err: EncodeError) -> Self {
+        match err {
+            // The session was closed under the request, which then answers as if it had already been.
+            EncodeError::Cancelled => Self::NotFound,
+            EncodeError::Media(err) => err.into(),
+        }
     }
 }

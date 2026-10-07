@@ -6,7 +6,7 @@ use serde::Serialize;
 use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Manager};
 
-use super::RemuxError;
+use super::VideoError;
 use crate::thumbs::{Admitted, ThumbState, locate};
 
 /// A video's container, duration and main streams.
@@ -23,7 +23,7 @@ pub struct VideoProbe {
     audio: Option<StreamProbe>,
 }
 
-/// One main stream's codec.
+/// One main stream's codec, and whether the application can decode it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamProbe {
@@ -32,30 +32,34 @@ pub struct StreamProbe {
     /// The RFC 6381 codec string, such as `avc1.640028`, when `FFmpeg` has one.
     #[serde(skip_serializing_if = "Option::is_none")]
     codec_string: Option<String>,
+    /// Whether `FFmpeg` can decode the stream, and so a session can encode it.
+    decodable: bool,
 }
 
-/// The admitted video behind `identity`, refused as not found when it is an image. Shared with the remux sessions.
-pub(crate) fn locate_video(state: &ThumbState, identity: &str) -> Result<Admitted, RemuxError> {
+/// The admitted video behind `identity`, refused as not found when it is an image. Shared with the sessions.
+pub(crate) fn locate_video(state: &ThumbState, identity: &str) -> Result<Admitted, VideoError> {
     let admitted = locate(state, identity)?;
     if MediaType::from_path(&admitted.path) != Some(MediaType::Video) {
-        return Err(RemuxError::NotFound);
+        return Err(VideoError::NotFound);
     }
 
     Ok(admitted)
 }
 
-/// What the video behind `identity` holds. The main stream of each kind is the one a remux session carries.
-fn read(state: &ThumbState, identity: &str) -> Result<VideoProbe, RemuxError> {
+/// What the video behind `identity` holds. The main stream of each kind is the one a session carries.
+fn read(state: &ThumbState, identity: &str) -> Result<VideoProbe, VideoError> {
     let admitted = locate_video(state, identity)?;
     // Admission refuses a video whose path isn't Unicode.
-    let path = admitted.path.to_str().ok_or(RemuxError::Gone)?;
+    let path = admitted.path.to_str().ok_or(VideoError::Gone)?;
 
     let info = probe(path)?;
-    let reader = MediaReader::open(path)?;
-    let stream = |kind| {
+    let mut reader = MediaReader::open(path)?;
+    let mut stream = |kind| {
         let index = reader.best_stream(kind).ok()?;
         let stream = info.streams().get(index)?;
-        Some(StreamProbe { codec: stream.codec_name.clone(), codec_string: stream.codec_string.clone() })
+        // Opening a decoder takes milliseconds, and tells the window before it plays whether the stream can be encoded.
+        let decodable = reader.stream(index).decoder().is_ok();
+        Some(StreamProbe { codec: stream.codec_name.clone(), codec_string: stream.codec_string.clone(), decodable })
     };
 
     Ok(VideoProbe {
@@ -73,7 +77,7 @@ fn read(state: &ThumbState, identity: &str) -> Result<VideoProbe, RemuxError> {
 /// `notfound` for an identity never admitted or naming an image, `gone` for a file removed or changed since, and
 /// `unreadable` for one that can't be read as a video.
 #[tauri::command]
-pub async fn probe_video(app: AppHandle, identity: String) -> Result<VideoProbe, RemuxError> {
+pub async fn probe_video(app: AppHandle, identity: String) -> Result<VideoProbe, VideoError> {
     spawn_blocking(move || read(&app.state::<ThumbState>(), &identity)).await?
 }
 
@@ -83,10 +87,10 @@ mod tests {
 
     use super::*;
     use crate::thumbs::tests::{fixture, state};
-    use crate::video::fixtures::{admit, mkv, mkv_video_only};
+    use crate::video::fixtures::{admit, mkv, mkv_undecodable, mkv_video_only};
 
     fn stream(codec: &str, codec_string: &str) -> StreamProbe {
-        StreamProbe { codec: codec.to_owned(), codec_string: Some(codec_string.to_owned()) }
+        StreamProbe { codec: codec.to_owned(), codec_string: Some(codec_string.to_owned()), decodable: true }
     }
 
     #[test]
@@ -99,6 +103,7 @@ mod tests {
         assert!(probe.format.starts_with("mov,mp4,"), "{}", probe.format);
         let video = probe.video.unwrap();
         assert_eq!(video.codec, "h264");
+        assert!(video.decodable);
         assert!(video.codec_string.unwrap().starts_with("avc1."));
         assert!((probe.duration - 10.3).abs() < 0.1, "{}", probe.duration);
     }
@@ -141,6 +146,18 @@ mod tests {
     }
 
     #[test]
+    fn a_stream_that_cant_be_decoded_is_reported_not_refused() {
+        let state = state();
+        let dir = mk_temp_dir("mediasim-probe-").unwrap();
+        let identity = admit(&state, &mkv_undecodable(dir.path()));
+
+        let probe = read(&state, &identity).unwrap();
+
+        assert!(!probe.video.unwrap().decodable);
+        assert_eq!(probe.audio.unwrap(), stream("aac", "mp4a.40.2"));
+    }
+
+    #[test]
     fn the_answer_is_camel_case_and_leaves_out_what_is_absent() {
         let state = state();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
@@ -149,16 +166,17 @@ mod tests {
         let json = serde_json::to_value(read(&state, &identity).unwrap()).unwrap();
 
         assert!(json["video"]["codecString"].is_string());
+        assert_eq!(json["video"]["decodable"], true);
         assert!(json.get("audio").is_none());
     }
 
     #[test]
     fn a_missing_codec_string_is_left_out_not_empty() {
-        let probe = StreamProbe { codec: "wmv3".to_owned(), codec_string: None };
+        let probe = StreamProbe { codec: "wmv3".to_owned(), codec_string: None, decodable: true };
 
         let json = serde_json::to_value(probe).unwrap();
 
-        assert_eq!(json, serde_json::json!({ "codec": "wmv3" }));
+        assert_eq!(json, serde_json::json!({ "codec": "wmv3", "decodable": true }));
     }
 
     #[test]
@@ -166,8 +184,8 @@ mod tests {
         let state = state();
         let image = admit(&state, &fixture("test1.png"));
 
-        assert_eq!(read(&state, &image), Err(RemuxError::NotFound));
-        assert_eq!(read(&state, "0123456789abcdef"), Err(RemuxError::NotFound));
+        assert_eq!(read(&state, &image), Err(VideoError::NotFound));
+        assert_eq!(read(&state, "0123456789abcdef"), Err(VideoError::NotFound));
     }
 
     #[test]
@@ -179,7 +197,7 @@ mod tests {
 
         std::fs::remove_file(&path).unwrap();
 
-        assert_eq!(read(&state, &identity), Err(RemuxError::Gone));
+        assert_eq!(read(&state, &identity), Err(VideoError::Gone));
     }
 
     #[test]
@@ -190,6 +208,6 @@ mod tests {
         std::fs::write(&path, b"not a video").unwrap();
         let identity = admit(&state, &path);
 
-        assert!(matches!(read(&state, &identity), Err(RemuxError::Unreadable { .. })));
+        assert!(matches!(read(&state, &identity), Err(VideoError::Unreadable { .. })));
     }
 }
