@@ -9,11 +9,13 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use media::codec::VideoEncoder;
+use media::codec::{VideoEncoder, VideoEncoderBuilder};
 use media::prelude::{
-    Bitrate, Decoder, Frame, Framerate, H264Preset, H264Profile, MediaReader, Packet, PixelFormat, Rational,
-    StreamKind, VideoCodec, VideoFilter, VideoFilterChain,
+    Bitrate, Decoder, Frame, Framerate, H264Profile, MediaReader, Packet, Rational, StreamKind, VideoCodec,
+    VideoFilter, VideoFilterChain,
 };
+
+use super::encoder::Candidate;
 
 /// The grid's step.
 pub(crate) const SEGMENT: Duration = Duration::from_secs(2);
@@ -22,17 +24,13 @@ pub(crate) const SEGMENT: Duration = Duration::from_secs(2);
 const LONGER: f64 = 1920.0;
 const SHORTER: f64 = 1080.0;
 
-/// Bits per encoded pixel per frame: about 6 Mbit/s at 1080p30. The spike measured this at 44–49 dB PSNR, where the
-/// keyframe at each segment's start doesn't show.
-const BITS_PER_PIXEL: f64 = 0.1;
+/// The bitrate's bounds. Within them it is the candidate's bits per pixel per frame: at `libx264`'s 0.1, about
+/// 6 Mbit/s at 1080p30.
 const MIN_BITRATE: f64 = 1_000_000.0;
 const MAX_BITRATE: f64 = 8_000_000.0;
 
 /// The frame rate assumed when the stream doesn't say.
 const FALLBACK_FRAME_RATE: Framerate = Framerate::fps(30);
-
-/// The spike's choice: a 1080p30 segment in under a second with two sessions encoding at once.
-const PRESET: H264Preset = H264Preset::Veryfast;
 
 /// Why encoding a segment stopped.
 #[derive(Debug, thiserror::Error)]
@@ -40,6 +38,9 @@ pub(crate) enum EncodeError {
     /// The session was closed while the segment was being encoded.
     #[error("the session was closed while encoding")]
     Cancelled,
+    /// The encoder failed to open, to encode a frame, or to flush: the encoder's fault, not the file's.
+    #[error(transparent)]
+    Encoder(media::Error),
     #[error(transparent)]
     Media(#[from] media::Error),
 }
@@ -53,17 +54,23 @@ pub(crate) struct EncoderSettings {
     pub(crate) frame_rate: Framerate,
     /// The source stream's, so every frame keeps its source time.
     pub(crate) time_base: Rational,
-    pub(crate) preset: H264Preset,
+    pub(crate) candidate: Candidate,
     pub(crate) bitrate: Bitrate,
     /// Above a segment's frame count, so a segment has one keyframe, its first frame.
     pub(crate) gop: u32,
 }
 
 impl EncoderSettings {
-    fn new((width, height): (u32, u32), frame_rate: Framerate, time_base: Rational) -> Self {
+    pub(crate) fn new(
+        candidate: Candidate,
+        (width, height): (u32, u32),
+        frame_rate: Framerate,
+        time_base: Rational,
+    ) -> Self {
         let pixels_per_second = f64::from(width) * f64::from(height) * frame_rate.as_f64();
         #[expect(clippy::cast_possible_truncation, reason = "clamped to 8 Mbit/s")]
-        let bitrate = Bitrate::bps((pixels_per_second * BITS_PER_PIXEL).clamp(MIN_BITRATE, MAX_BITRATE) as i64);
+        let bitrate =
+            Bitrate::bps((pixels_per_second * candidate.bits_per_pixel).clamp(MIN_BITRATE, MAX_BITRATE) as i64);
         // Four times a segment's frames leaves room for a stream whose average rate understates its bursts.
         #[expect(
             clippy::cast_possible_truncation,
@@ -72,25 +79,37 @@ impl EncoderSettings {
         )]
         let gop = (frame_rate.as_f64() * SEGMENT.as_secs_f64() * 4.0).ceil() as u32 + 1;
 
-        Self { width, height, frame_rate, time_base, preset: PRESET, bitrate, gop }
+        Self { width, height, frame_rate, time_base, candidate, bitrate, gop }
     }
 
     /// A fresh encoder: H.264 High, 8-bit 4:2:0, with no B-frames, so every packet's `dts` is its `pts` and
-    /// timestamps run on from one encoder to the next, and no scene-cut keyframes, so the only one is the first frame.
+    /// timestamps run on from one encoder to the next, and with the candidate's options, which keep it from placing
+    /// keyframes of its own, so the only one is the first frame.
     pub(crate) fn encoder(&self) -> media::Result<VideoEncoder> {
-        VideoEncoder::builder()
+        self.builder().build()
+    }
+
+    /// What [`encoder`](Self::encoder) builds, not yet opened.
+    pub(crate) fn builder(&self) -> VideoEncoderBuilder {
+        let candidate = &self.candidate;
+        let mut builder = VideoEncoder::builder()
             .codec(VideoCodec::H264)
+            .encoder(candidate.name)
             .resolution(self.width, self.height)
-            .pixel_format(PixelFormat::Yuv420p)
+            .pixel_format(candidate.pixel_format)
             .framerate(self.frame_rate)
             .time_base(self.time_base)
             .bitrate(self.bitrate)
-            .preset(self.preset)
             .profile(H264Profile::High)
             .gop_size(self.gop)
-            .option("bf", "0")
-            .option("sc_threshold", "0")
-            .build()
+            .option("bf", "0");
+        if let Some(preset) = candidate.preset {
+            builder = builder.preset(preset);
+        }
+        for (key, value) in candidate.options {
+            builder = builder.option(key, value);
+        }
+        builder
     }
 }
 
@@ -112,8 +131,9 @@ pub(crate) fn shape(width: u32, height: u32, sar: Rational, rotation: Option<i32
     (even(shown_width), even(shown_height))
 }
 
-/// The filters that turn a decoded frame into what the encoder takes: upright, at `width`×`height`, in 8-bit 4:2:0.
-pub(crate) fn chain(rotation: Option<i32>, (width, height): (u32, u32)) -> VideoFilterChain {
+/// The filters that turn a decoded frame into what the encoder takes: upright, at `width`×`height`, in 8-bit 4:2:0 as
+/// `format` lays it out (`yuv420p` or `nv12`).
+pub(crate) fn chain(rotation: Option<i32>, (width, height): (u32, u32), format: &str) -> VideoFilterChain {
     let turn = match rotation {
         Some(90) => "transpose=clock,",
         Some(180) => "hflip,vflip,",
@@ -121,7 +141,7 @@ pub(crate) fn chain(rotation: Option<i32>, (width, height): (u32, u32)) -> Video
         _ => "",
     };
 
-    VideoFilterChain::raw(format!("{turn}scale={width}:{height},format=yuv420p"))
+    VideoFilterChain::raw(format!("{turn}scale={width}:{height},format={format}"))
 }
 
 /// The segment a session opened at `at` starts with: the last grid boundary at or before it.
@@ -164,12 +184,12 @@ pub(crate) struct VideoEncode {
 }
 
 impl VideoEncode {
-    /// Opens the main video stream of `path`.
+    /// Opens the main video stream of `path`, to be encoded by `candidate`.
     ///
     /// # Errors
     ///
     /// The file can't be read, has no video stream, or `FFmpeg` can't decode it.
-    pub(crate) fn open(path: &str) -> media::Result<Self> {
+    pub(crate) fn open(path: &str, candidate: Candidate) -> media::Result<Self> {
         let mut reader = MediaReader::open(path)?;
         let index = reader.best_stream(StreamKind::Video)?;
         let time_base = reader.stream_time_base(index)?;
@@ -179,8 +199,9 @@ impl VideoEncode {
         let decoder = reader.stream(index).decoder()?;
 
         let size = shape(decoder.width(), decoder.height(), decoder.sample_aspect_ratio(), rotation);
-        let filter = VideoFilter::new(&decoder, time_base, &chain(rotation, size))?;
-        let settings = EncoderSettings::new((filter.output_width(), filter.output_height()), frame_rate, time_base);
+        let filter = VideoFilter::new(&decoder, time_base, &chain(rotation, size, candidate.format()))?;
+        let settings =
+            EncoderSettings::new(candidate, (filter.output_width(), filter.output_height()), frame_rate, time_base);
         let origin = first_timestamp(&mut reader, index)?;
 
         let ticks = |seconds: f64| {
@@ -225,8 +246,9 @@ impl VideoEncode {
     ///
     /// # Errors
     ///
-    /// [`EncodeError::Cancelled`] when `cancel` is set, which is checked before each frame; any error from `media-rs`
-    /// otherwise. A partly encoded segment is dropped either way.
+    /// [`EncodeError::Cancelled`] when `cancel` is set, which is checked before each frame; [`EncodeError::Encoder`]
+    /// when the encoder fails to open, encode or flush; [`EncodeError::Media`] when reading, decoding or filtering the
+    /// file fails. A partly encoded segment is dropped either way.
     pub(crate) fn encode(&mut self, segment: u64, cancel: &AtomicBool) -> Result<Vec<Packet>, EncodeError> {
         let step = i64::try_from(segment).map_or(i64::MAX, |segment| segment.saturating_mul(self.step));
         let (from, until) =
@@ -237,7 +259,11 @@ impl VideoEncode {
         // Until this segment is done, the decoder is somewhere inside it.
         self.positioned = None;
 
-        let mut encoder = self.settings.encoder()?;
+        #[cfg(test)]
+        if self.settings.candidate.fails_from.is_some_and(|from| segment >= from) {
+            return Err(EncodeError::Encoder(media::Error::Bug("a test encoder failing as asked")));
+        }
+        let mut encoder = self.settings.encoder().map_err(EncodeError::Encoder)?;
         let mut packets = Vec::new();
         let mut any = false;
         while let Some(mut frame) = self.next_frame()? {
@@ -257,15 +283,15 @@ impl VideoEncode {
             self.last_pts = pts;
             frame.set_pts(pts);
             for shaped in self.filter.filter(frame)? {
-                for packet in encoder.encode(&shaped)? {
-                    packets.push(packet?);
+                for packet in encoder.encode(&shaped).map_err(EncodeError::Encoder)? {
+                    packets.push(packet.map_err(EncodeError::Encoder)?);
                 }
                 any = true;
             }
         }
         if any {
-            for packet in encoder.flush()? {
-                packets.push(packet?);
+            for packet in encoder.flush().map_err(EncodeError::Encoder)? {
+                packets.push(packet.map_err(EncodeError::Encoder)?);
             }
         }
 
@@ -333,6 +359,7 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
+    use crate::video::encoder::{Encoders, LIBX264};
     use crate::video::fixtures::reencoded;
 
     /// 10 s of `test3.mp4` at 540×960 with a keyframe every 1.5 s, so most of its keyframes fall inside a segment.
@@ -390,7 +417,7 @@ mod tests {
             [("uhd.mp4", (3840, 2160), (1920, 1080)), ("wide.mp4", (3840, 1600), (1920, 800))]
         {
             let path = reencoded(dir.path(), name, source, 30, 0.2);
-            let mut session = VideoEncode::open(path.to_str().unwrap()).unwrap();
+            let mut session = VideoEncode::open(path.to_str().unwrap(), LIBX264).unwrap();
 
             let settings = session.settings();
             assert_eq!((settings.width, settings.height), encoded, "{name}");
@@ -401,16 +428,31 @@ mod tests {
 
     #[test]
     fn the_chain_turns_then_scales_then_converts() {
-        assert_eq!(chain(None, (1920, 1080)).description(), "scale=1920:1080,format=yuv420p");
-        assert_eq!(chain(Some(0), (1920, 1080)).description(), "scale=1920:1080,format=yuv420p");
-        assert_eq!(chain(Some(90), (720, 1280)).description(), "transpose=clock,scale=720:1280,format=yuv420p");
-        assert_eq!(chain(Some(180), (1280, 720)).description(), "hflip,vflip,scale=1280:720,format=yuv420p");
-        assert_eq!(chain(Some(270), (720, 1280)).description(), "transpose=cclock,scale=720:1280,format=yuv420p");
+        assert_eq!(chain(None, (1920, 1080), "yuv420p").description(), "scale=1920:1080,format=yuv420p");
+        assert_eq!(chain(Some(0), (1920, 1080), "yuv420p").description(), "scale=1920:1080,format=yuv420p");
+        assert_eq!(
+            chain(Some(90), (720, 1280), "yuv420p").description(),
+            "transpose=clock,scale=720:1280,format=yuv420p"
+        );
+        assert_eq!(
+            chain(Some(180), (1280, 720), "yuv420p").description(),
+            "hflip,vflip,scale=1280:720,format=yuv420p"
+        );
+        assert_eq!(
+            chain(Some(270), (720, 1280), "yuv420p").description(),
+            "transpose=cclock,scale=720:1280,format=yuv420p"
+        );
+    }
+
+    #[test]
+    fn the_chain_converts_to_the_encoders_pixel_format() {
+        assert_eq!(chain(None, (1920, 1080), "nv12").description(), "scale=1920:1080,format=nv12");
+        assert_eq!(chain(Some(90), (720, 1280), "nv12").description(), "transpose=clock,scale=720:1280,format=nv12");
     }
 
     #[test]
     fn the_bitrate_follows_the_picture_within_bounds() {
-        let at = |size, fps| EncoderSettings::new(size, Framerate::fps(fps), Rational::new(1, 90_000)).bitrate;
+        let at = |size, fps| EncoderSettings::new(LIBX264, size, Framerate::fps(fps), Rational::new(1, 90_000)).bitrate;
 
         assert_eq!(at((1920, 1080), 30), Bitrate::bps(6_220_800));
         assert_eq!(at((1920, 1080), 60), Bitrate::mbps(8));
@@ -426,10 +468,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn each_segment_has_one_keyframe_its_first_packet() {
+    fn assert_one_keyframe_per_segment(candidate: Candidate) {
         let dir = mk_temp_dir("mediasim-transcode-").unwrap();
-        let mut session = VideoEncode::open(&off_grid(dir.path())).unwrap();
+        let mut session = VideoEncode::open(&off_grid(dir.path()), candidate).unwrap();
 
         for segment in 0..5 {
             let packets = encode(&mut session, segment);
@@ -439,13 +480,32 @@ mod tests {
     }
 
     #[test]
+    fn each_segment_has_one_keyframe_its_first_packet() {
+        assert_one_keyframe_per_segment(LIBX264);
+    }
+
+    #[test]
+    fn each_segment_has_one_keyframe_its_first_packet_with_the_chosen_encoder() {
+        assert_one_keyframe_per_segment(Encoders::default().current());
+    }
+
+    #[test]
     fn each_segment_holds_the_source_frames_of_its_window_at_their_source_times() {
+        assert_segments_hold_their_windows(LIBX264);
+    }
+
+    #[test]
+    fn each_segment_holds_the_source_frames_of_its_window_with_the_chosen_encoder() {
+        assert_segments_hold_their_windows(Encoders::default().current());
+    }
+
+    fn assert_segments_hold_their_windows(candidate: Candidate) {
         let dir = mk_temp_dir("mediasim-transcode-").unwrap();
         let path = off_grid(dir.path());
         let mut reader = MediaReader::open(&path).unwrap();
         let mut source: Vec<i64> = reader.packets().map(|packet| packet.unwrap().pts()).collect();
         source.sort_unstable();
-        let mut session = VideoEncode::open(&path).unwrap();
+        let mut session = VideoEncode::open(&path, candidate).unwrap();
         let step = session.step;
         assert_eq!(session.settings().width, 540);
 
@@ -466,10 +526,10 @@ mod tests {
     fn a_segment_is_the_same_whether_the_decoder_carried_on_or_sought() {
         let dir = mk_temp_dir("mediasim-transcode-").unwrap();
         let path = off_grid(dir.path());
-        let mut carried = VideoEncode::open(&path).unwrap();
+        let mut carried = VideoEncode::open(&path, LIBX264).unwrap();
         encode(&mut carried, 0);
         encode(&mut carried, 1);
-        let mut sought = VideoEncode::open(&path).unwrap();
+        let mut sought = VideoEncode::open(&path, LIBX264).unwrap();
 
         let (after, alone) = (encode(&mut carried, 2), encode(&mut sought, 2));
 
@@ -482,7 +542,7 @@ mod tests {
     #[test]
     fn past_the_end_there_is_nothing() {
         let dir = mk_temp_dir("mediasim-transcode-").unwrap();
-        let mut session = VideoEncode::open(&off_grid(dir.path())).unwrap();
+        let mut session = VideoEncode::open(&off_grid(dir.path()), LIBX264).unwrap();
 
         assert!(encode(&mut session, 5).is_empty());
         assert!(encode(&mut session, 40).is_empty());
@@ -492,7 +552,7 @@ mod tests {
     #[test]
     fn a_set_cancel_flag_stops_before_the_next_frame() {
         let dir = mk_temp_dir("mediasim-transcode-").unwrap();
-        let mut session = VideoEncode::open(&off_grid(dir.path())).unwrap();
+        let mut session = VideoEncode::open(&off_grid(dir.path()), LIBX264).unwrap();
 
         let result = session.encode(0, &AtomicBool::new(true));
 

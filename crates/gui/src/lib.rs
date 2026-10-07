@@ -32,6 +32,7 @@ pub fn run() {
         .manage(<trash::TrashState>::default())
         .manage(video::SessionState::default())
         .manage(video::Segments::default())
+        .manage(video::Encoders::default())
         // Thumbnails for admitted files only, never by path; see `thumbs`.
         .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::serve)
         // Byte ranges of admitted videos, by identity like `thumb`; see `video`.
@@ -42,6 +43,11 @@ pub fn run() {
             std::thread::spawn(move || {
                 let dir = handle.path().app_cache_dir().ok().map(|dir| dir.join("thumbnails"));
                 handle.state::<thumbs::ThumbState>().open_cache(dir.as_deref());
+            });
+            // Tests the hardware encoders off the main thread; a transcode opened before it finishes waits for it.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                handle.state::<video::Encoders>().current();
             });
             // The window ships hidden and is shown by `window_ready`; this shows it anyway if the frontend never reports.
             window::reveal_when_late(app.handle());

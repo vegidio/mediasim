@@ -19,6 +19,7 @@ use serde::Deserialize;
 
 use super::audio::AudioSource;
 use super::cache::Segments;
+use super::encoder::{Candidate, init_segment};
 use super::transcode::{EncodeError, VideoEncode, segment_at, segment_start};
 
 /// How a session carries the main video stream.
@@ -45,11 +46,11 @@ pub enum AudioMode {
 
 /// Where the writer's output collects until [`Session::next`] takes it. Shared, because the writer owns its copy.
 #[derive(Clone, Default)]
-struct Sink(Arc<Mutex<Vec<u8>>>);
+pub(super) struct Sink(Arc<Mutex<Vec<u8>>>);
 
 impl Sink {
     /// Everything written since the last take.
-    fn take(&self) -> Vec<u8> {
+    pub(super) fn take(&self) -> Vec<u8> {
         std::mem::take(&mut *self.0.lock().unwrap_or_else(PoisonError::into_inner))
     }
 }
@@ -139,7 +140,7 @@ pub(crate) struct Session {
 }
 
 /// A fragmented-MP4 writer into a fresh sink.
-fn writer() -> media::Result<(MediaWriter, Sink)> {
+pub(super) fn writer() -> media::Result<(MediaWriter, Sink)> {
     let sink = Sink::default();
     // `negative_cts_offsets` starts a stream with B-frames at 0 rather than at its first composition offset.
     let writer = MediaWriter::builder()
@@ -152,7 +153,8 @@ fn writer() -> media::Result<(MediaWriter, Sink)> {
 
 impl Session {
     /// Opens `path`, the video behind `identity`, for a session starting at `at`, carrying its main video stream as
-    /// `video` says and its main audio stream, when it has one, as `audio` says.
+    /// `video` says, encoded by the candidate `choose` gives when it is encoded, and its main audio stream, when it has
+    /// one, as `audio` says. `choose` is only called for an encoded video, so a copy never waits for the encoder test.
     ///
     /// Returns the session and the time, in seconds, it actually starts from:
     /// - copying the video, the last keyframe at or before `at`, or 0 when `at` is 0 or comes before the first
@@ -171,6 +173,7 @@ impl Session {
         identity: &str,
         at: Duration,
         video: VideoMode,
+        choose: impl FnOnce() -> Candidate,
         audio: AudioMode,
     ) -> media::Result<(Self, f64)> {
         let (video, start, from) = match video {
@@ -179,7 +182,7 @@ impl Session {
                 (VideoSource::Copy(video), start, from)
             }
             VideoMode::Encode => {
-                let encode = VideoEncode::open(path)?;
+                let encode = VideoEncode::open(path, choose())?;
                 let segment = segment_at(at);
                 let from = encode.boundary(segment);
                 let init = init_hash(&encode)?;
@@ -209,6 +212,14 @@ impl Session {
         };
 
         Ok((Self { video, audio, writer, sink, video_out, phase: Phase::Init }, start))
+    }
+
+    /// The encoder of an encoded video, or `None` when the video is copied.
+    pub(crate) fn encoder(&self) -> Option<Candidate> {
+        match &self.video {
+            VideoSource::Copy(_) => None,
+            VideoSource::Encode(encoded) => Some(encoded.encode.settings().candidate),
+        }
     }
 
     /// The next segment: the init segment first, then one segment's fragments per call, each beginning on a video
@@ -308,11 +319,7 @@ fn open_copy(path: &str, at: Duration) -> media::Result<(CopiedVideo, f64, f64)>
 /// It covers the encoder, its settings, the picture's shape and the encoder's build, but not the sound, which doesn't
 /// change the video's packets, so sessions that carry the sound differently share segments.
 fn init_hash(encode: &VideoEncode) -> media::Result<String> {
-    let (mut writer, sink) = writer()?;
-    writer.add_stream_from_encoder(&encode.settings().encoder()?)?;
-    writer.write_header()?;
-    writer.flush()?;
-    Ok(rust_sak::crypto::xxh3_bytes(&sink.take()))
+    Ok(rust_sak::crypto::xxh3_bytes(&init_segment(&encode.settings().encoder()?)?))
 }
 
 #[cfg(test)]
@@ -323,6 +330,7 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::thumbs::tests::fixture;
+    use crate::video::encoder::LIBX264;
     use crate::video::fixtures::{mkv, mkv_two_audio, mkv_video_only, rotated};
 
     /// The top-level MP4 boxes in `bytes`, by name.
@@ -359,7 +367,7 @@ pub(crate) mod tests {
     const ID: &str = "0123456789abcdef";
 
     fn open_as(path: &Path, at: f64, video: VideoMode, audio: AudioMode) -> (Session, f64) {
-        Session::open(path.to_str().unwrap(), ID, Duration::from_secs_f64(at), video, audio).unwrap()
+        Session::open(path.to_str().unwrap(), ID, Duration::from_secs_f64(at), video, || LIBX264, audio).unwrap()
     }
 
     /// A slice 4 remux: the video copied, with or without its sound copied.
@@ -699,6 +707,9 @@ pub(crate) mod tests {
         let path = dir.path().join("fake.mkv");
         std::fs::write(&path, b"not a video").unwrap();
 
-        assert!(Session::open(path.to_str().unwrap(), ID, Duration::ZERO, VideoMode::Encode, AudioMode::None).is_err());
+        assert!(
+            Session::open(path.to_str().unwrap(), ID, Duration::ZERO, VideoMode::Encode, || LIBX264, AudioMode::None)
+                .is_err()
+        );
     }
 }

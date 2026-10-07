@@ -7,10 +7,12 @@
 //!
 //! A video the window can't play from its own bytes is played through Media Source Extensions instead: [`probe`] tells
 //! the window what the file holds, and a session in [`sessions`] copies or encodes its main streams into fragmented
-//! MP4, one segment per request. Encoded segments are kept in [`Segments`].
+//! MP4, one segment per request. Encoded segments are kept in [`Segments`], and encoded by the encoder [`Encoders`]
+//! chooses.
 
 mod audio;
 mod cache;
+mod encoder;
 mod error;
 #[cfg(test)]
 mod fixtures;
@@ -26,6 +28,7 @@ use std::path::Path;
 use tauri::http::Uri;
 
 pub use cache::Segments;
+pub use encoder::Encoders;
 pub use error::VideoError;
 pub use serve::serve;
 pub use sessions::SessionState;

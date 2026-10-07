@@ -50,7 +50,7 @@ impl From<EncodeError> for VideoError {
         match err {
             // The session was closed under the request, which then answers as if it had already been.
             EncodeError::Cancelled => Self::NotFound,
-            EncodeError::Media(err) => err.into(),
+            EncodeError::Media(err) | EncodeError::Encoder(err) => err.into(),
         }
     }
 }

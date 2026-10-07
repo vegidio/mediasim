@@ -21,8 +21,10 @@ use tauri::{AppHandle, Manager};
 
 use super::VideoError;
 use super::cache::Segments;
+use super::encoder::Encoders;
 use super::probe::locate_video;
 use super::session::{AudioMode, Session as Pipeline, VideoMode};
+use super::transcode::EncodeError;
 use crate::thumbs::{ThumbState, locate};
 
 /// The most sessions open at once: both views' two players, a reopen after a seek while the old session is still
@@ -85,10 +87,12 @@ impl SessionState {
     }
 
     /// Opens a session for the video behind `identity`, starting at `at`, carrying its video and audio as `video` and
-    /// `audio` say. Closes the session requested from least recently when there are already [`LIMIT`].
+    /// `audio` say, and encoding its video, when it does, with the encoder `encoders` has in use. Closes the session
+    /// requested from least recently when there are already [`LIMIT`].
     fn open(
         &self,
         thumbs: &ThumbState,
+        encoders: &Encoders,
         identity: &str,
         at: Duration,
         video: VideoMode,
@@ -96,7 +100,7 @@ impl SessionState {
     ) -> Result<Opened, VideoError> {
         let admitted = locate_video(thumbs, identity)?;
         let path = admitted.path.to_str().ok_or(VideoError::Gone)?;
-        let (pipeline, start) = Pipeline::open(path, identity, at, video, audio)?;
+        let (pipeline, start) = Pipeline::open(path, identity, at, video, || encoders.current(), audio)?;
         let session = Arc::new(Mutex::new(Session { pipeline, identity: identity.to_owned() }));
 
         let mut registry = self.registry();
@@ -120,8 +124,15 @@ impl SessionState {
     }
 
     /// The next segment of session `id`. A file removed or changed since, or one that fails to read or encode, closes
-    /// the session; a session closed while this was being answered is not found.
-    fn next(&self, thumbs: &ThumbState, segments: &Segments, id: u64) -> Result<Vec<u8>, VideoError> {
+    /// the session; a session closed while this was being answered is not found. A hardware encoder that fails is
+    /// retired from `encoders`, so sessions opened later use the next one.
+    fn next(
+        &self,
+        thumbs: &ThumbState,
+        segments: &Segments,
+        encoders: &Encoders,
+        id: u64,
+    ) -> Result<Vec<u8>, VideoError> {
         let (session, cancel) = {
             let mut registry = self.registry();
             registry.requests += 1;
@@ -142,6 +153,9 @@ impl SessionState {
         }
 
         let segment = session.pipeline.next(segments, &cancel).map_err(|err| {
+            if let (EncodeError::Encoder(_), Some(encoder)) = (&err, session.pipeline.encoder()) {
+                encoders.retire(&encoder);
+            }
             let err = VideoError::from(err);
             if err != VideoError::NotFound {
                 self.close(id);
@@ -192,8 +206,17 @@ pub async fn video_open(
     // A time the window can't mean, such as `NaN` or a negative one, is read as the start.
     let at = Duration::try_from_secs_f64(at).unwrap_or_default();
 
-    spawn_blocking(move || app.state::<SessionState>().open(&app.state::<ThumbState>(), &identity, at, video, audio))
-        .await?
+    spawn_blocking(move || {
+        app.state::<SessionState>().open(
+            &app.state::<ThumbState>(),
+            &app.state::<Encoders>(),
+            &identity,
+            at,
+            video,
+            audio,
+        )
+    })
+    .await?
 }
 
 /// The next segment of a session, as raw bytes: the init segment, then one segment's fragments per call, then empty.
@@ -206,7 +229,12 @@ pub async fn video_open(
 #[tauri::command]
 pub async fn video_next(app: AppHandle, session: u64) -> Result<Response, VideoError> {
     let segment = spawn_blocking(move || {
-        app.state::<SessionState>().next(&app.state::<ThumbState>(), &app.state::<Segments>(), session)
+        app.state::<SessionState>().next(
+            &app.state::<ThumbState>(),
+            &app.state::<Segments>(),
+            &app.state::<Encoders>(),
+            session,
+        )
     })
     .await??;
 
@@ -236,8 +264,17 @@ mod tests {
     use crate::video::fixtures::{admit, mkv, mkv_undecodable, reencoded};
     use crate::video::session::tests::boxes;
 
+    /// Encoders with no hardware candidate, so these tests encode on `libx264` without testing anything.
+    fn software() -> &'static Encoders {
+        static SOFTWARE: std::sync::LazyLock<Encoders> = std::sync::LazyLock::new(|| Encoders::with(&[]));
+        &SOFTWARE
+    }
+
     fn open_as(state: &SessionState, thumbs: &ThumbState, identity: &str, video: VideoMode) -> u64 {
-        state.open(thumbs, identity, Duration::ZERO, video, AudioMode::Copy).unwrap().session
+        state
+            .open(thumbs, software(), identity, Duration::ZERO, video, AudioMode::Copy)
+            .unwrap()
+            .session
     }
 
     fn open(state: &SessionState, thumbs: &ThumbState, identity: &str) -> u64 {
@@ -251,14 +288,14 @@ mod tests {
         let identity = admit(&thumbs, &mkv(dir.path()));
 
         let opened = state
-            .open(&thumbs, &identity, Duration::from_secs(3), VideoMode::Copy, AudioMode::Copy)
+            .open(&thumbs, software(), &identity, Duration::from_secs(3), VideoMode::Copy, AudioMode::Copy)
             .unwrap();
         assert!((opened.start - 2.0).abs() < 0.001);
 
-        assert_eq!(boxes(&state.next(&thumbs, &segments, opened.session).unwrap()), ["ftyp", "moov"]);
+        assert_eq!(boxes(&state.next(&thumbs, &segments, software(), opened.session).unwrap()), ["ftyp", "moov"]);
         let mut fragments = 0;
         loop {
-            let segment = state.next(&thumbs, &segments, opened.session).unwrap();
+            let segment = state.next(&thumbs, &segments, software(), opened.session).unwrap();
             if segment.is_empty() {
                 break;
             }
@@ -267,7 +304,7 @@ mod tests {
         }
         // Keyframes at 2, 4, 6, 8 and 10 s.
         assert_eq!(fragments, 5);
-        assert!(state.next(&thumbs, &segments, opened.session).unwrap().is_empty());
+        assert!(state.next(&thumbs, &segments, software(), opened.session).unwrap().is_empty());
     }
 
     #[test]
@@ -293,14 +330,14 @@ mod tests {
         let identity = admit(&thumbs, &fixture("test3.mp4"));
         let ids: Vec<_> = (0..LIMIT).map(|_| open(&state, &thumbs, &identity)).collect();
         // The first is requested from again, so the second is now the least recent.
-        state.next(&thumbs, &segments, ids[0]).unwrap();
+        state.next(&thumbs, &segments, software(), ids[0]).unwrap();
 
         let ninth = open(&state, &thumbs, &identity);
 
         assert_eq!(state.len(), LIMIT);
-        assert_eq!(state.next(&thumbs, &segments, ids[1]), Err(VideoError::NotFound));
-        assert!(state.next(&thumbs, &segments, ids[0]).is_ok());
-        assert!(state.next(&thumbs, &segments, ninth).is_ok());
+        assert_eq!(state.next(&thumbs, &segments, software(), ids[1]), Err(VideoError::NotFound));
+        assert!(state.next(&thumbs, &segments, software(), ids[0]).is_ok());
+        assert!(state.next(&thumbs, &segments, software(), ninth).is_ok());
     }
 
     #[test]
@@ -311,15 +348,15 @@ mod tests {
         let encodes: Vec<_> = (0..3).map(|_| open_as(&state, &thumbs, &identity, VideoMode::Encode)).collect();
         // Every session but the first encode is requested from again, so that one is now the least recent.
         for id in copies.iter().chain(&encodes[1..]) {
-            state.next(&thumbs, &segments, *id).unwrap();
+            state.next(&thumbs, &segments, software(), *id).unwrap();
         }
 
         let ninth = open_as(&state, &thumbs, &identity, VideoMode::Encode);
 
         assert_eq!(state.len(), LIMIT);
-        assert_eq!(state.next(&thumbs, &segments, encodes[0]), Err(VideoError::NotFound));
-        assert!(state.next(&thumbs, &segments, copies[0]).is_ok());
-        assert!(state.next(&thumbs, &segments, ninth).is_ok());
+        assert_eq!(state.next(&thumbs, &segments, software(), encodes[0]), Err(VideoError::NotFound));
+        assert!(state.next(&thumbs, &segments, software(), copies[0]).is_ok());
+        assert!(state.next(&thumbs, &segments, software(), ninth).is_ok());
     }
 
     #[test]
@@ -329,13 +366,13 @@ mod tests {
         let dir = mk_temp_dir("mediasim-sessions-").unwrap();
         let identity = admit(&thumbs, &reencoded(dir.path(), "uhd.mp4", (2160, 3840), 60, 2.0));
         let id = open_as(&state, &thumbs, &identity, VideoMode::Encode);
-        state.next(&thumbs, &segments, id).unwrap();
+        state.next(&thumbs, &segments, software(), id).unwrap();
 
         let started = Instant::now();
         let encoding = {
             let (state, thumbs, segments) = (Arc::clone(&state), Arc::clone(&thumbs), Arc::clone(&segments));
             std::thread::spawn(move || {
-                let result = state.next(&thumbs, &segments, id);
+                let result = state.next(&thumbs, &segments, software(), id);
                 (result, Instant::now())
             })
         };
@@ -348,9 +385,9 @@ mod tests {
         assert_eq!(segments.encodes(), 1);
         // Nothing was kept: another session encodes the segment itself.
         let other = open_as(&state, &thumbs, &identity, VideoMode::Encode);
-        state.next(&thumbs, &segments, other).unwrap();
+        state.next(&thumbs, &segments, software(), other).unwrap();
         let whole = Instant::now();
-        assert!(!state.next(&thumbs, &segments, other).unwrap().is_empty());
+        assert!(!state.next(&thumbs, &segments, software(), other).unwrap().is_empty());
         let whole = whole.elapsed();
         assert_eq!(segments.encodes(), 2);
         // Stopped before the segment was done: a fixed bound would fail on a loaded machine, where every frame is slow,
@@ -369,12 +406,12 @@ mod tests {
             open_as(&state, &thumbs, &identity, VideoMode::Encode),
             open_as(&state, &thumbs, &identity, VideoMode::Encode),
         );
-        state.next(&thumbs, &segments, encoding).unwrap();
-        state.next(&thumbs, &segments, waiting).unwrap();
+        state.next(&thumbs, &segments, software(), encoding).unwrap();
+        state.next(&thumbs, &segments, software(), waiting).unwrap();
 
         let request = |id| {
             let (state, thumbs, segments) = (Arc::clone(&state), Arc::clone(&thumbs), Arc::clone(&segments));
-            std::thread::spawn(move || state.next(&thumbs, &segments, id))
+            std::thread::spawn(move || state.next(&thumbs, &segments, software(), id))
         };
         let encoder = request(encoding);
         // The second request for segment 0 joins the first one's encode rather than starting its own.
@@ -395,13 +432,13 @@ mod tests {
         let path = mkv(dir.path());
         let identity = admit(&thumbs, &path);
         let id = open_as(&state, &thumbs, &identity, VideoMode::Encode);
-        state.next(&thumbs, &segments, id).unwrap();
+        state.next(&thumbs, &segments, software(), id).unwrap();
 
         std::fs::remove_file(&path).unwrap();
 
-        assert_eq!(state.next(&thumbs, &segments, id), Err(VideoError::Gone));
+        assert_eq!(state.next(&thumbs, &segments, software(), id), Err(VideoError::Gone));
         assert_eq!(state.len(), 0);
-        assert_eq!(state.next(&thumbs, &segments, id), Err(VideoError::NotFound));
+        assert_eq!(state.next(&thumbs, &segments, software(), id), Err(VideoError::NotFound));
     }
 
     #[test]
@@ -414,7 +451,7 @@ mod tests {
         std::fs::remove_file(&path).unwrap();
 
         for video in [VideoMode::Copy, VideoMode::Encode] {
-            let opened = state.open(&thumbs, &identity, Duration::ZERO, video, AudioMode::Copy);
+            let opened = state.open(&thumbs, software(), &identity, Duration::ZERO, video, AudioMode::Copy);
             assert_eq!(opened, Err(VideoError::Gone));
         }
     }
@@ -425,7 +462,7 @@ mod tests {
         let image = admit(&thumbs, &fixture("test1.png"));
 
         for identity in [image.as_str(), "0123456789abcdef"] {
-            let opened = state.open(&thumbs, identity, Duration::ZERO, VideoMode::Copy, AudioMode::Copy);
+            let opened = state.open(&thumbs, software(), identity, Duration::ZERO, VideoMode::Copy, AudioMode::Copy);
             assert_eq!(opened, Err(VideoError::NotFound));
         }
     }
@@ -439,7 +476,7 @@ mod tests {
         let identity = admit(&thumbs, &path);
 
         for video in [VideoMode::Copy, VideoMode::Encode] {
-            let opened = state.open(&thumbs, &identity, Duration::ZERO, video, AudioMode::Encode);
+            let opened = state.open(&thumbs, software(), &identity, Duration::ZERO, video, AudioMode::Encode);
             assert!(matches!(opened, Err(VideoError::Unreadable { .. })), "{video:?}");
         }
         assert_eq!(state.len(), 0);
@@ -451,7 +488,7 @@ mod tests {
         let dir = mk_temp_dir("mediasim-sessions-").unwrap();
         let identity = admit(&thumbs, &mkv_undecodable(dir.path()));
 
-        let opened = state.open(&thumbs, &identity, Duration::ZERO, VideoMode::Encode, AudioMode::Copy);
+        let opened = state.open(&thumbs, software(), &identity, Duration::ZERO, VideoMode::Encode, AudioMode::Copy);
 
         assert!(matches!(opened, Err(VideoError::Unreadable { .. })), "{opened:?}");
         assert_eq!(state.len(), 0);
@@ -464,7 +501,7 @@ mod tests {
         let id = open(&state, &thumbs, &identity);
 
         state.close(id);
-        assert_eq!(state.next(&thumbs, &segments, id), Err(VideoError::NotFound));
+        assert_eq!(state.next(&thumbs, &segments, software(), id), Err(VideoError::NotFound));
 
         state.close(id);
         state.close(12_345);
@@ -478,10 +515,50 @@ mod tests {
         let (a, b) = (open(&state, &thumbs, &identity), open_as(&state, &thumbs, &identity, VideoMode::Encode));
 
         for _ in 0..3 {
-            state.next(&thumbs, &segments, a).unwrap();
+            state.next(&thumbs, &segments, software(), a).unwrap();
         }
 
-        assert_eq!(boxes(&state.next(&thumbs, &segments, b).unwrap()), ["ftyp", "moov"]);
-        assert_eq!(boxes(&state.next(&thumbs, &segments, a).unwrap()), ["moof", "mdat"]);
+        assert_eq!(boxes(&state.next(&thumbs, &segments, software(), b).unwrap()), ["ftyp", "moov"]);
+        assert_eq!(boxes(&state.next(&thumbs, &segments, software(), a).unwrap()), ["moof", "mdat"]);
+    }
+
+    // --- a hardware encoder failing during a run ----------------------------------------------------------------
+
+    #[test]
+    fn a_hardware_encoder_that_fails_is_retired_and_later_sessions_use_the_next() {
+        use crate::video::encoder::tests::GOOD;
+        use crate::video::encoder::{Candidate, LIBX264};
+
+        /// A hardware encoder that passes its test, then fails from its second segment on.
+        const FAILING: Candidate = Candidate { fails_from: Some(1), ..GOOD };
+        let choice = Encoders::with(&[FAILING]);
+        let (state, thumbs, segments) = (SessionState::default(), state(), Segments::default());
+        let dir = mk_temp_dir("mediasim-sessions-").unwrap();
+        let identity = admit(&thumbs, &mkv(dir.path()));
+        let open = || state.open(&thumbs, &choice, &identity, Duration::ZERO, VideoMode::Encode, AudioMode::None);
+        let (failing, kept) = (open().unwrap().session, open().unwrap().session);
+
+        let failing_init = state.next(&thumbs, &segments, &choice, failing).unwrap();
+        state.next(&thumbs, &segments, &choice, failing).unwrap();
+        let encodes = segments.encodes();
+
+        // The failing request is refused, and nothing is kept: the next request for the segment encodes it again.
+        assert!(matches!(state.next(&thumbs, &segments, &choice, failing), Err(VideoError::Unreadable { .. })));
+        assert_eq!(choice.current(), LIBX264);
+        // The session opened before keeps its encoder, which fails it in turn, after encoding the segment again.
+        assert_eq!(state.next(&thumbs, &segments, &choice, kept).unwrap(), failing_init);
+        state.next(&thumbs, &segments, &choice, kept).unwrap();
+        assert!(matches!(state.next(&thumbs, &segments, &choice, kept), Err(VideoError::Unreadable { .. })));
+        assert_eq!(segments.encodes(), encodes + 2, "a failed segment was kept");
+
+        // A session opened now encodes with libx264, under an init segment of its own, never served the failed
+        // encoder's segments.
+        let later = open().unwrap().session;
+        let encodes = segments.encodes();
+        assert_ne!(state.next(&thumbs, &segments, &choice, later).unwrap(), failing_init);
+        for _ in 0..3 {
+            assert_eq!(boxes(&state.next(&thumbs, &segments, &choice, later).unwrap()), ["moof", "mdat"]);
+        }
+        assert_eq!(segments.encodes(), encodes + 3, "a segment came from the failed encoder");
     }
 }
