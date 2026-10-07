@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { act, type ReactNode, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Slot } from "@/features/start/routePairDrop";
@@ -8,7 +8,22 @@ import { SliderStage } from "./SliderStage";
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
-vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
+vi.mock("@/ipc/video", () => ({
+    videoUrl: (identity: string) => `video://localhost/${identity}`,
+    // H.264 and AAC in MP4, which the test setup's `canPlayType` plays directly.
+    probeVideo: async () => ({
+        format: "mov,mp4,m4a,3gp,3g2,mj2",
+        duration: 42,
+        video: { codec: "h264", codecString: "avc1.640028" },
+        audio: { codec: "aac", codecString: "mp4a.40.2" },
+    }),
+    // A remux, which an error before the first frame falls back to, fails too: these files can't be played at all.
+    remuxOpen: vi.fn(async () => {
+        throw { kind: "unreadable", message: "not a video" };
+    }),
+    remuxNext: vi.fn(),
+    remuxClose: vi.fn(async () => {}),
+}));
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -437,7 +452,7 @@ describe("SliderStage", () => {
     describe("lone file", () => {
         const VIDEO = media("VID_0714.mov", "video");
 
-        it("gives a remaining video its own player, which plays it alone", () => {
+        it("gives a remaining video its own player, which plays it alone", async () => {
             const { container } = render(
                 <SliderStage
                     a={VIDEO}
@@ -448,6 +463,7 @@ describe("SliderStage", () => {
                     gone={{ b: "trash" }}
                 />,
             );
+            await act(async () => {});
 
             const videos = container.querySelectorAll("video");
             expect(videos).toHaveLength(1);

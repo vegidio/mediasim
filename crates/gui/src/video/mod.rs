@@ -4,15 +4,27 @@
 //! [`serve`] answers each byte range the player asks for, at most [`range::CAP`] bytes at a time, so a file of any size
 //! is played with bounded memory. A request names an identity, never a path, so the window can only reach files that
 //! were admitted.
+//!
+//! A video whose container the window can't open is played through Media Source Extensions instead: [`probe`] tells the
+//! window what the file holds, and a remux session in [`sessions`] copies its main streams into fragmented MP4, one
+//! segment per request.
 
+mod error;
+#[cfg(test)]
+mod fixtures;
+pub mod probe;
 mod range;
+mod remux;
 mod serve;
+pub mod sessions;
 
 use std::path::Path;
 
 use tauri::http::Uri;
 
+pub use error::RemuxError;
 pub use serve::serve;
+pub use sessions::RemuxState;
 
 // Must stay in sync with `tauri.conf.json`'s `media-src`, which needs both platform forms of it.
 /// The URI scheme videos are served over. Registered in `src/lib.rs`.
@@ -115,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn tauri_conf_json_lets_the_window_load_the_scheme() {
+    fn tauri_conf_json_lets_the_window_load_the_scheme_and_object_urls() {
         let conf: serde_json::Value =
             serde_json::from_str(include_str!("../../tauri.conf.json")).expect("tauri.conf.json is JSON");
 
@@ -123,19 +135,26 @@ mod tests {
             let media_src = conf["app"]["security"][policy]["media-src"].as_str().expect("media-src is set");
             let sources: Vec<_> = media_src.split_whitespace().collect();
 
-            assert_eq!(sources, ["'self'", &format!("{SCHEME}:"), &format!("http://{SCHEME}.localhost")], "{policy}");
+            assert_eq!(
+                sources,
+                ["'self'", &format!("{SCHEME}:"), &format!("http://{SCHEME}.localhost"), "blob:"],
+                "{policy}"
+            );
         }
     }
 
     #[test]
-    fn media_src_is_the_only_directive_that_mentions_the_scheme() {
+    fn media_src_is_the_only_directive_that_mentions_the_scheme_or_blob() {
         let conf: serde_json::Value =
             serde_json::from_str(include_str!("../../tauri.conf.json")).expect("tauri.conf.json is JSON");
 
         for policy in ["csp", "devCsp"] {
             let directives = conf["app"]["security"][policy].as_object().expect("the policy is an object");
             for (name, sources) in directives.iter().filter(|(name, _)| name.as_str() != "media-src") {
-                assert!(!sources.as_str().unwrap_or_default().contains(SCHEME), "{policy} {name} mentions {SCHEME}");
+                let sources = sources.as_str().unwrap_or_default();
+                assert!(!sources.contains(SCHEME), "{policy} {name} mentions {SCHEME}");
+                // An MSE player's object URL is media; nothing else may load from `blob:`.
+                assert!(!sources.split_whitespace().any(|source| source == "blob:"), "{policy} {name} allows blob:");
             }
         }
     }

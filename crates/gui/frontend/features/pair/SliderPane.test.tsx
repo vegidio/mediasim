@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
 import type { GoneKind } from "@/stores/pairResult";
@@ -8,7 +8,26 @@ import { SliderPane } from "./SliderPane";
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
-vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
+vi.mock("@/ipc/video", () => ({
+    videoUrl: (identity: string) => `video://localhost/${identity}`,
+    // H.264 and AAC in MP4, which the test setup's `canPlayType` plays directly; a `-dts.mkv` file has DTS sound, which
+    // it can't play, and a `-silent.mkv` file has none, so both are remuxed.
+    probeVideo: async (identity: string) => ({
+        format: identity.endsWith(".mkv") ? "matroska,webm" : "mov,mp4,m4a,3gp,3g2,mj2",
+        duration: 42,
+        video: { codec: "h264", codecString: "avc1.640028" },
+        ...(identity.endsWith("-dts.mkv") && { audio: { codec: "dts" } }),
+        ...(identity.endsWith(".mp4") && { audio: { codec: "aac", codecString: "mp4a.40.2" } }),
+    }),
+    // A remux of an `.mkv` file works; any other, which an error before the first frame falls back to, fails too:
+    // those files can't be played at all.
+    remuxOpen: vi.fn(async (identity: string) => {
+        if (identity.endsWith(".mkv")) return { session: 1, start: 0 };
+        throw { kind: "unreadable", message: "not a video" };
+    }),
+    remuxNext: vi.fn(async () => new ArrayBuffer(0)),
+    remuxClose: vi.fn(async () => {}),
+}));
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({
     path: `/media/${name}`,
@@ -76,10 +95,11 @@ describe("SliderPane", () => {
     describe("two videos", () => {
         const videos = (container: HTMLElement) => [...container.querySelectorAll("video")];
 
-        it("shows one player for both, and both videos hidden behind their stills", () => {
+        it("shows one player for both, and both videos hidden behind their stills", async () => {
             const { container } = render(
                 <SliderPane files={VIDEOS} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
             );
+            await act(async () => {});
 
             expect(screen.getAllByRole("group")).toHaveLength(1);
             expect(screen.getByRole("group", { name: "Player for A and B" })).toBeInTheDocument();
@@ -95,10 +115,43 @@ describe("SliderPane", () => {
             }
         });
 
-        it("plays and reveals both from Play A and B", () => {
+        it.each([
+            ["A has", { a: media("a-dts.mkv", "video"), b: media("b.mp4", "video") }, "No playable sound in A"],
+            ["only B has", { a: media("a.mp4", "video"), b: media("b-dts.mkv", "video") }, "Unmute A"],
+        ])("names the mute button for A's sound when %s no playable sound", async (_, files, name) => {
+            render(
+                <SliderPane files={files} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
+            );
+            await act(async () => {});
+
+            const mute = screen.getByRole("button", { name });
+            expect(mute).toHaveAttribute("aria-label", name);
+            if (name === "Unmute A") {
+                expect(mute).toBeEnabled();
+                fireEvent.click(mute);
+                expect(screen.getByRole("button", { name: "Mute A" })).toBeInTheDocument();
+            } else {
+                expect(mute).toBeDisabled();
+            }
+            fireEvent.click(screen.getByRole("button", { name: "Play A and B" }));
+            expect(screen.getByRole("button", { name: "Pause A and B" })).toBeInTheDocument();
+        });
+
+        it("keeps a working mute button when A has no audio stream at all", async () => {
+            const files = { a: media("a-silent.mkv", "video"), b: media("b.mp4", "video") };
+            render(
+                <SliderPane files={files} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
+            );
+            await act(async () => {});
+
+            expect(screen.getByRole("button", { name: "Unmute A" })).toBeEnabled();
+        });
+
+        it("plays and reveals both from Play A and B", async () => {
             const { container } = render(
                 <SliderPane files={VIDEOS} details={DETAILS} position={50} onPositionChange={() => {}} {...UNMARKED} />,
             );
+            await act(async () => {});
 
             fireEvent.click(screen.getByRole("button", { name: "Play A and B" }));
 
@@ -127,9 +180,10 @@ describe("SliderPane", () => {
             expect(screen.getByRole("slider", { name: "Drag to compare A and B" })).toBeInTheDocument();
         });
 
-        it("washes A over its playing video when marked, keeping both playing and the bar working", () => {
+        it("washes A over its playing video when marked, keeping both playing and the bar working", async () => {
             const props = { files: VIDEOS, details: DETAILS, position: 50, onPositionChange: () => {} };
             const { container, rerender } = render(<SliderPane {...props} {...UNMARKED} />);
+            await act(async () => {});
             fireEvent.click(screen.getByRole("button", { name: "Play A and B" }));
             const [videoB, videoA] = videos(container) as [HTMLVideoElement, HTMLVideoElement];
             fireEvent.load(container.querySelector('img[src^="thumb://localhost/id-a.mp4"]') as HTMLImageElement);
@@ -309,7 +363,7 @@ describe("SliderPane", () => {
             expect(screen.getByRole("button", { name: "A Marked · Undo" })).toBeInTheDocument();
         });
 
-        it("gives a remaining video its own player, which plays it alone", () => {
+        it("gives a remaining video its own player, which plays it alone", async () => {
             const files = { a: media("VID_0714.mov", "video"), b: media("VID_0714-edit.mov", "video") };
             const { container } = render(
                 <SliderPane
@@ -321,6 +375,7 @@ describe("SliderPane", () => {
                     gone={B_GONE}
                 />,
             );
+            await act(async () => {});
 
             expect(screen.getByRole("group", { name: "Player for VID_0714.mov" })).toBeInTheDocument();
             expect(screen.queryByRole("group", { name: "Player for A and B" })).not.toBeInTheDocument();

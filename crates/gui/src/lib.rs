@@ -30,6 +30,7 @@ pub fn run() {
         .manage(thumbs::ThumbState::default())
         .manage(pair::PairState::default())
         .manage(<trash::TrashState>::default())
+        .manage(video::RemuxState::default())
         // Thumbnails for admitted files only, never by path; see `thumbs`.
         .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::serve)
         // Byte ranges of admitted videos, by identity like `thumb`; see `video`.
@@ -59,6 +60,10 @@ pub fn run() {
             trash::trash_media,
             trash::restore_media,
             trash::delete_media,
+            video::probe::probe_video,
+            video::sessions::remux_open,
+            video::sessions::remux_next,
+            video::sessions::remux_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the MediaSim application");

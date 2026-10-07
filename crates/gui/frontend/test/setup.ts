@@ -2,6 +2,8 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+// Media Source Extensions and object URLs, which jsdom lacks.
+import "./mediaSource";
 
 // Registered by hand because `globals` is off in vite.config.ts, and Testing Library's automatic cleanup hooks onto a
 // global `afterEach`.
@@ -112,4 +114,12 @@ Object.defineProperties(HTMLMediaElement.prototype, {
             this.dispatchEvent(new Event("emptied"));
         },
     },
+});
+
+// jsdom answers `""` to every `canPlayType`. This stands for a browser that plays H.264 and AAC in MP4 or QuickTime,
+// and nothing else, which is what most tests' videos are.
+const DIRECT_TYPES = /^video\/(mp4|quicktime); codecs="avc1\.[0-9a-f]+(,mp4a\.40\.2)?"$/;
+Object.defineProperty(HTMLMediaElement.prototype, "canPlayType", {
+    configurable: true,
+    value: (type: string) => (DIRECT_TYPES.test(type) ? "probably" : ""),
 });

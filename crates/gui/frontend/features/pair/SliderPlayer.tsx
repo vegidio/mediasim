@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import type { Slot } from "@/features/start/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
-import { videoUrl } from "@/ipc/video";
 import { cn } from "@/lib/utils";
 import { PlayerBar } from "./PlayerBar";
 import { SliderStage } from "./SliderStage";
@@ -25,9 +24,10 @@ type SliderPlayerProps = {
 export const SliderPlayer = ({ a, b, ...stage }: SliderPlayerProps) => {
     const videoA = useRef<HTMLVideoElement>(null);
     const videoB = useRef<HTMLVideoElement>(null);
+    // Before the playback hook, so their listeners see the elements' errors first; see `useVideoSource`.
+    const sourceA = useVideoSource(videoA, a);
+    const sourceB = useVideoSource(videoB, b);
     const playback = useSyncedPlayback(videoA, videoB);
-    useVideoSource(videoA, videoUrl(a.identity));
-    useVideoSource(videoB, videoUrl(b.identity));
 
     // Hidden until they first play, so the stills show; and both again if either fails, since a moving picture wiped
     // against a still one would mislead.
@@ -45,7 +45,16 @@ export const SliderPlayer = ({ a, b, ...stage }: SliderPlayerProps) => {
                 a: <video ref={videoA} muted playsInline preload="metadata" className={className} />,
                 b: <video ref={videoB} muted playsInline preload="metadata" className={className} />,
             }}
-            bar={<PlayerBar name="A and B" muteName="A" playback={playback} />}
+            bar={
+                <PlayerBar
+                    name="A and B"
+                    muteName="A"
+                    playback={playback}
+                    ready={sourceA.ready && sourceB.ready}
+                    // Only A's sound ever plays, so only A's missing sound takes the mute button away.
+                    noSound={sourceA.noSound}
+                />
+            }
         />
     );
 };

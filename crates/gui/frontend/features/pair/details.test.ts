@@ -192,6 +192,20 @@ describe("detailRows", () => {
             expect(lines("video", ready(video()), ready(longButSmall))[3]).toBe("File size: 312.0 MB [Bigger]");
         });
 
+        it("marks neither video longer when both read the same duration", () => {
+            const [mkv, mp4] = [video({ duration: 42.166 }), video({ duration: 42.067 })];
+
+            expect(lines("video", ready(mkv), ready(mp4))[0]).toBe("Duration: 0:42");
+            expect(lines("video", ready(mp4), ready(mkv))[0]).toBe("Duration: 0:42");
+        });
+
+        it("marks the longer video once the durations read differently", () => {
+            const [longer, shorter] = [video({ duration: 43.01 }), video({ duration: 42.99 })];
+
+            expect(lines("video", ready(longer), ready(shorter))[0]).toBe("Duration: 0:43 [Longer]");
+            expect(lines("video", ready(shorter), ready(longer))[0]).toBe("Duration: 0:42");
+        });
+
         it("marks nothing until the other file's details are read", () => {
             for (const other of [undefined, { status: "loading" } as const, { status: "failed" } as const]) {
                 expect(detailRows("image", ready(a), other).filter((row) => row.badge)).toEqual([]);

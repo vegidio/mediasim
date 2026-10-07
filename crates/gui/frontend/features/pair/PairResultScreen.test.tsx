@@ -18,7 +18,22 @@ vi.mock("@/ipc/thumbs", () => ({
     describeMedia: vi.fn(),
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
-vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
+vi.mock("@/ipc/video", () => ({
+    videoUrl: (identity: string) => `video://localhost/${identity}`,
+    // H.264 and AAC in MP4, which the test setup's `canPlayType` plays directly.
+    probeVideo: async () => ({
+        format: "mov,mp4,m4a,3gp,3g2,mj2",
+        duration: 42,
+        video: { codec: "h264", codecString: "avc1.640028" },
+        audio: { codec: "aac", codecString: "mp4a.40.2" },
+    }),
+    // A remux, which an error before the first frame falls back to, fails too: these files can't be played at all.
+    remuxOpen: vi.fn(async () => {
+        throw { kind: "unreadable", message: "not a video" };
+    }),
+    remuxNext: vi.fn(),
+    remuxClose: vi.fn(async () => {}),
+}));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
 
@@ -693,6 +708,8 @@ describe("PairResultScreen", () => {
         const videoOf = (pane: string) =>
             screen.getByRole("article", { name: pane }).querySelector("video") as HTMLVideoElement;
         const button = (name: string) => screen.getByRole("button", { name });
+        /** Lets the players just mounted probe their videos and decide how to play them. */
+        const settle = () => act(async () => {});
         /** The slider's two `<video>` elements, A's then B's. */
         const sliderVideos = () =>
             [VA, VB].map(
@@ -703,11 +720,13 @@ describe("PairResultScreen", () => {
             );
 
         /** Opens a pair of videos in the slider, each knowing its duration, and plays both with A's sound on. */
-        const openAndPlaySlider = () => {
+        const openAndPlaySlider = async () => {
             usePairStore.setState({ a: VA, b: VB });
             render(<App />);
             fireEvent.click(compare());
+            await settle();
             select("Slider");
+            await settle();
             act(() => {
                 for (const video of sliderVideos()) Object.assign(video, { duration: 42 });
             });
@@ -720,10 +739,11 @@ describe("PairResultScreen", () => {
         };
 
         /** Opens a pair of videos side by side, each knowing its duration, and plays A. */
-        const openAndPlayA = () => {
+        const openAndPlayA = async () => {
             usePairStore.setState({ a: VA, b: VB });
             render(<App />);
             fireEvent.click(compare());
+            await settle();
             act(() => {
                 // Read-only to the type, as the element sets it; the test setup's stub lets a test stand for that.
                 Object.assign(videoOf("File A"), { duration: 42 });
@@ -732,8 +752,8 @@ describe("PairResultScreen", () => {
             fireEvent.click(button("Play VID_0714.mov"));
         };
 
-        it("plays and unmutes A alone, leaving B paused and muted", () => {
-            openAndPlayA();
+        it("plays and unmutes A alone, leaving B paused and muted", async () => {
+            await openAndPlayA();
             fireEvent.click(button("Unmute VID_0714.mov"));
 
             expect(videoOf("File A").paused).toBe(false);
@@ -744,12 +764,14 @@ describe("PairResultScreen", () => {
             expect(button("Unmute VID_0714-copy.mp4")).toBeInTheDocument();
         });
 
-        it("stops A when the slider is selected, which shows stills with its shared player bar at 0:00", () => {
-            openAndPlayA();
+        it("stops A when the slider is selected, which shows stills with its shared player bar at 0:00", async () => {
+            await openAndPlayA();
             fireEvent.click(button("Unmute VID_0714.mov"));
             const playing = videoOf("File A");
 
             select("Slider");
+
+            await settle();
 
             expect(playing.paused).toBe(true);
             expect(playing).not.toHaveAttribute("src");
@@ -762,15 +784,18 @@ describe("PairResultScreen", () => {
             expect(screen.getByTestId("slider-stage").querySelectorAll("img")).toHaveLength(2);
         });
 
-        it("starts A again paused at its beginning and muted back side by side", () => {
-            openAndPlayA();
+        it("starts A again paused at its beginning and muted back side by side", async () => {
+            await openAndPlayA();
             fireEvent.click(button("Unmute VID_0714.mov"));
             act(() => {
                 videoOf("File A").currentTime = 30;
             });
 
             select("Slider");
+
+            await settle();
             select("Side by side");
+            await settle();
 
             expect(button("Play VID_0714.mov")).toBeInTheDocument();
             expect(button("Unmute VID_0714.mov")).toBeInTheDocument();
@@ -785,6 +810,7 @@ describe("PairResultScreen", () => {
             usePairStore.setState({ a: VA, b: VB });
             render(<App />);
             fireEvent.click(compare());
+            await settle();
             fireEvent.click(button("Play VID_0714-copy.mp4"));
             const playing = videoOf("File B");
             expect(playing.paused).toBe(false);
@@ -806,6 +832,7 @@ describe("PairResultScreen", () => {
             usePairStore.setState({ a: VA, b: VB });
             render(<App />);
             fireEvent.click(compare());
+            await settle();
             fireEvent.click(button("Play VID_0714-copy.mp4"));
             const playing = videoOf("File B");
             expect(playing.paused).toBe(false);
@@ -823,8 +850,8 @@ describe("PairResultScreen", () => {
             expect(videoOf("File A").paused).toBe(true);
         });
 
-        it("stops both on New comparison", () => {
-            openAndPlayA();
+        it("stops both on New comparison", async () => {
+            await openAndPlayA();
             fireEvent.click(button("Play VID_0714-copy.mp4"));
             const [a, b] = [videoOf("File A"), videoOf("File B")];
 
@@ -834,10 +861,12 @@ describe("PairResultScreen", () => {
             expect(b.paused).toBe(true);
             expect(document.querySelector("video")).not.toBeInTheDocument();
         });
-        it("stops both slider videos on Side by side, whose panes start paused at 0:00 and muted", () => {
-            const playing = openAndPlaySlider();
+        it("stops both slider videos on Side by side, whose panes start paused at 0:00 and muted", async () => {
+            const playing = await openAndPlaySlider();
 
             select("Side by side");
+
+            await settle();
 
             for (const video of playing) {
                 expect(video.paused).toBe(true);
@@ -853,8 +882,8 @@ describe("PairResultScreen", () => {
             }
         });
 
-        it("stops both slider videos on New comparison", () => {
-            const playing = openAndPlaySlider();
+        it("stops both slider videos on New comparison", async () => {
+            const playing = await openAndPlaySlider();
 
             fireEvent.click(back());
 
@@ -868,7 +897,7 @@ describe("PairResultScreen", () => {
 
         it("stops both slider videos when B is moved to the Trash, leaving A its own player at 0:00, muted", async () => {
             mockedTrash.mockReset().mockResolvedValue([{ status: "trashed" }]);
-            const playing = openAndPlaySlider();
+            const playing = await openAndPlaySlider();
 
             fireEvent.click(button("Mark B for deletion"));
             fireEvent.click(within(footer()).getByRole("button", { name: /Move \d to Trash…/ }));

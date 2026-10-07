@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
@@ -10,7 +10,22 @@ import { MediaPane } from "./MediaPane";
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
-vi.mock("@/ipc/video", () => ({ videoUrl: (identity: string) => `video://localhost/${identity}` }));
+vi.mock("@/ipc/video", () => ({
+    videoUrl: (identity: string) => `video://localhost/${identity}`,
+    // H.264 and AAC in MP4, which the test setup's `canPlayType` plays directly.
+    probeVideo: async () => ({
+        format: "mov,mp4,m4a,3gp,3g2,mj2",
+        duration: 42,
+        video: { codec: "h264", codecString: "avc1.640028" },
+        audio: { codec: "aac", codecString: "mp4a.40.2" },
+    }),
+    // A remux, which an error before the first frame falls back to, fails too: these files can't be played at all.
+    remuxOpen: vi.fn(async () => {
+        throw { kind: "unreadable", message: "not a video" };
+    }),
+    remuxNext: vi.fn(),
+    remuxClose: vi.fn(async () => {}),
+}));
 
 const IMAGE: MediaFile = {
     path: "/Pictures/IMG_2041.jpg",
@@ -162,8 +177,11 @@ describe("MediaPane", () => {
         const video = (container: HTMLElement) => container.querySelector("video") as HTMLVideoElement;
         const bar = () => screen.getByTestId("picture-bar");
 
+        /** Lets the probe answer, so the player has decided how to play its video. */
+        const decided = () => act(async () => {});
+
         /** A video pane whose still has loaded and whose video knows its duration, as after opening the screen. */
-        const loaded = (marked = false) => {
+        const loaded = async (marked = false) => {
             const rendered = render(
                 <MediaPane
                     slot="b"
@@ -174,6 +192,7 @@ describe("MediaPane", () => {
                     onToggleMark={() => {}}
                 />,
             );
+            await decided();
             fireEvent.load(picture(rendered.container));
             act(() => {
                 // Read-only to the type, as the element sets it; the test setup's stub lets a test stand for that.
@@ -191,8 +210,8 @@ describe("MediaPane", () => {
             expect(screen.queryByRole("group", { name: /^Player for/ })).not.toBeInTheDocument();
         });
 
-        it("shows a video's still with its player, and the video hidden, muted and loading only its metadata", () => {
-            const { container } = loaded();
+        it("shows a video's still with its player, and the video hidden, muted and loading only its metadata", async () => {
+            const { container } = await loaded();
 
             expect(picture(container)).not.toHaveClass("invisible");
             expect(video(container)).toHaveClass("invisible", "object-contain");
@@ -208,8 +227,8 @@ describe("MediaPane", () => {
             expect(screen.getByRole("button", { name: "Play clip.mp4" })).toBeInTheDocument();
         });
 
-        it("shows the video in the still's place once it plays", () => {
-            const { container } = loaded();
+        it("shows the video in the still's place once it plays", async () => {
+            const { container } = await loaded();
 
             fireEvent.click(screen.getByRole("button", { name: "Play clip.mp4" }));
 
@@ -218,8 +237,8 @@ describe("MediaPane", () => {
             expect(screen.getByRole("button", { name: "Pause clip.mp4" })).toBeInTheDocument();
         });
 
-        it("keeps the wash and pill over a playing video, under a player bar that still works", () => {
-            const { container, rerender } = loaded();
+        it("keeps the wash and pill over a playing video, under a player bar that still works", async () => {
+            const { container, rerender } = await loaded();
             fireEvent.click(screen.getByRole("button", { name: "Play clip.mp4" }));
 
             rerender(
@@ -247,12 +266,13 @@ describe("MediaPane", () => {
             expect(screen.getByRole("button", { name: "Play clip.mp4" })).toBeInTheDocument();
         });
 
-        it("keeps the still and shows the note in the bar's place when the video can't be played", () => {
-            const { container } = loaded();
+        it("keeps the still and shows the note in the bar's place when the video can't be played", async () => {
+            const { container } = await loaded();
 
             act(() => {
                 video(container).dispatchEvent(new Event("error"));
             });
+            await waitFor(() => expect(bar()).toHaveTextContent("Can't play this format yet"));
 
             expect(picture(container)).not.toHaveClass("invisible");
             expect(video(container)).toHaveClass("invisible");
@@ -260,22 +280,23 @@ describe("MediaPane", () => {
             expect(screen.queryByRole("group", { name: "Player for clip.mp4" })).not.toBeInTheDocument();
         });
 
-        it("shows the note when a video fails as it starts to play, as a removed file does", () => {
-            const { container } = loaded();
+        it("shows the note when a video fails as it starts to play, as a removed file does", async () => {
+            const { container } = await loaded();
 
             fireEvent.click(screen.getByRole("button", { name: "Play clip.mp4" }));
             act(() => {
                 video(container).dispatchEvent(new Event("error"));
             });
 
+            await waitFor(() => expect(bar()).toHaveTextContent("Can't play this format yet"));
             expect(video(container)).toHaveClass("invisible");
-            expect(bar()).toHaveTextContent("Can't play this format yet");
         });
 
-        it("still plays when the still can't be produced, over the video icon", () => {
+        it("still plays when the still can't be produced, over the video icon", async () => {
             const { container } = render(
                 <MediaPane slot="b" file={VIDEO} details={LOADING} other={LOADING} {...UNMARKED} />,
             );
+            await decided();
             fireEvent.error(picture(container));
 
             expect(container.querySelector(".lucide-video")).toBeInTheDocument();
@@ -284,20 +305,21 @@ describe("MediaPane", () => {
             expect(video(container)).not.toHaveClass("invisible");
         });
 
-        it("keeps the video's source through StrictMode's rehearsal unmount", () => {
+        it("keeps the video's source through StrictMode's rehearsal unmount", async () => {
             const { container } = render(
                 <StrictMode>
                     <MediaPane slot="b" file={VIDEO} details={LOADING} other={LOADING} {...UNMARKED} />
                 </StrictMode>,
             );
+            await decided();
 
             expect(video(container)).toHaveAttribute("src", "video://localhost/fedcba9876543210");
             fireEvent.click(screen.getByRole("button", { name: "Play clip.mp4" }));
             expect(video(container).paused).toBe(false);
         });
 
-        it("pauses the element and clears its source when it unmounts", () => {
-            const { container, unmount } = loaded();
+        it("pauses the element and clears its source when it unmounts", async () => {
+            const { container, unmount } = await loaded();
             const element = video(container);
             fireEvent.click(screen.getByRole("button", { name: "Play clip.mp4" }));
             const load = vi.spyOn(element, "load");

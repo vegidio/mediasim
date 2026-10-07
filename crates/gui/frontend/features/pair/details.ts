@@ -43,6 +43,9 @@ const pixels = ({ width, height }: MediaInfo) => width * height;
 
 const createdAt = ({ created }: MediaInfo) => (created === undefined ? undefined : Date.parse(created));
 
+/** The duration in whole seconds, as the row shows it, so a difference too small to read earns no badge. */
+const shownDuration = ({ duration }: MediaInfo) => (duration === undefined ? undefined : Math.floor(duration));
+
 /** `badge` when `mine` beats `theirs` by `better`, and nothing when either is absent or they are equal. */
 const mark = <T>(badge: Badge, better: (a: T, b: T) => boolean, mine?: T, theirs?: T) =>
     mine !== undefined && theirs !== undefined && better(mine, theirs) ? { badge } : {};
@@ -81,7 +84,7 @@ const VIDEO_ROWS: readonly RowSpec[] = [
     {
         key: "Duration",
         value: ({ duration }) => (duration === undefined ? UNKNOWN : formatDuration(duration)),
-        badge: (info, other) => mark("Longer", (a, b) => a > b, info.duration, other.duration),
+        badge: (info, other) => mark("Longer", (a, b) => a > b, shownDuration(info), shownDuration(other)),
     },
     RESOLUTION,
     { key: "Frame rate", value: ({ frameRate }) => (frameRate === undefined ? UNKNOWN : formatFrameRate(frameRate)) },

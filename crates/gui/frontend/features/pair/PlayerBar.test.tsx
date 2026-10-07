@@ -143,4 +143,34 @@ describe("PlayerBar", () => {
         expect(screen.queryByRole("button")).not.toBeInTheDocument();
         expect(screen.queryByRole("slider")).not.toBeInTheDocument();
     });
+
+    it("keeps play unavailable until it is decided how to play the video", () => {
+        const { rerender } = render(<PlayerBar name={NAME} playback={playback()} ready={false} />);
+
+        expect(screen.getByRole("button", { name: "Play VID_0714.mov" })).toBeDisabled();
+
+        rerender(<PlayerBar name={NAME} playback={playback()} ready />);
+
+        expect(screen.getByRole("button", { name: "Play VID_0714.mov" })).toBeEnabled();
+    });
+
+    it("makes the mute button unavailable, and says why, when the video has no playable sound", () => {
+        const toggleMute = vi.fn();
+        render(<PlayerBar name={NAME} playback={playback({ duration: 42, toggleMute })} noSound />);
+
+        const mute = screen.getByRole("button", { name: "No playable sound in VID_0714.mov" });
+        expect(mute).toBeDisabled();
+        expect(screen.queryByRole("button", { name: /^(Un)?mute/ })).not.toBeInTheDocument();
+        fireEvent.click(mute);
+        expect(toggleMute).not.toHaveBeenCalled();
+        // The other controls work as usual.
+        expect(screen.getByRole("button", { name: "Play VID_0714.mov" })).toBeEnabled();
+        expect(seekBar()).not.toHaveAttribute("data-disabled");
+    });
+
+    it("names the unavailable mute button with muteName", () => {
+        render(<PlayerBar name="A and B" muteName="A" playback={playback()} noSound />);
+
+        expect(screen.getByRole("button", { name: "No playable sound in A" })).toBeDisabled();
+    });
 });

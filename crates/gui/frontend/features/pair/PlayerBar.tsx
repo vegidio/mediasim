@@ -32,13 +32,17 @@ type PlayerBarProps = {
     /** The name the mute button's own name includes, when its sound is only some of `name`'s; `name` by default. */
     muteName?: string;
     playback: VideoPlayback;
+    /** Whether it has been decided how to play the video; until then, play is unavailable. Ready by default. */
+    ready?: boolean;
+    /** Whether the video has sound the window can't play: the mute button is then unavailable and says so. */
+    noSound?: boolean;
 };
 
 /**
  * One video's controls, as artboard 2d draws them: play or pause, the time, a seek bar and mute. When the video can't
  * be played, a note in their place. No `aria-pressed` on the buttons: their names already change with the state.
  */
-export const PlayerBar = ({ name, muteName = name, playback }: PlayerBarProps) => {
+export const PlayerBar = ({ name, muteName = name, playback, ready = true, noSound = false }: PlayerBarProps) => {
     const { playing, time, duration, muted, failed, toggle, seek, toggleMute } = playback;
 
     if (failed) {
@@ -71,7 +75,8 @@ export const PlayerBar = ({ name, muteName = name, playback }: PlayerBarProps) =
                 type="button"
                 aria-label={`${playing ? "Pause" : "Play"} ${name}`}
                 onClick={toggle}
-                className={cn(BUTTON, "bg-[#FAFAFA] text-[#09090B]")}
+                disabled={!ready}
+                className={cn(BUTTON, "bg-[#FAFAFA] text-[#09090B] disabled:opacity-50")}
             >
                 {playing ? (
                     <PauseIcon aria-hidden="true" className="size-3 fill-current" />
@@ -104,18 +109,30 @@ export const PlayerBar = ({ name, muteName = name, playback }: PlayerBarProps) =
                 />
             </Slider.Root>
 
-            <button
-                type="button"
-                aria-label={`${muted ? "Unmute" : "Mute"} ${muteName}`}
-                onClick={toggleMute}
-                className={cn(BUTTON, "bg-transparent text-[#E4E4E7]")}
-            >
-                {muted ? (
+            {noSound ? (
+                // The element stays muted: there is no sound it could play.
+                <button
+                    type="button"
+                    aria-label={`No playable sound in ${muteName}`}
+                    disabled
+                    className={cn(BUTTON, "bg-transparent text-[#71717A]")}
+                >
                     <VolumeXIcon aria-hidden="true" className="size-[15px]" />
-                ) : (
-                    <Volume2Icon aria-hidden="true" className="size-[15px]" />
-                )}
-            </button>
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    aria-label={`${muted ? "Unmute" : "Mute"} ${muteName}`}
+                    onClick={toggleMute}
+                    className={cn(BUTTON, "bg-transparent text-[#E4E4E7]")}
+                >
+                    {muted ? (
+                        <VolumeXIcon aria-hidden="true" className="size-[15px]" />
+                    ) : (
+                        <Volume2Icon aria-hidden="true" className="size-[15px]" />
+                    )}
+                </button>
+            )}
         </fieldset>
     );
 };

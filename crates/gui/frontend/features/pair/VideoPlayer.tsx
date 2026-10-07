@@ -1,6 +1,5 @@
 import { type ReactNode, useRef } from "react";
 import type { MediaFile } from "@/ipc/thumbs";
-import { videoUrl } from "@/ipc/video";
 import { cn } from "@/lib/utils";
 import { Picture } from "./Picture";
 import { PlayerBar } from "./PlayerBar";
@@ -20,10 +19,9 @@ type VideoPlayerProps = {
  */
 export const VideoPlayer = ({ file, ...picture }: VideoPlayerProps) => {
     const video = useRef<HTMLVideoElement>(null);
+    // Before the playback hook, so its listener sees the element's errors first; see `useVideoSource`.
+    const { ready, noSound } = useVideoSource(video, file);
     const playback = useVideoPlayback(video);
-    const url = videoUrl(file.identity);
-
-    useVideoSource(video, url);
 
     return (
         <Picture
@@ -42,7 +40,7 @@ export const VideoPlayer = ({ file, ...picture }: VideoPlayerProps) => {
                     )}
                 />
             }
-            bar={<PlayerBar name={file.name} playback={playback} />}
+            bar={<PlayerBar name={file.name} playback={playback} ready={ready} noSound={noSound} />}
         />
     );
 };
