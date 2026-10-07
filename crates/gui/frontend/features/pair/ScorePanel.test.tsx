@@ -10,7 +10,7 @@ describe("ScorePanel", () => {
 
         expect(panel()).toHaveAttribute("aria-busy", "true");
         expect(screen.getByRole("status")).toHaveTextContent("Comparing…");
-        expect(panel()).not.toHaveTextContent("%");
+        expect(panel()).not.toHaveTextContent(/\d%/);
         expect(screen.queryByTestId("score-fill")).not.toBeInTheDocument();
         expect(within(panel()).queryByRole("listitem", { current: true })).not.toBeInTheDocument();
     });

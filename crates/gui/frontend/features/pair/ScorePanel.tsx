@@ -1,4 +1,4 @@
-import { LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
+import { TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PairFailure } from "@/ipc/pair";
 import { cn } from "@/lib/utils";
@@ -34,17 +34,24 @@ const Legend = ({ current, dimmed = false }: { current?: Band; dimmed?: boolean 
 
 const Comparing = () => (
     <>
+        {/* The score's own text box, so the panel keeps its height and the "%" its place once the score arrives. */}
+        <div aria-hidden="true" className="shrink-0 font-semibold text-[64px] leading-none">
+            <span className="mr-1 inline-block h-16 w-[84px] animate-shimmer rounded-[10px] bg-[linear-gradient(90deg,#1F1F23_0%,#2E2E33_50%,#1F1F23_100%)] bg-size-[200%_100%] align-bottom motion-reduce:animate-none" />
+            <span className="font-medium text-[28px] text-border-strong">%</span>
+        </div>
         <div
-            aria-hidden="true"
-            className="h-16 w-[84px] shrink-0 animate-pulse rounded-lg bg-secondary motion-reduce:animate-none"
-        />
-        <div role="status" className="flex w-[200px] shrink-0 items-center gap-2 text-muted-foreground text-sm">
-            <LoaderCircleIcon aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+            role="status"
+            className="flex w-[200px] shrink-0 items-center gap-2.5 font-semibold text-[18px] text-muted-foreground"
+        >
+            <span
+                aria-hidden="true"
+                className="size-4 shrink-0 animate-spin rounded-full border-2 border-border-strong border-t-primary [animation-duration:0.8s] motion-reduce:animate-none"
+            />
             Comparing…
         </div>
         <div className="min-w-0 flex-1">
             <div className="relative h-2 overflow-hidden rounded-full bg-border">
-                <div className="absolute inset-y-0 left-0 w-1/3 animate-slide rounded-full bg-border-strong motion-reduce:animate-none" />
+                <div className="absolute inset-y-0 -left-[30%] w-[30%] animate-slide rounded-full bg-[linear-gradient(90deg,transparent,rgba(190,242,100,0.55),transparent)] motion-reduce:animate-none" />
             </div>
             <Legend dimmed />
         </div>

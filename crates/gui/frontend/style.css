@@ -66,14 +66,25 @@
     /* Amber, for fixable input states; the destructive red stays reserved for deletion. */
     --color-warning: #fbbf24;
 
-    /* A highlight a third of its track wide, sliding across it, for progress with no known end. */
-    --animate-slide: slide 1.4s ease-in-out infinite;
+    /* A highlight 30% of its track wide, sliding across it, for progress with no known end. */
+    --animate-slide: slide 1.2s ease-in-out infinite;
     @keyframes slide {
         from {
-            transform: translateX(-100%);
+            left: -30%;
         }
         to {
-            transform: translateX(300%);
+            left: 100%;
+        }
+    }
+
+    /* A light sweeping across a placeholder twice its width, for content still loading. */
+    --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+    @keyframes shimmer {
+        from {
+            background-position: -200% 0;
+        }
+        to {
+            background-position: 200% 0;
         }
     }
 }
