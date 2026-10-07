@@ -31,12 +31,12 @@ pub(crate) async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec
 /// A file admitted for thumbnails, with what a slot of the "Compare two files" card shows about it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MediaFile {
-    path: String,
-    name: String,
-    r#type: MediaType,
+    pub(crate) path: String,
+    pub(crate) name: String,
+    pub(crate) r#type: MediaType,
     /// In bytes.
-    size: u64,
-    identity: String,
+    pub(crate) size: u64,
+    pub(crate) identity: String,
 }
 
 /// Admits files for thumbnails, like [`admit_media`], and returns, in the same order, each one's path, name, media
@@ -53,7 +53,7 @@ pub async fn describe_media(
     describe(&state, paths).await
 }
 
-async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, TaskError> {
+pub(crate) async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, TaskError> {
     let admitted = admit_all(state, paths).await?;
 
     Ok(admitted

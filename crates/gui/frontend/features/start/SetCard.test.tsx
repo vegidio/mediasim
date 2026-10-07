@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { ComparisonSection } from "@/features/settings/ComparisonSection";
 import { type DragDropEvent, onDragDrop } from "@/ipc/dragDrop";
 import { addToSet, rescanSet, type SourceView } from "@/ipc/set";
+import { useGalleryStore } from "@/stores/gallery";
+import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { type SourceRow, useStartStore } from "@/stores/start";
 import { SetCard } from "./SetCard";
 
-vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
+vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
 vi.mock("@/ipc/dialog", () => ({ pickFiles: vi.fn(), pickFolders: vi.fn() }));
 vi.mock("@/ipc/formats", () => ({ supportedFormats: vi.fn(() => Promise.resolve([])) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
@@ -88,6 +90,27 @@ describe("SetCard", () => {
         render(<SetCard />);
 
         expect(screen.getByRole("button", { name: "Continue with 49 files" })).toBeEnabled();
+    });
+
+    it("opens the gallery from an enabled Continue", () => {
+        useScreenStore.setState(useScreenStore.getInitialState(), true);
+        withSources([folder()], 49);
+        render(<SetCard />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Continue with 49 files" }));
+
+        expect(useScreenStore.getState().screen).toBe("gallery");
+    });
+
+    it("starts the gallery's threshold from the setting on Continue", () => {
+        useSettingsStore.getState().update({ matchThreshold: 90 });
+        useGalleryStore.getState().setThreshold(72);
+        withSources([folder()], 49);
+        render(<SetCard />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Continue with 49 files" }));
+
+        expect(useGalleryStore.getState().threshold).toBe(90);
     });
 
     it("reads Continue with 1 file for a single file", () => {

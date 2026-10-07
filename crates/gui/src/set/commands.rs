@@ -7,11 +7,14 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
+use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
 use super::{Job, Listing, Set, SetView, classify, home, list_folder};
 use crate::TaskError;
+use crate::thumbs::ThumbState;
+use crate::thumbs::commands::{MediaFile, describe};
 
 /// The set, as Tauri managed state.
 #[derive(Debug, Default)]
@@ -67,6 +70,38 @@ pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Resul
 #[tauri::command]
 pub async fn rescan_set(state: State<'_, SetState>, recursive: bool) -> Result<SetView, TaskError> {
     rescan(&state, recursive, list_folder).await
+}
+
+/// The set's distinct media files, as the gallery shows them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SetMedia {
+    /// The set's revision when its paths were taken.
+    pub revision: u64,
+    /// Ordered by path; a file that can no longer be admitted is left out.
+    pub files: Vec<MediaFile>,
+}
+
+/// Admits every distinct media file in the set for thumbnails and returns them in path order, with the set's revision.
+///
+/// The lock is held only to take the paths; admission runs off it.
+///
+/// # Errors
+///
+/// If the blocking admission task fails to finish.
+#[tauri::command]
+pub async fn list_set_media(set: State<'_, SetState>, thumbs: State<'_, ThumbState>) -> Result<SetMedia, TaskError> {
+    list_media(&set, &thumbs).await
+}
+
+async fn list_media(set: &SetState, thumbs: &ThumbState) -> Result<SetMedia, TaskError> {
+    let (revision, paths) = {
+        let set = set.lock();
+        (set.revision(), set.media_paths())
+    };
+
+    let files = describe(thumbs, paths).await?.into_iter().flatten().collect();
+
+    Ok(SetMedia { revision, files })
 }
 
 async fn add<L>(state: &SetState, paths: Vec<PathBuf>, recursive: bool, list: L) -> Result<SetView, TaskError>
@@ -125,12 +160,14 @@ mod tests {
     use std::sync::mpsc;
     use std::sync::{Arc, Mutex};
 
+    use mediasim::MediaType;
     use rust_sak::fs::mk_temp_dir;
     use tauri::Manager;
     use tauri::async_runtime::block_on;
     use tauri::test::{mock_builder, mock_context, noop_assets};
 
     use super::*;
+    use crate::thumbs::tests::fixture;
 
     #[test]
     fn a_folder_removed_during_a_slow_listing_stays_removed() {
@@ -170,6 +207,50 @@ mod tests {
         assert!(added.sources.is_empty(), "the stale listing must not bring the folder back");
         assert!(added.revision >= removed.revision);
         assert!(state.view().sources.is_empty());
+    }
+
+    #[test]
+    fn listing_media_returns_the_files_in_path_order_with_the_revision() {
+        let state = SetState::default();
+        let thumbs = crate::thumbs::tests::state();
+        let dir = mk_temp_dir("mediasim-set-").unwrap();
+        std::fs::create_dir(dir.path().join("b")).unwrap();
+        std::fs::copy(fixture("test3.mp4"), dir.path().join("b/clip.mp4")).unwrap();
+        std::fs::copy(fixture("test1.png"), dir.path().join("a.png")).unwrap();
+
+        let added =
+            block_on(add(&state, vec![dir.path().join("b"), dir.path().join("a.png")], true, list_folder)).unwrap();
+        let media = block_on(list_media(&state, &thumbs)).unwrap();
+
+        assert_eq!(media.revision, added.revision);
+        let described: Vec<_> = media.files.iter().map(|f| (f.name.as_str(), f.r#type, f.size)).collect();
+        assert_eq!(
+            described,
+            [
+                ("a.png", MediaType::Image, std::fs::metadata(fixture("test1.png")).unwrap().len()),
+                ("clip.mp4", MediaType::Video, std::fs::metadata(fixture("test3.mp4")).unwrap().len()),
+            ]
+        );
+        for file in &media.files {
+            assert!(thumbs.lookup(&file.identity).is_some(), "{} was listed but not admitted", file.name);
+        }
+    }
+
+    #[test]
+    fn a_file_deleted_after_counting_is_left_out() {
+        let state = SetState::default();
+        let thumbs = crate::thumbs::tests::state();
+        let dir = mk_temp_dir("mediasim-set-").unwrap();
+        std::fs::copy(fixture("test1.png"), dir.path().join("a.png")).unwrap();
+        std::fs::copy(fixture("test1.png"), dir.path().join("b.png")).unwrap();
+
+        let added = block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+        std::fs::remove_file(dir.path().join("a.png")).unwrap();
+        let media = block_on(list_media(&state, &thumbs)).unwrap();
+
+        assert_eq!(added.total, 2);
+        let names: Vec<_> = media.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["b.png"]);
     }
 
     #[test]

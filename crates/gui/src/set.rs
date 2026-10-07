@@ -8,7 +8,7 @@
 
 pub mod commands;
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 
 use mediasim::{LoadOptions, Media, MediaType};
@@ -222,19 +222,19 @@ impl Set {
     /// Paths compare as given: a file added directly and found inside an added folder match, because `list_dir`
     /// keeps the folder's prefix as it was added.
     pub fn total(&self) -> usize {
-        let mut distinct: HashSet<&Path> = HashSet::new();
+        self.paths().collect::<HashSet<_>>().len()
+    }
 
-        for source in &self.sources {
-            match &source.kind {
-                SourceKind::Folder(Listing::Listed(files)) => distinct.extend(files.iter().map(|(p, _)| p.as_path())),
-                SourceKind::Folder(_) => {}
-                SourceKind::File(_) => {
-                    distinct.insert(&source.path);
-                }
-            }
-        }
+    /// The distinct media files across every counted source, the same paths [`total`](Self::total) counts.
+    ///
+    /// They are in `Path` order, which compares component by component, so a folder's files stay together.
+    pub fn media_paths(&self) -> Vec<PathBuf> {
+        self.paths().collect::<BTreeSet<_>>().into_iter().map(Path::to_path_buf).collect()
+    }
 
-        distinct.len()
+    /// The set's current revision.
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     /// The set as the frontend shows it, with paths abbreviated against `home`.
@@ -244,6 +244,18 @@ impl Set {
             sources: self.sources.iter().map(|s| s.view(home)).collect(),
             total: self.total(),
         }
+    }
+
+    /// Every counted source's media files, with overlaps repeated.
+    fn paths(&self) -> impl Iterator<Item = &Path> {
+        self.sources.iter().flat_map(|source| {
+            let (listed, file) = match &source.kind {
+                SourceKind::Folder(Listing::Listed(files)) => (files.as_slice(), None),
+                SourceKind::Folder(_) => (&[][..], None),
+                SourceKind::File(_) => (&[][..], Some(source.path.as_path())),
+            };
+            listed.iter().map(|(p, _)| p.as_path()).chain(file)
+        })
     }
 
     fn contains(&self, path: &Path) -> bool {
@@ -578,6 +590,76 @@ mod tests {
         set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
 
         assert_eq!(set.total(), 0);
+    }
+
+    // --- Media paths ---
+
+    #[test]
+    fn a_file_added_directly_and_inside_an_added_folder_is_listed_once() {
+        let dir = fixture(&[("a.png", 1), ("b.png", 1)]);
+        let mut set = Set::default();
+
+        add(&mut set, &[dir.path().to_path_buf(), dir.path().join("a.png")], true);
+
+        assert_eq!(set.media_paths(), [dir.path().join("a.png"), dir.path().join("b.png")]);
+    }
+
+    #[test]
+    fn nested_folders_list_each_file_once() {
+        let dir = fixture(&[("a.png", 1), ("sub/b.png", 1), ("sub/c.png", 1)]);
+        let mut set = Set::default();
+
+        add(&mut set, &[dir.path().to_path_buf(), dir.path().join("sub")], true);
+
+        assert_eq!(
+            set.media_paths(),
+            [dir.path().join("a.png"), dir.path().join("sub/b.png"), dir.path().join("sub/c.png")]
+        );
+    }
+
+    #[test]
+    fn media_paths_are_ordered_component_by_component() {
+        let dir = fixture(&[("a b/x.png", 1), ("a/y.png", 1), ("a/x.png", 1)]);
+        let mut set = Set::default();
+
+        add(&mut set, &[dir.path().join("a b"), dir.path().join("a")], true);
+
+        assert_eq!(
+            set.media_paths(),
+            [dir.path().join("a/x.png"), dir.path().join("a/y.png"), dir.path().join("a b/x.png")]
+        );
+    }
+
+    #[test]
+    fn a_pending_folder_lists_no_media_paths() {
+        let dir = fixture(&[("a.png", 1), ("b.png", 1)]);
+        let mut set = Set::default();
+
+        set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        add(&mut set, &[dir.path().join("b.png")], true);
+
+        assert_eq!(set.media_paths(), [dir.path().join("b.png")]);
+    }
+
+    #[test]
+    fn media_paths_always_match_the_total() {
+        let dir = fixture(&[("a.png", 1), ("sub/b.png", 1), ("sub/c.mp4", 1), ("gone/d.png", 1)]);
+        let mut set = Set::default();
+        let gone = dir.path().join("gone");
+        let jobs = set.add(vec![(gone.clone(), Classified::Folder)], true);
+        std::fs::remove_dir_all(&gone).unwrap();
+        run(&mut set, &jobs);
+        assert_eq!(set.media_paths().len(), set.total());
+
+        add(&mut set, &[dir.path().to_path_buf(), dir.path().join("sub"), dir.path().join("a.png")], true);
+        assert_eq!(set.media_paths().len(), set.total());
+        assert_eq!(set.total(), 3);
+
+        let jobs = set.rescan(false);
+        assert_eq!(set.media_paths().len(), set.total());
+        run(&mut set, &jobs);
+        assert_eq!(set.media_paths().len(), set.total());
+        assert_eq!(set.total(), 3);
     }
 
     // --- Scan subfolders recounts ---

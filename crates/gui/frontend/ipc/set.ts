@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { MediaFile } from "./thumbs";
 
 /** The icon a set row gets. */
 export type SourceKind = "folder" | "image" | "video";
@@ -38,3 +39,14 @@ export const removeFromSet = (path: string) => invoke<SetView>("remove_from_set"
 
 /** Recount every folder, with or without its subfolders; resolves once they are all counted. */
 export const rescanSet = (recursive: boolean) => invoke<SetView>("rescan_set", { recursive });
+
+/** The set's distinct media files, as `list_set_media` returns them. */
+export type SetMedia = {
+    /** The set's revision when its files were read, comparable with {@link SetView.revision}. */
+    revision: number;
+    /** Ordered by path; a file that can no longer be read is left out. */
+    files: MediaFile[];
+};
+
+/** Admit every distinct media file in the set for thumbnails, and describe each one. */
+export const listSetMedia = () => invoke<SetMedia>("list_set_media");

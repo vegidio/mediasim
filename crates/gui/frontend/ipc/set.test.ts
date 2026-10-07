@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, type Mock, vi } from "vitest";
-import { addToSet, removeFromSet, rescanSet, type SetView } from "./set";
+import { addToSet, listSetMedia, removeFromSet, rescanSet, type SetMedia, type SetView } from "./set";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -33,5 +33,17 @@ describe("set commands", () => {
         await expect(rescanSet(false)).resolves.toBe(view);
 
         expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("rescan_set", { recursive: false });
+    });
+
+    it("lists the set's media", async () => {
+        const media: SetMedia = {
+            revision: 3,
+            files: [{ path: "/a/b.jpg", name: "b.jpg", type: "image", size: 4, identity: "0123456789abcdef" }],
+        };
+        mockedInvoke.mockResolvedValue(media);
+
+        await expect(listSetMedia()).resolves.toBe(media);
+
+        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("list_set_media");
     });
 });

@@ -212,6 +212,7 @@ describe("ConfirmDeletionDialog", () => {
         expect(Object.keys(packageJson.dependencies).sort()).toEqual([
             "@fontsource-variable/geist",
             "@fontsource-variable/geist-mono",
+            "@tanstack/react-virtual",
             "@tauri-apps/api",
             "@tauri-apps/plugin-dialog",
             "@tauri-apps/plugin-os",

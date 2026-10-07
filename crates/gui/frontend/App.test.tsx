@@ -2,8 +2,10 @@ import { act } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { comparePair, probeMedia } from "@/ipc/pair";
+import { listSetMedia } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { restoreMedia, trashMedia } from "@/ipc/trash";
+import { useGalleryStore } from "@/stores/gallery";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { useScreenStore } from "@/stores/screen";
@@ -18,6 +20,7 @@ vi.mock("@/ipc/thumbs", () => ({
 }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
+vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
 
 describe("App", () => {
     beforeEach(() => {
@@ -50,6 +53,53 @@ describe("App", () => {
 
         const progress = screen.getByRole("navigation", { name: "Progress" });
         expect(within(progress).getByText("Select").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    });
+
+    describe("gallery", () => {
+        beforeEach(() => {
+            (listSetMedia as Mock).mockReturnValue(new Promise(() => {}));
+            useGalleryStore.setState(useGalleryStore.getInitialState(), true);
+        });
+
+        it("marks Select as the current step, with the toolbar outside a scrolling main", () => {
+            render(<App />);
+            act(() => useScreenStore.getState().show("gallery"));
+
+            const progress = screen.getByRole("navigation", { name: "Progress" });
+            expect(within(progress).getByText("Select").closest("[aria-current]")).toHaveAttribute(
+                "aria-current",
+                "step",
+            );
+            expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+            expect(screen.getByRole("main")).not.toHaveClass("overflow-y-auto");
+        });
+
+        it("opens Settings and goes Back to the gallery, with focus on the Settings button", async () => {
+            render(<App />);
+            act(() => useScreenStore.getState().show("gallery"));
+            fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Settings" }));
+            expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+            expect(screen.getByRole("tablist", { name: "Filter media" })).toBeInTheDocument();
+            await waitFor(() =>
+                expect(within(screen.getByRole("banner")).getByRole("button", { name: "Settings" })).toHaveFocus(),
+            );
+        });
+
+        it("keeps the threshold across a trip to Settings that leaves the default alone", () => {
+            render(<App />);
+            act(() => useScreenStore.getState().show("gallery"));
+            act(() => useGalleryStore.getState().setThreshold(72));
+            expect(screen.getByText("72%")).toBeInTheDocument();
+
+            fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Settings" }));
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+            expect(screen.getByRole("slider", { name: "Match threshold" })).toHaveAttribute("aria-valuenow", "72");
+            expect(screen.getByText("72%")).toBeInTheDocument();
+        });
     });
 
     it("shows the pair screen's title in place of the steps, with the logo and Settings", () => {

@@ -15,7 +15,17 @@ import { SetList } from "@/features/start/SetList";
 import { useDropTarget } from "@/features/start/useDropTarget";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useGalleryStore } from "@/stores/gallery";
+import { useScreenStore } from "@/stores/screen";
 import { useStartStore } from "@/stores/start";
+
+/** The Continue button's id, which focus is sent to on coming back from the gallery. */
+export const CONTINUE_BUTTON_ID = "set-continue";
+
+/** Move focus to the set card's Continue button, once React has rendered the start screen. */
+export const focusContinue = () => {
+    requestAnimationFrame(() => document.getElementById(CONTINUE_BUTTON_ID)?.focus());
+};
 
 /** The "Find similar in a set" mode card: an empty drop area, or the list of what the set holds. */
 export const SetCard = () => {
@@ -25,6 +35,8 @@ export const SetCard = () => {
     const sources = useStartStore((state) => state.sources);
     const total = useStartStore((state) => state.view.total);
     const add = useStartStore((state) => state.add);
+    const show = useScreenStore((state) => state.show);
+    const begin = useGalleryStore((state) => state.begin);
     const dropAreaRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const [menuAnchor, setMenuAnchor] = useState<Point>();
@@ -80,8 +92,15 @@ export const SetCard = () => {
                         Scan subfolders
                     </Label>
                 </div>
-                {/* No destination until the gallery exists; enabled as the design draws it once the set is ready. */}
-                <Button disabled={total === 0 || counting} className="h-10 gap-2 px-4 font-semibold text-sm">
+                <Button
+                    id={CONTINUE_BUTTON_ID}
+                    disabled={total === 0 || counting}
+                    onClick={() => {
+                        begin();
+                        show("gallery");
+                    }}
+                    className="h-10 gap-2 px-4 font-semibold text-sm"
+                >
                     {empty ? "Continue" : `Continue with ${formatCount(total)}`}
                     <ArrowRightIcon aria-hidden="true" />
                 </Button>
