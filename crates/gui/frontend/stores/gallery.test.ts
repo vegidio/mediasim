@@ -211,4 +211,60 @@ describe("useGalleryStore", () => {
             expect(state().details).toBeUndefined();
         });
     });
+
+    describe("removed files", () => {
+        it("starts with none, removes a file and adds it back", () => {
+            expect(state().removed).toEqual(new Set());
+
+            state().remove("/p/a.jpg");
+            state().remove("/p/b.jpg");
+            expect(state().removed).toEqual(new Set(["/p/a.jpg", "/p/b.jpg"]));
+
+            state().addBack("/p/a.jpg");
+            expect(state().removed).toEqual(new Set(["/p/b.jpg"]));
+        });
+
+        it("hands selectors a new set on each change", () => {
+            const before = state().removed;
+
+            state().remove("/p/a.jpg");
+
+            expect(state().removed).not.toBe(before);
+        });
+
+        it("starts a new comparison with none removed", () => {
+            state().remove("/p/a.jpg");
+
+            state().begin();
+
+            expect(state().removed).toEqual(new Set());
+        });
+
+        it("keeps a removal across a re-read that still holds the file", async () => {
+            atRevision(2);
+            mockedList.mockResolvedValue(media(2, [file("a.jpg"), file("b.jpg")]));
+            await state().load();
+            state().remove("/p/a.jpg");
+
+            atRevision(3);
+            mockedList.mockResolvedValue(media(3, [file("a.jpg"), file("b.jpg"), file("c.jpg")]));
+            await state().load();
+
+            expect(state().removed).toEqual(new Set(["/p/a.jpg"]));
+        });
+
+        it("forgets a removal when a re-read no longer holds the file", async () => {
+            atRevision(2);
+            mockedList.mockResolvedValue(media(2, [file("a.jpg"), file("b.jpg")]));
+            await state().load();
+            state().remove("/p/a.jpg");
+            state().remove("/p/b.jpg");
+
+            atRevision(3);
+            mockedList.mockResolvedValue(media(3, [file("b.jpg")]));
+            await state().load();
+
+            expect(state().removed).toEqual(new Set(["/p/b.jpg"]));
+        });
+    });
 });

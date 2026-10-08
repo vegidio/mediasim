@@ -56,7 +56,8 @@ pub fn preview(path: &Path, bound: NonZeroU32) -> Result<DynamicImage, PreviewEr
 }
 
 fn image_preview(path: &Path, bound: NonZeroU32) -> Result<DynamicImage, PreviewError> {
-    let img = rust_sak::image::decode_file(path)?;
+    // Sniffed from the magic bytes rather than the extension, so a PNG named `.jpg` still decodes.
+    let img = rust_sak::image::decode_bytes(&std::fs::read(path)?)?;
 
     Ok(rust_sak::image::fit(&img, bound).into_owned())
 }

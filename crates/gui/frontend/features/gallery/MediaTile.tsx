@@ -75,14 +75,21 @@ type MediaTileProps = {
     file: MediaFile;
     /** Whether the selected tab includes this file; a left-out file stays in place, dimmed. */
     included: boolean;
+    /** Whether the file was removed from the comparison; it stays in place too, dimmed. */
+    removed?: boolean;
 };
 
 /**
  * One file of the gallery: its picture, with a play mark and duration for a video, then its name and size. Its one
  * button is the "Open" chip, which opens the file's media details, as does a double click anywhere on the tile.
  */
-export const MediaTile = ({ file, included }: MediaTileProps) => {
+export const MediaTile = ({ file, included, removed }: MediaTileProps) => {
     const duration = useDuration(file);
+    const tooltip = removed
+        ? "Removed from this comparison"
+        : !included
+          ? "Not included in this comparison"
+          : undefined;
     const openDetails = useGalleryStore((state) => state.openDetails);
     const open = () => openDetails(file.path);
 
@@ -92,8 +99,8 @@ export const MediaTile = ({ file, included }: MediaTileProps) => {
         <div
             data-path={file.path}
             onDoubleClick={open}
-            {...(!included && { title: "Not included in this comparison" })}
-            className={cn("group flex w-40 flex-col gap-2 text-left", !included && "opacity-28 grayscale")}
+            {...(tooltip && { title: tooltip })}
+            className={cn("group flex w-40 flex-col gap-2 text-left", (!included || removed) && "opacity-28 grayscale")}
         >
             <span className="relative block h-[120px] w-40 overflow-hidden rounded-[10px] bg-[#18181B] group-hover:ring-2 group-hover:ring-primary group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-primary">
                 <Thumbnail key={file.identity} file={file} />

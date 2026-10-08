@@ -116,6 +116,34 @@ describe("MediaTile", () => {
         expect(shown()).toBe("/p/IMG_2041.jpg");
     });
 
+    it("dims a removed file, without a mark, keeping it focusable and openable", () => {
+        const { container } = render(<MediaTile file={image} included removed />);
+
+        expect(tile(container)).toHaveAttribute("title", "Removed from this comparison");
+        expect(tile(container)).toHaveClass("opacity-28", "grayscale");
+        expect(screen.queryByText("Removed")).not.toBeInTheDocument();
+
+        open("IMG_2041.jpg").focus();
+        expect(open("IMG_2041.jpg")).toHaveFocus();
+
+        fireEvent.click(open("IMG_2041.jpg"));
+        expect(shown()).toBe("/p/IMG_2041.jpg");
+    });
+
+    it("prefers the removed tooltip on a file that is also left out", () => {
+        const { container } = render(<MediaTile file={image} included={false} removed />);
+
+        expect(tile(container)).toHaveAttribute("title", "Removed from this comparison");
+    });
+
+    it("has no dimming and no tooltip when included and not removed", () => {
+        const { container } = render(<MediaTile file={image} included removed={false} />);
+
+        expect(tile(container)).not.toHaveAttribute("title");
+        expect(tile(container)).not.toHaveClass("opacity-28");
+        expect(screen.queryByText("Removed")).not.toBeInTheDocument();
+    });
+
     it("shows a video's duration once read", async () => {
         mockedProbe.mockResolvedValue({ format: "mov", duration: 42.7 });
         const { container } = render(<MediaTile file={video} included />);

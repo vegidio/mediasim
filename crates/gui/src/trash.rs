@@ -19,7 +19,7 @@ use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
 use crate::TaskError;
-use crate::thumbs::{Admitted, ThumbState, admit_one, current_identity};
+use crate::thumbs::{Admitted, Mismatch, ThumbState, admit_one, check_admitted, current_identity};
 
 /// Why a file was not moved to the Trash or deleted. The window reads a move's failures as `unknown`, `changed`,
 /// `missing` or `trash`, and a deletion's as the same with `delete` in place of `trash`.
@@ -198,25 +198,6 @@ async fn trash(
         },
     )
     .await
-}
-
-/// Why the file at an admitted path is no longer the one admitted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Mismatch {
-    /// Something else is at the path now.
-    Changed,
-    /// Nothing is at the path now.
-    Missing,
-}
-
-/// Checks that the file at `path` is still the one admitted as `identity`, just before it is moved or deleted.
-fn check_admitted(identity: &str, path: &Path) -> Result<(), Mismatch> {
-    match current_identity(path) {
-        Some(current) if current == identity => Ok(()),
-        // A path that is now a folder, or unreadable, is not the file that was admitted either.
-        _ if path.try_exists().is_ok_and(|exists| !exists) => Err(Mismatch::Missing),
-        _ => Err(Mismatch::Changed),
-    }
 }
 
 /// Moves the file at `path` to the Trash if it is still the one admitted as `identity`, and returns its handle.

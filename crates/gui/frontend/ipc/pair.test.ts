@@ -23,6 +23,7 @@ describe("probeMedia", () => {
             modified: "2025-07-15T09:00:00Z",
             format: "JPEG",
             colorProfile: "Display P3",
+            bitDepth: 10,
             frameRate: 29.97,
         };
         mockedInvoke.mockResolvedValue(info);
@@ -44,6 +45,7 @@ describe("probeMedia", () => {
             modified: absent,
             format: absent,
             colorProfile: absent,
+            bitDepth: absent,
             frameRate: absent,
         });
 

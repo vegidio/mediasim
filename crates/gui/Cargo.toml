@@ -30,6 +30,8 @@ rust-sak = { workspace = true, features = ["memo", "crypto"] }
 serde.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+# `open_path` and `reveal_item_in_dir`, called from Rust by `open.rs`; the plugin itself and its JS API are not used.
+tauri-plugin-opener = "2"
 tauri-plugin-os = "2"
 thiserror.workspace = true
 

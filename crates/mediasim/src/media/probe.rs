@@ -1,5 +1,7 @@
 //! Media probing: a file's metadata read from its header, without decoding any frames.
 
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -11,7 +13,8 @@ use crate::MediaError;
 /// The fields it shares with [`Media`] report what loading the same file would. A `MediaInfo` has no frames, so it
 /// cannot be compared; load the file for that.
 ///
-/// With the `serde` feature it serializes like a [`Media`], followed by `format`, `colorProfile` and `frameRate`.
+/// With the `serde` feature it serializes like a [`Media`], followed by `format`, `colorProfile`, `bitDepth` and
+/// `frameRate`.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MediaInfo {
@@ -36,12 +39,15 @@ pub struct MediaInfo {
     /// When the file was last modified, if the platform and filesystem record it.
     #[cfg_attr(feature = "serde", serde(serialize_with = "super::ser::timestamp"))]
     pub modified: Option<SystemTime>,
-    /// The image format's name (`BMP`, `GIF`, `JPEG`, `PNG`, `TIFF`, `AVIF`, `HEIF` or `WebP`), chosen by the
-    /// extension as loading chooses it; `None` for videos.
+    /// The image format's name (`BMP`, `GIF`, `JPEG`, `PNG`, `TIFF`, `AVIF`, `HEIF` or `WebP`), sniffed from the
+    /// file's magic bytes as loading sniffs it; `None` for videos.
     pub format: Option<&'static str>,
     /// The name of the image's color profile, such as `Display P3`, when the file declares one; `None` for videos.
     #[cfg_attr(feature = "serde", serde(rename = "colorProfile"))]
     pub color_profile: Option<String>,
+    /// Bits per colour channel of an image; `None` for videos.
+    #[cfg_attr(feature = "serde", serde(rename = "bitDepth"))]
+    pub bit_depth: Option<u8>,
     /// The average frame rate of the first video stream, in frames per second, when the container declares one;
     /// `None` for images.
     #[cfg_attr(feature = "serde", serde(rename = "frameRate"))]
@@ -55,6 +61,7 @@ struct Header {
     duration: Option<Duration>,
     format: Option<&'static str>,
     color_profile: Option<String>,
+    bit_depth: Option<u8>,
     frame_rate: Option<f64>,
 }
 
@@ -93,13 +100,18 @@ impl Media {
             modified: info.modified,
             format: header.format,
             color_profile: header.color_profile,
+            bit_depth: header.bit_depth,
             frame_rate: header.frame_rate,
         })
     }
 }
 
+/// How many leading bytes [`ImageFormat::from_magic`](rust_sak::image::ImageFormat::from_magic) needs to tell every
+/// supported format apart.
+const MAGIC_LEN: u64 = 12;
+
 fn image(path: &Path) -> Result<Header, MediaError> {
-    let info = rust_sak::image::probe_file(path).map_err(|e| MediaError::image(path, e))?;
+    let info = probe_image(path).map_err(|e| MediaError::image(path, e))?;
 
     Ok(Header {
         width: info.width,
@@ -107,8 +119,23 @@ fn image(path: &Path) -> Result<Header, MediaError> {
         duration: None,
         format: Some(info.format.name()),
         color_profile: info.color_profile,
+        bit_depth: Some(info.bit_depth),
         frame_rate: None,
     })
+}
+
+/// Probes the image at `path` in the format its magic bytes name, as loading decodes it, so a PNG named `.jpg` still
+/// probes. When the extension agrees, which is almost always, only the header is read; otherwise the whole file is.
+fn probe_image(path: &Path) -> rust_sak::image::Result<rust_sak::image::ImageInfo> {
+    use rust_sak::image::ImageFormat;
+
+    let mut magic = Vec::new();
+    File::open(path)?.take(MAGIC_LEN).read_to_end(&mut magic)?;
+
+    match ImageFormat::from_magic(&magic) {
+        Some(format) if ImageFormat::from_path(path) == Some(format) => rust_sak::image::probe_file(path),
+        _ => rust_sak::image::probe_bytes(&std::fs::read(path)?),
+    }
 }
 
 fn video(path: &Path) -> Result<Header, MediaError> {
@@ -126,6 +153,7 @@ fn video(path: &Path) -> Result<Header, MediaError> {
         duration: Some(info.duration()),
         format: None,
         color_profile: None,
+        bit_depth: None,
         frame_rate: stream.frame_rate.map(media::types::Framerate::as_f64),
     })
 }
@@ -150,19 +178,21 @@ mod tests {
         assert_eq!((info.width, info.height), (1440, 3098));
         assert_eq!(info.duration, None);
         assert_eq!(info.color_profile, None);
+        assert_eq!(info.bit_depth, Some(8));
         assert_eq!(info.frame_rate, None);
         assert!(info.modified.is_some());
     }
 
     #[test]
-    fn the_format_follows_the_extension() {
+    fn the_format_follows_the_contents_not_the_extension() {
         let dir = mk_temp_dir("mediasim").unwrap();
-        let path = dir.path().join("photo.JPEG");
-        let img = rust_sak::image::decode_file(fixture("test1.png")).unwrap();
-        rust_sak::image::encode_file(&img, dir.path().join("photo.jpg"), None).unwrap();
-        std::fs::rename(dir.path().join("photo.jpg"), &path).unwrap();
+        let path = dir.path().join("photo.jpg");
+        std::fs::copy(fixture("test1.png"), &path).unwrap();
 
-        assert_eq!(Media::probe(&path).unwrap().format, Some("JPEG"));
+        let info = Media::probe(&path).unwrap();
+
+        assert_eq!(info.format, Some("PNG"));
+        assert_eq!((info.width, info.height), (1440, 3098));
     }
 
     #[test]
@@ -208,6 +238,7 @@ mod tests {
         assert_eq!(info.frame_rate, Some(30.0));
         assert_eq!(info.format, None);
         assert_eq!(info.color_profile, None);
+        assert_eq!(info.bit_depth, None);
     }
 
     #[test]
@@ -264,6 +295,7 @@ mod tests {
                 modified: None,
                 format: None,
                 color_profile: None,
+                bit_depth: None,
                 frame_rate: None,
             }
         }
@@ -276,12 +308,13 @@ mod tests {
                 size: 12345,
                 modified: Some("2026-10-04T12:34:56Z".parse::<jiff::Timestamp>().unwrap().into()),
                 format: Some("PNG"),
+                bit_depth: Some(8),
                 ..info("a.png", MediaType::Image)
             };
 
             assert_eq!(
                 serde_json::to_string(&info).unwrap(),
-                r#"{"path":"a.png","type":"image","width":640,"height":480,"size":12345,"duration":null,"created":null,"modified":"2026-10-04T12:34:56Z","format":"PNG","colorProfile":null,"frameRate":null}"#
+                r#"{"path":"a.png","type":"image","width":640,"height":480,"size":12345,"duration":null,"created":null,"modified":"2026-10-04T12:34:56Z","format":"PNG","colorProfile":null,"bitDepth":8,"frameRate":null}"#
             );
         }
 
@@ -299,6 +332,7 @@ mod tests {
             assert_eq!(value["frameRate"].to_string(), "25.0");
             assert!(value["format"].is_null());
             assert!(value["colorProfile"].is_null());
+            assert!(value["bitDepth"].is_null());
         }
     }
 }

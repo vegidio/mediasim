@@ -25,8 +25,8 @@ type GalleryStore = {
     threshold: number;
     setThreshold: (threshold: number) => void;
     /**
-     * Starts a new comparison: the threshold goes back to the "Default match threshold" setting, and every folder is
-     * recounted, so files added or deleted on disk since it was counted show up or drop out.
+     * Starts a new comparison: the threshold goes back to the "Default match threshold" setting, no file is removed, and
+     * every folder is recounted, so files added or deleted on disk since it was counted show up or drop out.
      */
     begin: () => void;
     listing: GalleryListing;
@@ -47,6 +47,15 @@ type GalleryStore = {
     closeDetails: () => void;
     /** Forget {@link focusTile}, once the tile has taken focus. */
     tileFocused: () => void;
+    /**
+     * The paths of the files removed from this comparison. They keep their place in the gallery, but Compare leaves
+     * them out. Kept across re-reads of the set's files, for as long as the files are still in it.
+     */
+    removed: ReadonlySet<string>;
+    /** Remove the file at `path` from the comparison. */
+    remove: (path: string) => void;
+    /** Undo {@link remove} for the file at `path`. */
+    addBack: (path: string) => void;
 };
 
 type StartState = ReturnType<typeof useStartStore.getState>;
@@ -71,13 +80,23 @@ let requests = 0;
 /** `state` without the details dialog's file. */
 const withoutDetails = ({ details: _closed, ...rest }: GalleryStore): GalleryStore => rest;
 
-/** `state` with `listing`, closing the details dialog when its file is no longer in it. */
+/**
+ * `state` with `listing`, closing the details dialog when its file is no longer in it, and forgetting the removal of
+ * any file no longer in it.
+ */
 const withListing = (state: GalleryStore, listing: GalleryListing): GalleryStore => {
-    const { details } = state;
-    const gone =
-        details !== undefined && listing.status === "ready" && !listing.files.some((file) => file.path === details);
+    if (listing.status !== "ready") return { ...state, listing };
 
-    return { ...(gone ? withoutDetails(state) : state), listing };
+    const paths = new Set(listing.files.map((file) => file.path));
+    const { details, removed } = state;
+    const gone = details !== undefined && !paths.has(details);
+    const kept = [...removed].filter((path) => paths.has(path));
+
+    return {
+        ...(gone ? withoutDetails(state) : state),
+        listing,
+        ...(kept.length !== removed.size && { removed: new Set(kept) }),
+    };
 };
 
 export const useGalleryStore = create<GalleryStore>()((set, get) => ({
@@ -87,7 +106,7 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     threshold: useSettingsStore.getState().matchThreshold,
     setThreshold: (threshold) => set({ threshold }),
     begin: () => {
-        set({ threshold: useSettingsStore.getState().matchThreshold });
+        set({ threshold: useSettingsStore.getState().matchThreshold, removed: new Set() });
         // The recount bumps the set's revision, so the next load reads the files again instead of keeping the last read.
         void useStartStore.getState().refresh();
     },
@@ -124,6 +143,14 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
             return details === undefined ? state : { ...withoutDetails(state), focusTile: details };
         }, true),
     tileFocused: () => set(({ focusTile: _done, ...rest }) => rest, true),
+    removed: new Set(),
+    remove: (path) => set(({ removed }) => ({ removed: new Set(removed).add(path) })),
+    addBack: (path) =>
+        set(({ removed }) => {
+            const next = new Set(removed);
+            next.delete(path);
+            return { removed: next };
+        }),
 }));
 
 // Follow the "Default match threshold" setting, whether the user changed it or reset it.

@@ -23,6 +23,7 @@ const IMAGE: MediaInfo = {
     size: 4_100_000,
     format: "HEIC",
     colorProfile: "Display P3",
+    bitDepth: 8,
     created: local(2025, 7, 14, 20, 41),
     modified: local(2025, 7, 15, 9, 3),
 };
@@ -71,7 +72,19 @@ describe("detailsSections", () => {
             "Dimensions: 4032 × 3024",
             "Megapixels: 12.2 MP",
             "Colour profile: Display P3",
+            "Bit depth: 8-bit",
         ]);
+    });
+
+    it("reads an image's bit depth, or Unknown when the file doesn't give one", () => {
+        const { bitDepth: _, ...bare } = IMAGE;
+
+        expect(lines("image", ready({ ...IMAGE, bitDepth: 10 }, "~/a.heic"))).toContain("Bit depth: 10-bit");
+        expect(lines("image", ready(bare, "~/a.heic"))).toContain("Bit depth: Unknown");
+    });
+
+    it("shows a placeholder for the bit depth while loading", () => {
+        expect(lines("image", { status: "loading" })).toContain("Bit depth: …");
     });
 
     it("lists a video's File and Video sections", () => {
@@ -125,7 +138,7 @@ describe("detailsSections", () => {
     it("reads Unknown for every value when the details can't be read", () => {
         const values = detailsSections("image", { status: "failed" }).flatMap(({ rows }) => rows.map((r) => r.value));
 
-        expect(values).toHaveLength(8);
+        expect(values).toHaveLength(9);
         expect(new Set(values)).toEqual(new Set(["Unknown"]));
     });
 

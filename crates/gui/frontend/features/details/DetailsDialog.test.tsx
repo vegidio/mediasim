@@ -1,11 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { openMedia } from "@/ipc/open";
 import { type MediaInfo, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
 import { DetailsDialog } from "./DetailsDialog";
 import { forgetFileDetails } from "./useFileDetails";
 
+vi.mock("@/ipc/open", () => ({ openMedia: vi.fn(), revealMedia: vi.fn() }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn() }));
 vi.mock("@/ipc/set", () => ({ displayPath: vi.fn(async (path: string) => path), listSetMedia: vi.fn() }));
 vi.mock("@/ipc/thumbs", () => ({
@@ -20,6 +22,7 @@ vi.mock("@/ipc/video", () => ({
 }));
 
 const mockedProbe = probeMedia as Mock;
+const mockedOpen = openMedia as Mock;
 
 /** 48 files, `IMG_01.jpg` to `IMG_48.jpg`, with the 5th a video. */
 const FILES: MediaFile[] = Array.from({ length: 48 }, (_, i) => {
@@ -145,6 +148,72 @@ describe("DetailsDialog", () => {
 
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
         expect(useGalleryStore.getState().focusTile).toBe(nth(4).path);
+    });
+
+    it("opens the shown file, and drops a failure's message on stepping to the next file", async () => {
+        mockedOpen.mockReset().mockRejectedValueOnce({ kind: "missing", message: "it no longer exists" });
+        openOn(4);
+
+        fireEvent.click(button("Open in app"));
+
+        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith(nth(4).identity);
+        expect(await within(dialog()).findByRole("alert")).toHaveTextContent("Couldn't open this file.");
+
+        fireEvent.click(button("Next file"));
+
+        expect(shownPath()).toBe(nth(5).path);
+        expect(within(dialog()).queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    describe("Remove from comparison", () => {
+        /** The chips above the sidebar's sections. */
+        const chips = () =>
+            within(within(dialog()).getByRole("complementary", { name: "File details" }))
+                .getAllByText(/^(Image|Video|Not included|Removed)$/)
+                .filter((chip) => !chip.closest("section"))
+                .map((chip) => chip.textContent);
+
+        it("removes the file and adds it back, keeping focus on the button and the dialog on the file", () => {
+            openOn(4);
+            const toggle = button("Remove from comparison");
+            toggle.focus();
+
+            fireEvent.click(toggle);
+
+            expect(useGalleryStore.getState().removed).toEqual(new Set([nth(4).path]));
+            expect(toggle).toHaveAccessibleName("Add back to comparison");
+            expect(toggle).toHaveFocus();
+            expect(chips()).toEqual(["Image", "Removed"]);
+            expect(shownPath()).toBe(nth(4).path);
+            expect(within(dialog()).getByText("4 of 48")).toBeInTheDocument();
+
+            fireEvent.click(toggle);
+
+            expect(useGalleryStore.getState().removed).toEqual(new Set());
+            expect(toggle).toHaveAccessibleName("Remove from comparison");
+            expect(toggle).toHaveFocus();
+            expect(chips()).toEqual(["Image"]);
+        });
+
+        it("shows both chips for a removed file the tab leaves out", () => {
+            useGalleryStore.getState().setFilter("videos");
+            openOn(4);
+
+            fireEvent.click(button("Remove from comparison"));
+
+            expect(chips()).toEqual(["Image", "Not included", "Removed"]);
+        });
+
+        it("reads Add back for a file removed earlier, and Remove for the next one", () => {
+            useGalleryStore.getState().remove(nth(4).path);
+            openOn(4);
+
+            expect(button("Add back to comparison")).toBeInTheDocument();
+
+            fireEvent.click(button("Next file"));
+
+            expect(button("Remove from comparison")).toBeInTheDocument();
+        });
     });
 
     describe("a click on the backdrop", () => {

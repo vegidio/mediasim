@@ -83,6 +83,7 @@ const VirtualRows = ({ scroller, count, columns, row, reveal }: VirtualRowsProps
 export const GalleryGrid = () => {
     const listing = useGalleryStore((state) => state.listing);
     const filter = useGalleryStore((state) => state.filter);
+    const removed = useGalleryStore((state) => state.removed);
     const load = useGalleryStore((state) => state.load);
     const focusTile = useGalleryStore((state) => state.focusTile);
     const tileFocused = useGalleryStore((state) => state.tileFocused);
@@ -156,7 +157,12 @@ export const GalleryGrid = () => {
                         files
                             .slice(index * columns, (index + 1) * columns)
                             .map((file) => (
-                                <MediaTile key={file.path} file={file} included={isIncluded(file.type, filter)} />
+                                <MediaTile
+                                    key={file.path}
+                                    file={file}
+                                    included={isIncluded(file.type, filter)}
+                                    removed={removed.has(file.path)}
+                                />
                             ))
                     }
                 />

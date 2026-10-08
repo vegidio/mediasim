@@ -28,6 +28,7 @@ vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/video", () => ({ probeVideo: vi.fn(() => new Promise(() => {})) }));
+vi.mock("@/ipc/open", () => ({ openMedia: vi.fn(), revealMedia: vi.fn() }));
 
 const mockedList = listSetMedia as Mock;
 const mockedRescan = rescanSet as Mock;
@@ -228,6 +229,43 @@ describe("GalleryScreen", () => {
 
         await waitFor(() => expect(tiles()).toHaveLength(1));
         expect(mockedRescan).toHaveBeenCalledOnce();
+    });
+
+    it("shows a file removed in the details as removed in place, and leaves it out of Compare", async () => {
+        const read = images(4);
+        withSet(4, { revision: 1, files: read });
+        render(<GalleryScreen />);
+        await waitFor(() => expect(tiles()).toHaveLength(4));
+
+        fireEvent.click(screen.getByRole("button", { name: "Open IMG_00001.jpg" }));
+        fireEvent.click(screen.getByRole("button", { name: "Remove from comparison" }));
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+        expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(read.map((file) => `Open ${file.name}`));
+        const tile = screen.getByRole("button", { name: "Open IMG_00001.jpg" }).closest(".group") as HTMLElement;
+        expect(tile).toHaveAttribute("title", "Removed from this comparison");
+        expect(tile).toHaveClass("grayscale");
+        expect(within(tile).queryByText("Removed")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 3 files");
+    });
+
+    it("keeps removals across Back, and drops them when a new comparison starts", async () => {
+        withSet(3, { revision: 1, files: images(3) });
+        render(<App />);
+        act(() => useScreenStore.getState().show("gallery"));
+        await waitFor(() => expect(tiles()).toHaveLength(3));
+        act(() => useGalleryStore.getState().remove("/p/IMG_00000.jpg"));
+        expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 2 files");
+
+        fireEvent.click(screen.getByRole("button", { name: "Back" }));
+        expect(useGalleryStore.getState().removed).toEqual(new Set(["/p/IMG_00000.jpg"]));
+
+        fireEvent.click(screen.getByRole("button", { name: "Continue with 3 files" }));
+
+        await waitFor(() => expect(tiles()).toHaveLength(3));
+        expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 3 files");
+        const tile = screen.getByRole("button", { name: "Open IMG_00000.jpg" }).closest(".group") as HTMLElement;
+        expect(tile).not.toHaveClass("grayscale");
     });
 
     it("hands focus back to the tile of the file last shown, scrolled into view, when the details close", async () => {

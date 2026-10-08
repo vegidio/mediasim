@@ -53,6 +53,9 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
     const filter = useGalleryStore((state) => state.filter);
     const showDetails = useGalleryStore((state) => state.showDetails);
     const closeDetails = useGalleryStore((state) => state.closeDetails);
+    const removed = useGalleryStore((state) => state.removed.has(file.path));
+    const remove = useGalleryStore((state) => state.remove);
+    const addBack = useGalleryStore((state) => state.addBack);
     const details = useFileDetails(file);
     const [ratio, setRatio] = useState(FIRST_RATIO);
     // The shape the picture reported once it loaded, which stands in when the details can't give one. Kept per file,
@@ -142,7 +145,15 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
                         />
                         <Filmstrip files={files} index={index} onShow={show} />
                     </div>
-                    <DetailsSidebar type={file.type} details={details} included={isIncluded(file.type, filter)} />
+                    {/* Keyed by path, so an action's failure message is gone once another file is shown. */}
+                    <DetailsSidebar
+                        key={file.path}
+                        file={file}
+                        details={details}
+                        included={isIncluded(file.type, filter)}
+                        removed={removed}
+                        onToggleRemoved={() => (removed ? addBack : remove)(file.path)}
+                    />
                 </div>
             </DialogContent>
         </Dialog>

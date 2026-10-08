@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MediaType } from "@/ipc/formats";
 import type { SourceView } from "@/ipc/set";
-import { compareState, filterCounts, identity, isIncluded } from "./derive";
+import { compareCount, compareState, filterCounts, identity, isIncluded } from "./derive";
 
 const files = (images: number, videos: number) => [
     ...Array.from({ length: images }, () => ({ type: "image" as MediaType })),
@@ -41,6 +41,27 @@ describe("isIncluded", () => {
         expect(isIncluded("video", "images")).toBe(false);
         expect(isIncluded("video", "videos")).toBe(true);
         expect(isIncluded("image", "videos")).toBe(false);
+    });
+});
+
+describe("compareCount", () => {
+    const paths = (images: number, videos: number) =>
+        files(images, videos).map((file, i) => ({ ...file, path: `/p/${i}` }));
+
+    it("counts the files the filter includes when none is removed", () => {
+        expect(compareCount(paths(36, 12), "both", new Set())).toBe(48);
+        expect(compareCount(paths(36, 12), "images", new Set())).toBe(36);
+    });
+
+    it("leaves out removed files, while the tab counts keep them", () => {
+        const all = paths(36, 12);
+
+        expect(compareCount(all, "both", new Set(["/p/0", "/p/1", "/p/40"]))).toBe(45);
+        expect(filterCounts(all)).toEqual({ images: 36, videos: 12, both: 48 });
+    });
+
+    it("ignores a removed file the filter already leaves out", () => {
+        expect(compareCount(paths(36, 12), "images", new Set(["/p/40"]))).toBe(36);
     });
 });
 

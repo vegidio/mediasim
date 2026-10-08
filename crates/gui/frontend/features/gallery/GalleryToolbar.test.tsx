@@ -170,6 +170,42 @@ describe("GalleryToolbar", () => {
         expect(compare()).toBeDisabled();
     });
 
+    it("leaves removed files out of Compare, while the tabs still count them", async () => {
+        withSet([holiday], media(36, 12));
+        await renderGallery();
+
+        // Two images and one video.
+        act(() => {
+            for (const path of ["/p/000", "/p/001", "/p/040"]) useGalleryStore.getState().remove(path);
+        });
+
+        expect(compare()).toHaveAccessibleName("Compare 45 files");
+        expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Images 36", "Videos 12", "Both 48"]);
+    });
+
+    it("counts every image under Images when only a video is removed", async () => {
+        withSet([holiday], media(36, 12));
+        await renderGallery();
+        act(() => useGalleryStore.getState().remove("/p/040"));
+
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
+
+        expect(compare()).toHaveAccessibleName("Compare 36 files");
+    });
+
+    it("is disabled when removals leave fewer than two files", async () => {
+        withSet([holiday], media(3, 0));
+        await renderGallery();
+
+        act(() => {
+            useGalleryStore.getState().remove("/p/000");
+            useGalleryStore.getState().remove("/p/001");
+        });
+
+        expect(compare()).toHaveAccessibleName("Compare 1 file");
+        expect(compare()).toBeDisabled();
+    });
+
     it("names every control", async () => {
         withSet([holiday], media(36, 12));
 

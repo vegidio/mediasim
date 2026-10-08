@@ -8,7 +8,7 @@ import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useScreenStore } from "@/stores/screen";
 import { MATCH_THRESHOLD_MAX, MATCH_THRESHOLD_MIN } from "@/stores/settings";
 import { useStartStore } from "@/stores/start";
-import { compareState, type FilterCounts, filterCounts, identity } from "./derive";
+import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "./derive";
 
 /** The filter tabs, in the order the toolbar shows them. */
 const FILTERS: { value: GalleryFilter; label: string }[] = [
@@ -129,6 +129,7 @@ const CompareButton = ({ count }: { count?: number }) => {
 /** The gallery's toolbar: Back and what the set is, the filter tabs, then the threshold and Compare. */
 export const GalleryToolbar = () => {
     const filter = useGalleryStore((state) => state.filter);
+    const removed = useGalleryStore((state) => state.removed);
     const files = useFiles();
     const counts = files && filterCounts(files);
 
@@ -142,7 +143,7 @@ export const GalleryToolbar = () => {
             <FilterTabs {...(counts && { counts })} />
             <div className="flex items-center justify-end gap-5">
                 <ThresholdControl />
-                <CompareButton {...(counts && { count: counts[filter] })} />
+                <CompareButton {...(files && { count: compareCount(files, filter, removed) })} />
             </div>
         </div>
     );

@@ -132,6 +132,11 @@ const IMAGE_ROWS: readonly RowSpec[] = [
     { key: "Dimensions", mono: true, value: ({ info }) => formatDimensions(info) },
     { key: "Megapixels", mono: true, value: ({ info }) => formatMegapixels(info.width, info.height) },
     { key: "Colour profile", value: ({ info }) => formatProfile(info.colorProfile) },
+    {
+        key: "Bit depth",
+        mono: true,
+        value: ({ info }) => (info.bitDepth ? `${info.bitDepth}-bit` : UNKNOWN),
+    },
 ];
 
 const VIDEO_ROWS: readonly RowSpec[] = [

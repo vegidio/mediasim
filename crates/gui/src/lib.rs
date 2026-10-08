@@ -6,6 +6,7 @@
 #![warn(clippy::pedantic)]
 
 mod formats;
+mod open;
 mod pair;
 mod set;
 mod thumbs;
@@ -81,6 +82,8 @@ pub fn run() {
             pair::probe_media,
             pair::compare_pair,
             pair::cancel_comparison,
+            open::open_media,
+            open::reveal_media,
             trash::trash_media,
             trash::restore_media,
             trash::delete_media,

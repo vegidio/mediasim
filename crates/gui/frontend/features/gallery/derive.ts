@@ -16,6 +16,13 @@ export const filterCounts = (files: readonly { type: MediaType }[]): FilterCount
 export const isIncluded = (type: MediaType, filter: GalleryFilter) =>
     filter === "both" || (filter === "images" ? type === "image" : type === "video");
 
+/** How many of `files` a comparison under `filter` includes, leaving out those `removed` from it. */
+export const compareCount = (
+    files: readonly { path: string; type: MediaType }[],
+    filter: GalleryFilter,
+    removed: ReadonlySet<string>,
+) => files.filter((file) => isIncluded(file.type, filter) && !removed.has(file.path)).length;
+
 /** What the Compare button reads, and whether it can be activated. */
 export type CompareState = { label: string; enabled: boolean };
 

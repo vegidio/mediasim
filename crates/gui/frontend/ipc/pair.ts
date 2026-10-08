@@ -20,6 +20,8 @@ export type MediaInfo = {
     format?: string;
     /** The image's color profile name, such as `Display P3`, when it declares one. */
     colorProfile?: string;
+    /** Bits per colour channel, such as 8; images only. */
+    bitDepth?: number;
     /** In frames per second, when the video's container declares it. */
     frameRate?: number;
 };
@@ -31,7 +33,7 @@ export type PairFailure =
     | { kind: "mismatch"; message: string }
     | { kind: "task"; message: string };
 
-type OptionalKey = "duration" | "created" | "modified" | "format" | "colorProfile" | "frameRate";
+type OptionalKey = "duration" | "created" | "modified" | "format" | "colorProfile" | "bitDepth" | "frameRate";
 
 /** {@link MediaInfo} as it arrives, with each absent value as JSON `null`. */
 type WireMediaInfo = Omit<MediaInfo, OptionalKey> & { [K in OptionalKey]-?: NonNullable<MediaInfo[K]> | null };
@@ -41,7 +43,7 @@ export const probeMedia = async (path: string): Promise<MediaInfo> => {
     const info = await call<WireMediaInfo>("probe_media", { path });
 
     // Rust's `None` arrives as JSON `null`, which this project spells as an absent property.
-    const { duration, created, modified, format, colorProfile, frameRate, ...always } = info;
+    const { duration, created, modified, format, colorProfile, bitDepth, frameRate, ...always } = info;
 
     return {
         ...always,
@@ -50,6 +52,7 @@ export const probeMedia = async (path: string): Promise<MediaInfo> => {
         ...(modified !== null && { modified }),
         ...(format !== null && { format }),
         ...(colorProfile !== null && { colorProfile }),
+        ...(bitDepth !== null && { bitDepth }),
         ...(frameRate !== null && { frameRate }),
     };
 };

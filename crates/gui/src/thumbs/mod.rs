@@ -101,6 +101,25 @@ pub(crate) fn current_identity(path: &Path) -> Option<String> {
     stat(path).map(|(identity, _)| identity)
 }
 
+/// Why the file at an admitted path is no longer the one admitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mismatch {
+    /// Something else is at the path now.
+    Changed,
+    /// Nothing is at the path now.
+    Missing,
+}
+
+/// Checks that the file at `path` is still the one admitted as `identity`, just before it is acted on.
+pub(crate) fn check_admitted(identity: &str, path: &Path) -> Result<(), Mismatch> {
+    match current_identity(path) {
+        Some(current) if current == identity => Ok(()),
+        // A path that is now a folder, or unreadable, is not the file that was admitted either.
+        _ if path.try_exists().is_ok_and(|exists| !exists) => Err(Mismatch::Missing),
+        _ => Err(Mismatch::Changed),
+    }
+}
+
 /// Stats `path` and returns its identity and what is recorded about it, or `None` when it is not an existing file.
 fn stat(path: &Path) -> Option<(String, Admitted)> {
     let metadata = std::fs::metadata(path).ok()?;
