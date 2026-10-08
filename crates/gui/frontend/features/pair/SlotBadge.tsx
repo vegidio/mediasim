@@ -1,4 +1,4 @@
-import type { Slot } from "@/features/start/routePairDrop";
+import type { Slot } from "@/features/home/routePairDrop";
 import { cn } from "@/lib/utils";
 
 /** A file's slot letter, A or B, in a small square; dashed and dimmed once the file is `gone`. */

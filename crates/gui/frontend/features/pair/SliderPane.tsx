@@ -1,5 +1,5 @@
 import { Trash2Icon } from "lucide-react";
-import type { Slot } from "@/features/start/routePairDrop";
+import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 import type { GoneKind } from "@/stores/pairResult";

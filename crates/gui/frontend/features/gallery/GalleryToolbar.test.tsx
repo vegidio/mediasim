@@ -6,9 +6,9 @@ import type { MediaType } from "@/ipc/formats";
 import { listSetMedia, type SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
+import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
-import { useStartStore } from "@/stores/start";
 import { GalleryScreen } from "./GalleryScreen";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
@@ -45,7 +45,7 @@ const media = (images: number, videos: number, size = 1): MediaFile[] =>
 
 /** Put `sources` in the set, with `files` as what listing it reads. */
 const withSet = (sources: SourceView[], files: MediaFile[]) => {
-    useStartStore.setState({ view: { revision: 1, sources, total: files.length }, sources, rescans: 0 });
+    useHomeStore.setState({ view: { revision: 1, sources, total: files.length }, sources, rescans: 0 });
     mockedList.mockResolvedValue({ revision: 1, files });
 };
 
@@ -63,19 +63,19 @@ describe("GalleryToolbar", () => {
     beforeEach(() => {
         localStorage.clear();
         useSettingsStore.setState(SETTINGS_DEFAULTS);
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
         useGalleryStore.setState(useGalleryStore.getInitialState(), true);
         useScreenStore.setState(useScreenStore.getInitialState(), true);
     });
 
-    it("goes Back to the start screen with the set unchanged, and focus on Continue", async () => {
+    it("goes Back to the Home screen with the set unchanged, and focus on Continue", async () => {
         withSet([holiday], media(48, 0));
         render(<App />);
         act(() => useScreenStore.getState().show("gallery"));
 
         fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
-        expect(useScreenStore.getState().screen).toBe("start");
+        expect(useScreenStore.getState().screen).toBe("home");
         expect(screen.getByRole("list", { name: "Selected sources" })).toHaveTextContent("Holiday 2025");
         const continueButton = screen.getByRole("button", { name: "Continue with 48 files" });
         await waitFor(() => expect(continueButton).toHaveFocus());

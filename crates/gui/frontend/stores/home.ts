@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { addToSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+import { addToSet, clearSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
 import { useSettingsStore } from "@/stores/settings";
 
 /** A row added a moment ago, shown until Rust describes it; its kind is not known yet. */
@@ -11,8 +11,8 @@ export type SourceRow = SourceView | PendingRow;
 /** A pending row together with the request that added it, which clears it when it settles. */
 type Optimistic = PendingRow & { request: number };
 
-/** State of the start screen, kept for as long as the application runs. */
-type StartStore = {
+/** State of the Home screen, kept for as long as the application runs. */
+type HomeStore = {
     /**
      * Whether folders added to a set are scanned recursively. It starts from the "Scan subfolders" setting and follows
      * it when it changes, but toggling it here lasts only for the session and never writes the setting.
@@ -25,6 +25,8 @@ type StartStore = {
     add: (paths: string[]) => Promise<void>;
     /** Remove the source added as `path`. */
     remove: (path: string) => Promise<void>;
+    /** Remove every source, including any still being added or counted. "Scan subfolders" is left as it is. */
+    clear: () => Promise<void>;
     /** Set "Scan subfolders" and recount every folder to match; nothing happens when it already has that value. */
     setScanSubfolders: (value: boolean) => Promise<void>;
     /** Flip "Scan subfolders" and recount every folder to match. */
@@ -63,7 +65,7 @@ const merge = (view: SetView, optimistic: Optimistic[], rescanning: boolean): So
     return [...sources, ...pending];
 };
 
-type RowInputs = Pick<StartStore, "view" | "optimistic" | "rescans">;
+type RowInputs = Pick<HomeStore, "view" | "optimistic" | "rescans">;
 
 /** `changes`, together with the rows they give once applied to `state`. */
 const withRows = (state: RowInputs, changes: Partial<RowInputs>) => {
@@ -75,7 +77,7 @@ const EMPTY: SetView = { revision: 0, sources: [], total: 0 };
 
 let requests = 0;
 
-export const useStartStore = create<StartStore>()((set, get) => {
+export const useHomeStore = create<HomeStore>()((set, get) => {
     /**
      * Apply a view from Rust, unless one describing a later state of the set is already shown. Responses arrive out of
      * order, since each waits for its own listing, so the set's revision orders them, not the order they were asked in.
@@ -140,6 +142,14 @@ export const useStartStore = create<StartStore>()((set, get) => {
             await removeFromSet(path).then(apply, report("remove from the set"));
         },
 
+        clear: async () => {
+            // Empty the list at once. The revision stays, so Rust's answer still applies, and replaces any view that
+            // arrives before it from an add Rust has since cleared.
+            set((state) => withRows(state, { view: { ...state.view, sources: [], total: 0 }, optimistic: [] }));
+
+            await clearSet().then(apply, report("clear the set"));
+        },
+
         setScanSubfolders: async (scanSubfolders) => {
             if (scanSubfolders === get().scanSubfolders) return;
             set({ scanSubfolders });
@@ -155,6 +165,6 @@ export const useStartStore = create<StartStore>()((set, get) => {
 // Follow the "Scan subfolders" setting, whether the user changed it, reset it, or it was rehydrated.
 useSettingsStore.subscribe((settings, previous) => {
     if (settings.scanSubfolders !== previous.scanSubfolders) {
-        void useStartStore.getState().setScanSubfolders(settings.scanSubfolders);
+        void useHomeStore.getState().setScanSubfolders(settings.scanSubfolders);
     }
 });

@@ -1,7 +1,7 @@
 import { type Ref, useId } from "react";
 import { UploadIcon } from "lucide-react";
-import { dropTargetClassName } from "@/features/start/ModeCard";
-import type { Slot } from "@/features/start/routePairDrop";
+import { dropTargetClassName } from "@/features/home/ModeCard";
+import type { Slot } from "@/features/home/routePairDrop";
 import { pickFile } from "@/ipc/dialog";
 import { supportedFormats } from "@/ipc/formats";
 import { cn } from "@/lib/utils";

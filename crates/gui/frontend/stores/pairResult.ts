@@ -1,6 +1,6 @@
 import { create } from "zustand";
+import { SLOTS, type Slot } from "@/features/home/routePairDrop";
 import type { Details } from "@/features/pair/details";
-import { SLOTS, type Slot } from "@/features/start/routePairDrop";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import {
@@ -67,7 +67,7 @@ type PairResultStore = {
     open: (a: MediaFile, b: MediaFile) => void;
     /** Compare the pair again, keeping the details already read. */
     retry: () => void;
-    /** Cancel the comparison, if it is still running, and return to the start screen. */
+    /** Cancel the comparison, if it is still running, and return to the Home screen. */
     leave: () => void;
     /** Mark `slot`'s file for deletion, or unmark it. */
     toggleMark: (slot: Slot) => void;
@@ -173,7 +173,7 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             return { gone, marked, deletion: IDLE, notice };
         });
 
-        // A file gone can't be compared again, so it leaves the start screen's slot, unless that slot has since been
+        // A file gone can't be compared again, so it leaves the Home screen's slot, unless that slot has since been
         // given another file.
         const start = usePairStore.getState();
         for (const slot of notice.done) {
@@ -220,7 +220,7 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             compared += 1;
             cancelComparison().catch((error: unknown) => console.error("could not cancel the comparison", error));
             set(withoutNotice, true);
-            useScreenStore.getState().show("start");
+            useScreenStore.getState().show("home");
         },
 
         toggleMark: (slot) => set((state) => ({ marked: { ...state.marked, [slot]: !state.marked[slot] } })),

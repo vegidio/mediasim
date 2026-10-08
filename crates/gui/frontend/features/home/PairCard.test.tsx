@@ -4,8 +4,8 @@ import { type DragDropEvent, onDragDrop } from "@/ipc/dragDrop";
 import type { MediaType } from "@/ipc/formats";
 import { addToSet, rescanSet } from "@/ipc/set";
 import { describeMedia, type MediaFile } from "@/ipc/thumbs";
+import { useHomeStore } from "@/stores/home";
 import { usePairStore } from "@/stores/pair";
-import { useStartStore } from "@/stores/start";
 import { PairCard } from "./PairCard";
 import { SetCard } from "./SetCard";
 
@@ -74,7 +74,7 @@ const ON_HEADING = { x: 100, y: 40 };
 describe("PairCard", () => {
     beforeEach(() => {
         usePairStore.setState(usePairStore.getInitialState(), true);
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
         describeAsImages();
     });
 
@@ -274,7 +274,7 @@ describe("PairCard", () => {
 
             await waitFor(() => expect(usePairStore.getState().a).toEqual(media("photo.jpg")));
             expect(mockedAddToSet).not.toHaveBeenCalled();
-            expect(useStartStore.getState().sources).toEqual([]);
+            expect(useHomeStore.getState().sources).toEqual([]);
         });
     });
 });

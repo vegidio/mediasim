@@ -1,5 +1,5 @@
 import { type Ref, useRef, useState } from "react";
-import { FilmIcon, FolderIcon, ImageIcon, LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { FilmIcon, FolderIcon, ImageIcon, LoaderCircleIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     AddToSetMenu,
@@ -7,10 +7,10 @@ import {
     type Point,
     pickFilesIntoSet,
     pickFoldersIntoSet,
-} from "@/features/start/AddToSetMenu";
+} from "@/features/home/AddToSetMenu";
 import { formatCount, formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { type SourceRow, useStartStore } from "@/stores/start";
+import { type SourceRow, useHomeStore } from "@/stores/home";
 
 /** What a row says under its name: a status alone, or a location and what the source holds. */
 const detailsOf = (row: SourceRow): { location?: string; summary: string } => {
@@ -43,7 +43,7 @@ const RowIcon = ({ row }: { row: SourceRow }) => {
 
 /** One source: its icon, name and details, and a button that removes it. */
 const SetRow = ({ row }: { row: SourceRow }) => {
-    const remove = useStartStore((state) => state.remove);
+    const remove = useHomeStore((state) => state.remove);
 
     return (
         <li className="flex items-center gap-3 border-border-subtle border-b py-2.5 pr-2.5 pl-3.5">
@@ -71,11 +71,17 @@ type SetListProps = {
     ref?: Ref<HTMLDivElement>;
     /** Whether something is being dragged over the box. */
     highlighted?: boolean;
+    /** Called once Clear all has emptied the set, which unmounts the list. */
+    onCleared?: () => void;
 };
 
-/** The set's sources, in the order they were added, above a pinned row that opens the "Add to set" menu. */
-export const SetList = ({ ref, highlighted = false }: SetListProps) => {
-    const sources = useStartStore((state) => state.sources);
+/**
+ * The set's sources, in the order they were added, above a pinned row that opens the "Add to set" menu or clears the
+ * set.
+ */
+export const SetList = ({ ref, highlighted = false, onCleared }: SetListProps) => {
+    const sources = useHomeStore((state) => state.sources);
+    const clear = useHomeStore((state) => state.clear);
     const addMoreRef = useRef<HTMLButtonElement>(null);
     const [menuAnchor, setMenuAnchor] = useState<Point>();
 
@@ -92,17 +98,29 @@ export const SetList = ({ ref, highlighted = false }: SetListProps) => {
                     <SetRow key={row.path} row={row} />
                 ))}
             </ul>
-            <div className="relative shrink-0">
+            <div className="relative flex h-10 shrink-0 border-border border-t border-dashed">
                 <button
                     ref={addMoreRef}
                     type="button"
                     aria-haspopup="menu"
                     aria-expanded={menuAnchor !== undefined}
                     onClick={(event) => setMenuAnchor(anchorFor(event))}
-                    className="flex h-10 w-full cursor-pointer items-center justify-center gap-2 border-border border-t border-dashed text-[13px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:text-foreground [&_svg]:size-3.5"
+                    className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 text-[13px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:text-foreground [&_svg]:size-3.5"
                 >
                     <PlusIcon aria-hidden="true" />
                     <span>Drop or click to add more files or folders</span>
+                </button>
+                <span aria-hidden="true" className="my-2.5 w-px shrink-0 bg-border" />
+                <button
+                    type="button"
+                    onClick={() => {
+                        void clear();
+                        onCleared?.();
+                    }}
+                    className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap px-3.5 font-medium text-[#F87171] text-[13px] outline-none transition-colors hover:text-[#FCA5A5] focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3.5"
+                >
+                    <Trash2Icon aria-hidden="true" />
+                    <span>Clear all</span>
                 </button>
                 <AddToSetMenu
                     {...(menuAnchor && { anchor: menuAnchor })}

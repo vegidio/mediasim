@@ -4,7 +4,8 @@
 //! [`Set`] is a plain model: adding classifies paths, folders start out pending, and a finished listing is committed
 //! only if its source still has the generation it was started for, so a folder removed or rescanned while it was being
 //! listed drops the stale result. Every change bumps the set's revision, which the frontend uses to apply only views
-//! newer than the one it shows. The commands in [`commands`] add the locking and the off-thread listing.
+//! newer than the one it shows. Clearing bumps a separate epoch, so an add classified before a clear inserts nothing
+//! after it. The commands in [`commands`] add the locking and the off-thread listing.
 
 pub mod commands;
 
@@ -24,6 +25,8 @@ pub struct Set {
     revision: u64,
     /// The generation the next listing gets.
     next_generation: u64,
+    /// Bumped on every [`clear`](Self::clear), so an add started before it can tell it is stale.
+    clears: u64,
 }
 
 /// One added file or folder.
@@ -145,8 +148,13 @@ impl Set {
     /// Adds the classified paths in order, skipping any already in the set, and returns the folder listings to run.
     ///
     /// `recursive` is "Scan subfolders" as the frontend shows it, which the folders added here are listed with.
-    pub fn add(&mut self, paths: Vec<(PathBuf, Classified)>, recursive: bool) -> Vec<Job> {
+    /// `since_clear` is [`clears`](Self::clears) as read when the add started: if the set has been cleared since,
+    /// nothing is added, because the clear came later and wins.
+    pub fn add(&mut self, paths: Vec<(PathBuf, Classified)>, recursive: bool, since_clear: u64) -> Vec<Job> {
         let mut jobs = Vec::new();
+        if since_clear != self.clears {
+            return jobs;
+        }
 
         for (path, classified) in paths {
             if self.contains(&path) {
@@ -197,6 +205,17 @@ impl Set {
         }
     }
 
+    /// Removes every source, including folders still being listed, whose listings [`commit`](Self::commit) then
+    /// drops. Generations keep counting, so a source added again later never matches a stale listing.
+    pub fn clear(&mut self) {
+        self.clears += 1;
+
+        if !self.sources.is_empty() {
+            self.sources.clear();
+            self.revision += 1;
+        }
+    }
+
     /// Starts relisting every folder with "Scan subfolders" as `recursive`, whether or not it changed. Files are
     /// unaffected.
     pub fn rescan(&mut self, recursive: bool) -> Vec<Job> {
@@ -231,6 +250,11 @@ impl Set {
     /// They are in `Path` order, which compares component by component, so a folder's files stay together.
     pub fn media_paths(&self) -> Vec<PathBuf> {
         self.paths().collect::<BTreeSet<_>>().into_iter().map(Path::to_path_buf).collect()
+    }
+
+    /// The number of times the set has been cleared, which an add reads before it starts.
+    pub fn clears(&self) -> u64 {
+        self.clears
     }
 
     /// The set's current revision.
@@ -349,7 +373,7 @@ mod tests {
     /// Classifies and adds `paths`, then runs and commits every listing, as the commands do.
     fn add(set: &mut Set, paths: &[PathBuf], recursive: bool) {
         let classified = paths.iter().filter_map(|p| classify(p).map(|c| (p.clone(), c))).collect();
-        let jobs = set.add(classified, recursive);
+        let jobs = set.add(classified, recursive, set.clears());
         run(set, &jobs);
     }
 
@@ -457,7 +481,7 @@ mod tests {
         let dir = fixture(&[("a.png", 1)]);
         let mut set = Set::default();
 
-        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
 
         let row = &rows(&set)[0];
         assert!(row.pending);
@@ -474,7 +498,7 @@ mod tests {
         let folder = dir.path().join("gone");
         let mut set = Set::default();
 
-        let jobs = set.add(vec![(folder.clone(), classify(&folder).unwrap())], true);
+        let jobs = set.add(vec![(folder.clone(), classify(&folder).unwrap())], true, 0);
         std::fs::remove_dir_all(&folder).unwrap();
         run(&mut set, &jobs);
 
@@ -533,7 +557,7 @@ mod tests {
     fn a_listing_for_a_removed_folder_is_dropped() {
         let dir = fixture(&[("a.png", 1)]);
         let mut set = Set::default();
-        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
 
         set.remove(dir.path());
 
@@ -545,10 +569,84 @@ mod tests {
     fn a_listing_for_a_folder_removed_and_added_again_is_dropped() {
         let dir = fixture(&[("a.png", 1)]);
         let mut set = Set::default();
-        let stale = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        let stale = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
         set.remove(dir.path());
-        let fresh = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        let fresh = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
 
+        assert!(!set.commit(&stale[0], Listing::Listed(Vec::new())));
+        assert!(rows(&set)[0].pending);
+        assert!(set.commit(&fresh[0], list_folder(dir.path(), true)));
+        assert_eq!(rows(&set)[0].count, 1);
+    }
+
+    // --- Clearing the set ---
+
+    #[test]
+    fn clearing_empties_the_set_with_one_revision_bump() {
+        let dir = fixture(&[("album/a.png", 1), ("b.png", 1)]);
+        let mut set = Set::default();
+        add(&mut set, &[dir.path().join("album"), dir.path().join("b.png")], true);
+        let revision = set.revision();
+
+        set.clear();
+
+        assert_eq!(set.view(None), SetView { revision: revision + 1, sources: Vec::new(), total: 0 });
+    }
+
+    #[test]
+    fn clearing_an_empty_set_leaves_the_revision_alone() {
+        let mut set = Set::default();
+
+        set.clear();
+
+        assert_eq!(set.revision(), 0);
+    }
+
+    #[test]
+    fn a_listing_committed_after_a_clear_is_dropped() {
+        let dir = fixture(&[("a.png", 1)]);
+        let mut set = Set::default();
+        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, set.clears());
+
+        set.clear();
+        let revision = set.revision();
+
+        assert!(!set.commit(&jobs[0], list_folder(dir.path(), true)));
+        assert!(rows(&set).is_empty());
+        assert_eq!(set.revision(), revision);
+    }
+
+    #[test]
+    fn an_add_started_before_a_clear_adds_nothing() {
+        let dir = fixture(&[("album/a.png", 1), ("b.png", 1)]);
+        let mut set = Set::default();
+        let since_clear = set.clears();
+
+        set.clear();
+        let jobs = set.add(
+            vec![
+                (dir.path().join("album"), Classified::Folder),
+                (dir.path().join("b.png"), classify(&dir.path().join("b.png")).unwrap()),
+            ],
+            true,
+            since_clear,
+        );
+
+        assert!(jobs.is_empty());
+        assert!(rows(&set).is_empty());
+        assert_eq!(set.revision(), 0);
+    }
+
+    #[test]
+    fn a_folder_cleared_and_added_again_is_counted_as_usual() {
+        let dir = fixture(&[("a.png", 1)]);
+        let mut set = Set::default();
+        let stale = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, set.clears());
+        set.clear();
+
+        let fresh = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, set.clears());
+
+        assert_ne!(stale[0].generation, fresh[0].generation);
         assert!(!set.commit(&stale[0], Listing::Listed(Vec::new())));
         assert!(rows(&set)[0].pending);
         assert!(set.commit(&fresh[0], list_folder(dir.path(), true)));
@@ -588,7 +686,7 @@ mod tests {
         let dir = fixture(&[("a.png", 1)]);
         let mut set = Set::default();
 
-        set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
 
         assert_eq!(set.total(), 0);
     }
@@ -636,7 +734,7 @@ mod tests {
         let dir = fixture(&[("a.png", 1), ("b.png", 1)]);
         let mut set = Set::default();
 
-        set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
         add(&mut set, &[dir.path().join("b.png")], true);
 
         assert_eq!(set.media_paths(), [dir.path().join("b.png")]);
@@ -647,7 +745,7 @@ mod tests {
         let dir = fixture(&[("a.png", 1), ("sub/b.png", 1), ("sub/c.mp4", 1), ("gone/d.png", 1)]);
         let mut set = Set::default();
         let gone = dir.path().join("gone");
-        let jobs = set.add(vec![(gone.clone(), Classified::Folder)], true);
+        let jobs = set.add(vec![(gone.clone(), Classified::Folder)], true, 0);
         std::fs::remove_dir_all(&gone).unwrap();
         run(&mut set, &jobs);
         assert_eq!(set.media_paths().len(), set.total());
@@ -687,7 +785,7 @@ mod tests {
     fn a_listing_started_before_a_rescan_is_dropped() {
         let dir = fixture(&[("a.png", 1), ("sub/b.png", 1)]);
         let mut set = Set::default();
-        let before = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        let before = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
 
         let after = set.rescan(false);
 
@@ -720,7 +818,7 @@ mod tests {
             grew
         };
 
-        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true);
+        let jobs = set.add(vec![(dir.path().to_path_buf(), Classified::Folder)], true, 0);
         assert!(bumped(&set), "add");
         run(&mut set, &jobs);
         assert!(bumped(&set), "commit");

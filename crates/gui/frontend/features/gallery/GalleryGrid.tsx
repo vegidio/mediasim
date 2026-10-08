@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@/components/ui/button";
 import { useGalleryStore } from "@/stores/gallery";
-import { useStartStore } from "@/stores/start";
+import { useHomeStore } from "@/stores/home";
 import { isIncluded } from "./derive";
 import { MediaTile, PlaceholderTile } from "./MediaTile";
 
@@ -87,7 +87,7 @@ export const GalleryGrid = () => {
     const load = useGalleryStore((state) => state.load);
     const focusTile = useGalleryStore((state) => state.focusTile);
     const tileFocused = useGalleryStore((state) => state.tileFocused);
-    const total = useStartStore((state) => state.view.total);
+    const total = useHomeStore((state) => state.view.total);
     const [scroller, setScroller] = useState<HTMLDivElement>();
     const [columns, setColumns] = useState(1);
 

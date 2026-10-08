@@ -1,9 +1,9 @@
-import { FormatsFooter } from "@/features/start/FormatsFooter";
-import { PairCard } from "@/features/start/PairCard";
-import { SetCard } from "@/features/start/SetCard";
+import { FormatsFooter } from "@/features/home/FormatsFooter";
+import { PairCard } from "@/features/home/PairCard";
+import { SetCard } from "@/features/home/SetCard";
 
-/** The start screen: pick a mode and supply its media. */
-export const StartScreen = () => (
+/** The Home screen: pick a mode and supply its media. */
+export const HomeScreen = () => (
     // `m-auto` rather than centring from the parent, so content taller than the window scrolls instead of clipping at
     // the top.
     <div className="m-auto flex w-full max-w-[1080px] flex-col gap-8">

@@ -133,7 +133,7 @@ describe("PairResultScreen", () => {
         expect(mockedCompare).toHaveBeenCalledTimes(2);
     });
 
-    it("returns to the start screen with both slots filled, and Compare enabled and focused", () => {
+    it("returns to the Home screen with both slots filled, and Compare enabled and focused", () => {
         usePairStore.setState({ a: A, b: B });
         render(<App />);
         fireEvent.click(compare());
@@ -442,7 +442,7 @@ describe("PairResultScreen", () => {
             expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
         });
 
-        it("returns to the start screen with B's slot empty and no notice", async () => {
+        it("returns to the Home screen with B's slot empty and no notice", async () => {
             mockedTrash.mockResolvedValue([{ status: "trashed" }]);
             await markAndMove("b");
 
@@ -640,7 +640,7 @@ describe("PairResultScreen", () => {
             expect(mockedCompare).toHaveBeenCalledOnce();
         });
 
-        it("returns to the start screen with both slots filled", async () => {
+        it("returns to the Home screen with both slots filled", async () => {
             await moveB();
             fireEvent.click(paneUndo());
             await settle();

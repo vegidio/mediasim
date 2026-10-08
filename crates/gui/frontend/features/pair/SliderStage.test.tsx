@@ -1,7 +1,7 @@
 import { act, type ReactNode, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Slot } from "@/features/start/routePairDrop";
+import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { SliderStage } from "./SliderStage";
 

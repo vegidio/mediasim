@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { route, type Slot } from "@/features/start/routePairDrop";
+import { route, type Slot } from "@/features/home/routePairDrop";
 import { describeMedia, type MediaFile } from "@/ipc/thumbs";
 
 /** State of the "Compare two files" card, kept for as long as the application runs. */

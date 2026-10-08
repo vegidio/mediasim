@@ -74,6 +74,7 @@ pub fn run() {
             formats::supported_formats,
             set::commands::add_to_set,
             set::commands::remove_from_set,
+            set::commands::clear_set,
             set::commands::rescan_set,
             set::commands::list_set_media,
             set::commands::display_path,

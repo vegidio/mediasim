@@ -1,15 +1,21 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { ComparisonSection } from "@/features/settings/ComparisonSection";
 import { type DragDropEvent, onDragDrop } from "@/ipc/dragDrop";
-import { addToSet, rescanSet, type SourceView } from "@/ipc/set";
+import { addToSet, clearSet, removeFromSet, rescanSet, type SourceView } from "@/ipc/set";
 import { useGalleryStore } from "@/stores/gallery";
+import { type SourceRow, useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
-import { type SourceRow, useStartStore } from "@/stores/start";
 import { SetCard } from "./SetCard";
 
-vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
+vi.mock("@/ipc/set", () => ({
+    addToSet: vi.fn(),
+    clearSet: vi.fn(),
+    removeFromSet: vi.fn(),
+    rescanSet: vi.fn(),
+    listSetMedia: vi.fn(),
+}));
 vi.mock("@/ipc/dialog", () => ({ pickFiles: vi.fn(), pickFolders: vi.fn() }));
 vi.mock("@/ipc/formats", () => ({ supportedFormats: vi.fn(() => Promise.resolve([])) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
@@ -29,7 +35,7 @@ const folder = (overrides: Partial<SourceView> = {}): SourceView => ({
 });
 
 const withSources = (sources: SourceRow[], total: number) =>
-    useStartStore.setState((state) => ({ sources, view: { ...state.view, total } }));
+    useHomeStore.setState((state) => ({ sources, view: { ...state.view, total } }));
 
 /** Send a drag event to every listener the card registered. */
 const drag = (event: DragDropEvent) =>
@@ -47,9 +53,9 @@ const dropArea = () => screen.getByRole("button", { name: /Drop files or folders
 describe("SetCard", () => {
     beforeEach(() => {
         localStorage.clear();
-        // Settings first: resetting them afterwards would reach the start store through its subscription.
+        // Settings first: resetting them afterwards would reach the Home store through its subscription.
         useSettingsStore.setState(SETTINGS_DEFAULTS);
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
         (rescanSet as Mock).mockResolvedValue({ revision: 0, sources: [], total: 0 });
         mockedAddToSet.mockResolvedValue({ revision: 0, sources: [], total: 0 });
     });
@@ -119,7 +125,7 @@ describe("SetCard", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Continue with 49 files" }));
 
-        expect(rescanSet).toHaveBeenCalledExactlyOnceWith(useStartStore.getState().scanSubfolders);
+        expect(rescanSet).toHaveBeenCalledExactlyOnceWith(useHomeStore.getState().scanSubfolders);
     });
 
     it("reads Continue with 1 file for a single file", () => {
@@ -151,6 +157,39 @@ describe("SetCard", () => {
 
         expect(dropArea()).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    });
+
+    describe("clearing the set", () => {
+        it("shows the empty drop area with focus on it, a disabled Continue, and Scan subfolders unchanged", async () => {
+            (clearSet as Mock).mockResolvedValue({ revision: 5, sources: [], total: 0 });
+            useHomeStore.setState({ scanSubfolders: true });
+            withSources(
+                [folder({ count: 48 }), folder({ path: "/a.png", name: "a.png", kind: "image", count: 1 })],
+                49,
+            );
+            render(<SetCard />);
+
+            fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+
+            await waitFor(() => expect(dropArea()).toHaveFocus());
+            expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+            expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).toBeChecked();
+            expect(rescanSet).not.toHaveBeenCalled();
+        });
+
+        it("leaves focus alone when the last source is removed on its own", async () => {
+            (removeFromSet as Mock).mockResolvedValue({ revision: 5, sources: [], total: 0 });
+            withSources([folder()], 49);
+            render(<SetCard />);
+            const remove = screen.getByRole("button", { name: "Remove Pictures" });
+            remove.focus();
+
+            fireEvent.click(remove);
+            act(() => withSources([], 0));
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+
+            expect(dropArea()).not.toHaveFocus();
+        });
     });
 
     it("adds what is dropped onto the drop area", () => {
@@ -227,7 +266,7 @@ describe("SetCard", () => {
 
         fireEvent.click(checkbox);
         expect(checkbox).toBeChecked();
-        expect(useStartStore.getState().scanSubfolders).toBe(true);
+        expect(useHomeStore.getState().scanSubfolders).toBe(true);
         expect(rescanSet).toHaveBeenCalledExactlyOnceWith(true);
 
         fireEvent.click(checkbox);
@@ -240,7 +279,7 @@ describe("SetCard", () => {
         fireEvent.click(screen.getByText("Scan subfolders"));
 
         expect(screen.getByRole("checkbox", { name: "Scan subfolders" })).toBeChecked();
-        expect(useStartStore.getState().scanSubfolders).toBe(true);
+        expect(useHomeStore.getState().scanSubfolders).toBe(true);
     });
 
     it("starts with Scan subfolders checked when the setting is stored as on", async () => {

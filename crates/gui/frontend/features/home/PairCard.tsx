@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Columns2Icon, TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EmptySlot } from "@/features/start/EmptySlot";
-import { FilledSlot } from "@/features/start/FilledSlot";
-import { ModeCard } from "@/features/start/ModeCard";
-import { route, SLOTS, type Slot } from "@/features/start/routePairDrop";
-import { hits, type Point, useDropTarget } from "@/features/start/useDropTarget";
+import { EmptySlot } from "@/features/home/EmptySlot";
+import { FilledSlot } from "@/features/home/FilledSlot";
+import { ModeCard } from "@/features/home/ModeCard";
+import { route, SLOTS, type Slot } from "@/features/home/routePairDrop";
+import { hits, type Point, useDropTarget } from "@/features/home/useDropTarget";
 import { cn } from "@/lib/utils";
 import { selectCanCompare, selectMismatch, usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
@@ -26,7 +26,7 @@ export const PairCard = () => {
     const focusNext = useRef<Slot>(undefined);
 
     // Compare opened the pair result screen, which unmounted this card; coming back from there, focus returns to it,
-    // once, so a later remount on the start screen leaves focus alone.
+    // once, so a later remount on the Home screen leaves focus alone.
     useEffect(() => {
         if (useScreenStore.getState().takePrevious() === "pair") compareRef.current?.focus();
     }, []);

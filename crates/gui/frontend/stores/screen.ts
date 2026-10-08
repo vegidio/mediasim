@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 /** The screens the window switches between, inside the same shell. */
-export type Screen = "start" | "gallery" | "pair" | "settings";
+export type Screen = "home" | "gallery" | "pair" | "settings";
 
 type ScreenStore = {
     screen: Screen;
@@ -22,8 +22,8 @@ type ScreenStore = {
 };
 
 export const useScreenStore = create<ScreenStore>()((set, get) => ({
-    screen: "start",
-    returnTo: "start",
+    screen: "home",
+    returnTo: "home",
     show: (screen) => {
         if (screen !== get().screen) set({ screen, previous: get().screen });
     },

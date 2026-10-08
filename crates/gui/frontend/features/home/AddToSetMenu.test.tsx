@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { pickFiles, pickFolders } from "@/ipc/dialog";
 import { addToSet } from "@/ipc/set";
-import { useStartStore } from "@/stores/start";
+import { useHomeStore } from "@/stores/home";
 import { SetCard } from "./SetCard";
 
 vi.mock("@/ipc/dialog", () => ({ pickFiles: vi.fn(), pickFolders: vi.fn() }));
@@ -28,7 +28,7 @@ const choose = async (name: RegExp) => {
 
 describe("AddToSetMenu", () => {
     beforeEach(() => {
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
         mockedAddToSet.mockResolvedValue({ revision: 1, sources: [], total: 0 });
     });
 
@@ -132,6 +132,6 @@ describe("AddToSetMenu", () => {
         await waitFor(() => expect(mockedPickFolders).toHaveBeenCalled());
 
         expect(mockedAddToSet).not.toHaveBeenCalled();
-        expect(useStartStore.getState().sources).toEqual([]);
+        expect(useHomeStore.getState().sources).toEqual([]);
     });
 });

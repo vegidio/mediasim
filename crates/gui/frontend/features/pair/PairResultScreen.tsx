@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Slot } from "@/features/start/routePairDrop";
+import type { Slot } from "@/features/home/routePairDrop";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
@@ -11,7 +11,7 @@ import { MediaPane } from "./MediaPane";
 import { ScorePanel } from "./ScorePanel";
 import { SliderPane } from "./SliderPane";
 
-/** The pair result screen: the similarity of the pair chosen on the start screen, and each file's details. */
+/** The pair result screen: the similarity of the pair chosen on the Home screen, and each file's details. */
 export const PairResultScreen = () => {
     const files = usePairResultStore((state) => state.files);
     const details = usePairResultStore((state) => state.details);

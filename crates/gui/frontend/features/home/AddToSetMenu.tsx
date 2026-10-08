@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { pickFiles, pickFolders } from "@/ipc/dialog";
 import { supportedFormats } from "@/ipc/formats";
-import { useStartStore } from "@/stores/start";
+import { useHomeStore } from "@/stores/home";
 
 /** A point inside the control that opens the menu, in CSS pixels from its top-left corner. */
 export type Point = { x: number; y: number };
@@ -27,7 +27,7 @@ export const anchorFor = (event: MouseEvent<HTMLElement>): Point => {
 const addPicked = async (picked: Promise<string[]>) => {
     try {
         const paths = await picked;
-        if (paths.length > 0) await useStartStore.getState().add(paths);
+        if (paths.length > 0) await useHomeStore.getState().add(paths);
     } catch (error) {
         console.error("could not open the picker", error);
     }

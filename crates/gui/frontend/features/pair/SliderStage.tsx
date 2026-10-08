@@ -1,7 +1,7 @@
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { ChevronsLeftRightIcon, Trash2Icon } from "lucide-react";
 import { Slider } from "radix-ui";
-import type { Slot } from "@/features/start/routePairDrop";
+import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 import { type GoneKind, NONE_GONE } from "@/stores/pairResult";

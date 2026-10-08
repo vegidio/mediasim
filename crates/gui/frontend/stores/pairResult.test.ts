@@ -121,14 +121,14 @@ describe("usePairResultStore", () => {
         expect(state().comparison).toEqual({ status: "failed", error: failure });
     });
 
-    it("leaves for the start screen and cancels the comparison", () => {
+    it("leaves for the Home screen and cancels the comparison", () => {
         mockedProbe.mockReturnValue(new Promise(() => {}));
         mockedCompare.mockReturnValue(new Promise(() => {}));
         state().open(A, B);
 
         state().leave();
 
-        expect(useScreenStore.getState().screen).toBe("start");
+        expect(useScreenStore.getState().screen).toBe("home");
         expect(useScreenStore.getState().takePrevious()).toBe("pair");
         expect(mockedCancel).toHaveBeenCalledOnce();
     });
@@ -205,7 +205,7 @@ describe("usePairResultStore", () => {
         expect(state().comparison).toEqual({ status: "comparing" });
     });
 
-    it("leaves the start screen's slots untouched through the round trip", async () => {
+    it("leaves the Home screen's slots untouched through the round trip", async () => {
         usePairStore.setState({ a: A, b: B });
         const before = usePairStore.getState();
         mockedProbe.mockImplementation(async (path: string) => info(path === A.path ? A : B));

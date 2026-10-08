@@ -6,9 +6,9 @@ import type { MediaType } from "@/ipc/formats";
 import { listSetMedia, rescanSet, type SetMedia, type SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
+import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
-import { useStartStore } from "@/stores/start";
 import { GalleryScreen } from "./GalleryScreen";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
@@ -78,7 +78,7 @@ const folder: SourceView = {
 /** Put a folder of `total` files in the set, with `listing` as what reading it gives. */
 const withSet = (total: number, listing: Promise<SetMedia> | SetMedia) => {
     const sources = [{ ...folder, count: total }];
-    useStartStore.setState({ view: { revision: 1, sources, total }, sources, rescans: 0 });
+    useHomeStore.setState({ view: { revision: 1, sources, total }, sources, rescans: 0 });
     mockedList.mockImplementation(() => Promise.resolve(listing));
 };
 
@@ -92,7 +92,7 @@ describe("GalleryScreen", () => {
         localStorage.clear();
         observers.length = 0;
         // A recount that finds the set as it was.
-        mockedRescan.mockReset().mockImplementation(async () => useStartStore.getState().view);
+        mockedRescan.mockReset().mockImplementation(async () => useHomeStore.getState().view);
         vi.stubGlobal(
             "ResizeObserver",
             class {
@@ -106,7 +106,7 @@ describe("GalleryScreen", () => {
         );
         layOut(1280);
         useSettingsStore.setState(SETTINGS_DEFAULTS);
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
         useGalleryStore.setState(useGalleryStore.getInitialState(), true);
         useScreenStore.setState(useScreenStore.getInitialState(), true);
     });

@@ -2,7 +2,9 @@
 //!
 //! Classifying and listing touch the filesystem, so they run in `spawn_blocking` with the lock released; the lock is
 //! held only to read the set or to commit a finished listing. A long scan therefore never blocks
-//! [`remove_from_set`], and a listing whose folder was removed or rescanned meanwhile is dropped by [`Set::commit`].
+//! [`remove_from_set`] or [`clear_set`], and a listing whose folder was removed, cleared or rescanned meanwhile is
+//! dropped by [`Set::commit`]. An add reads the set's clear epoch before classifying, so one still classifying when
+//! the set is cleared adds nothing.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -62,6 +64,17 @@ pub async fn remove_from_set(state: State<'_, SetState>, path: PathBuf) -> Resul
     Ok(remove(&state, &path))
 }
 
+/// Removes every source from the set, including folders still being counted, and returns the set.
+///
+/// # Errors
+///
+/// Never; Tauri requires an async command that borrows its state to return a `Result`.
+#[tauri::command]
+#[allow(clippy::unused_async, reason = "Tauri runs a command off the main thread only if it is async")]
+pub async fn clear_set(state: State<'_, SetState>) -> Result<SetView, TaskError> {
+    Ok(clear(&state))
+}
+
 /// Relists every folder with "Scan subfolders" as `recursive`, and returns the set once they are all listed.
 ///
 /// The frontend calls it when the setting changes, and with the same setting when a comparison starts, so files added
@@ -118,9 +131,10 @@ async fn add<L>(state: &SetState, paths: Vec<PathBuf>, recursive: bool, list: L)
 where
     L: Fn(&Path, bool) -> Listing + Clone + Send + 'static,
 {
+    let since_clear = state.lock().clears();
     let classified =
         spawn_blocking(move || paths.into_iter().filter_map(|p| classify(&p).map(|c| (p, c))).collect()).await?;
-    let jobs = state.lock().add(classified, recursive);
+    let jobs = state.lock().add(classified, recursive, since_clear);
 
     run(state, jobs, list).await?;
     Ok(state.view())
@@ -128,6 +142,11 @@ where
 
 fn remove(state: &SetState, path: &Path) -> SetView {
     state.lock().remove(path);
+    state.view()
+}
+
+fn clear(state: &SetState) -> SetView {
+    state.lock().clear();
     state.view()
 }
 
@@ -217,6 +236,62 @@ mod tests {
         assert!(added.sources.is_empty(), "the stale listing must not bring the folder back");
         assert!(added.revision >= removed.revision);
         assert!(state.view().sources.is_empty());
+    }
+
+    #[test]
+    fn a_folder_cleared_during_a_slow_listing_stays_cleared() {
+        let app = mock_builder()
+            .manage(SetState::default())
+            .build(mock_context(noop_assets()))
+            .expect("the mock app should build");
+        let dir = mk_temp_dir("mediasim-set-").unwrap();
+        std::fs::write(dir.path().join("a.png"), [0_u8]).unwrap();
+        let state = app.state::<SetState>();
+        let before = state.view();
+
+        // The listing reports that it started, then waits for the test to let it finish.
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let release_rx = Arc::new(Mutex::new(release_rx));
+        let slow = move |path: &Path, recursive: bool| {
+            started_tx.send(()).unwrap();
+            release_rx.lock().unwrap().recv().unwrap();
+            list_folder(path, recursive)
+        };
+
+        let handle = app.handle().clone();
+        let paths = vec![dir.path().to_path_buf()];
+        let adding =
+            tauri::async_runtime::spawn(async move { add(&handle.state::<SetState>(), paths, true, slow).await });
+
+        started_rx.recv().unwrap();
+        let pending = state.view();
+        assert!(pending.sources[0].pending, "the folder should be listed as pending while it is counted");
+
+        let cleared = clear(&state);
+        assert!(cleared.sources.is_empty());
+        assert!(cleared.revision > pending.revision && cleared.revision > before.revision);
+
+        release_tx.send(()).unwrap();
+        let added = block_on(adding).unwrap().unwrap();
+
+        assert!(added.sources.is_empty(), "the stale listing must not bring the folder back");
+        assert_eq!(added.revision, cleared.revision);
+        assert!(state.view().sources.is_empty());
+    }
+
+    #[test]
+    fn a_folder_added_again_after_a_clear_is_counted() {
+        let state = SetState::default();
+        let dir = mk_temp_dir("mediasim-set-").unwrap();
+        std::fs::write(dir.path().join("a.png"), [0_u8]).unwrap();
+
+        block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+        clear(&state);
+        let added = block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+
+        assert_eq!(added.total, 1);
+        assert!(!added.sources[0].pending);
     }
 
     #[test]

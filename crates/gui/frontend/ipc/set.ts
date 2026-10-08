@@ -37,6 +37,9 @@ export const addToSet = (paths: string[], recursive: boolean) => invoke<SetView>
 /** Remove the source added as `path`. */
 export const removeFromSet = (path: string) => invoke<SetView>("remove_from_set", { path });
 
+/** Remove every source, including folders still being counted. */
+export const clearSet = () => invoke<SetView>("clear_set");
+
 /** Recount every folder as it is on disk, with or without its subfolders; resolves once they are all counted. */
 export const rescanSet = (recursive: boolean) => invoke<SetView>("rescan_set", { recursive });
 

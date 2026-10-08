@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { listSetMedia, rescanSet, type SetMedia, type SetView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
+import { useHomeStore } from "@/stores/home";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
-import { useStartStore } from "@/stores/start";
 
 vi.mock("@/ipc/set", () => ({
     addToSet: vi.fn(),
@@ -25,10 +25,10 @@ const file = (name: string): MediaFile => ({
 
 const media = (revision: number, files: MediaFile[]): SetMedia => ({ revision, files });
 
-/** Show the start store at `revision`, with nothing being counted. */
+/** Show the Home store at `revision`, with nothing being counted. */
 const atRevision = (revision: number) => {
     const view: SetView = { revision, sources: [], total: 0 };
-    useStartStore.setState({ view, sources: [], rescans: 0 });
+    useHomeStore.setState({ view, sources: [], rescans: 0 });
 };
 
 /** A promise the test resolves when it chooses, to order responses. */
@@ -48,7 +48,7 @@ describe("useGalleryStore", () => {
         mockedList.mockReset();
         mockedRescan.mockReset().mockResolvedValue({ revision: 0, sources: [], total: 0 });
         useSettingsStore.setState(SETTINGS_DEFAULTS);
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
         useGalleryStore.setState(useGalleryStore.getInitialState(), true);
     });
 
@@ -129,7 +129,7 @@ describe("useGalleryStore", () => {
 
     it("waits for a running rescan before reading", async () => {
         atRevision(2);
-        useStartStore.setState({ rescans: 1 });
+        useHomeStore.setState({ rescans: 1 });
         mockedList.mockResolvedValue(media(3, [file("a.jpg")]));
 
         const loading = state().load();
@@ -138,7 +138,7 @@ describe("useGalleryStore", () => {
         expect(state().listing).toEqual({ status: "loading" });
         expect(mockedList).not.toHaveBeenCalled();
 
-        useStartStore.setState({ rescans: 0, view: { revision: 3, sources: [], total: 1 } });
+        useHomeStore.setState({ rescans: 0, view: { revision: 3, sources: [], total: 1 } });
         await loading;
 
         expect(mockedList).toHaveBeenCalledOnce();

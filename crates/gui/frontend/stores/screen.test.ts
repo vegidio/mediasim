@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { useScreenStore } from "./screen";
 
 beforeEach(() => {
-    useScreenStore.setState({ screen: "start", returnTo: "start" });
+    useScreenStore.setState({ screen: "home", returnTo: "home" });
     useScreenStore.getState().takePrevious();
 });
 
 describe("useScreenStore", () => {
-    it.each(["start", "pair"] as const)("returns from Settings to %s", (from) => {
+    it.each(["home", "pair"] as const)("returns from Settings to %s", (from) => {
         useScreenStore.getState().show(from);
 
         useScreenStore.getState().openSettings();

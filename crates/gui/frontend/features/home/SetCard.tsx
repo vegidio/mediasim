@@ -9,20 +9,20 @@ import {
     type Point,
     pickFilesIntoSet,
     pickFoldersIntoSet,
-} from "@/features/start/AddToSetMenu";
-import { dropTargetClassName, ModeCard } from "@/features/start/ModeCard";
-import { SetList } from "@/features/start/SetList";
-import { useDropTarget } from "@/features/start/useDropTarget";
+} from "@/features/home/AddToSetMenu";
+import { dropTargetClassName, ModeCard } from "@/features/home/ModeCard";
+import { SetList } from "@/features/home/SetList";
+import { useDropTarget } from "@/features/home/useDropTarget";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
+import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
-import { useStartStore } from "@/stores/start";
 
 /** The Continue button's id, which focus is sent to on coming back from the gallery. */
 export const CONTINUE_BUTTON_ID = "set-continue";
 
-/** Move focus to the set card's Continue button, once React has rendered the start screen. */
+/** Move focus to the set card's Continue button, once React has rendered the Home screen. */
 export const focusContinue = () => {
     requestAnimationFrame(() => document.getElementById(CONTINUE_BUTTON_ID)?.focus());
 };
@@ -30,11 +30,11 @@ export const focusContinue = () => {
 /** The "Find similar in a set" mode card: an empty drop area, or the list of what the set holds. */
 export const SetCard = () => {
     const scanSubfoldersId = useId();
-    const scanSubfolders = useStartStore((state) => state.scanSubfolders);
-    const toggleScanSubfolders = useStartStore((state) => state.toggleScanSubfolders);
-    const sources = useStartStore((state) => state.sources);
-    const total = useStartStore((state) => state.view.total);
-    const add = useStartStore((state) => state.add);
+    const scanSubfolders = useHomeStore((state) => state.scanSubfolders);
+    const toggleScanSubfolders = useHomeStore((state) => state.toggleScanSubfolders);
+    const sources = useHomeStore((state) => state.sources);
+    const total = useHomeStore((state) => state.view.total);
+    const add = useHomeStore((state) => state.add);
     const show = useScreenStore((state) => state.show);
     const begin = useGalleryStore((state) => state.begin);
     const dropAreaRef = useRef<HTMLButtonElement>(null);
@@ -79,7 +79,12 @@ export const SetCard = () => {
                     />
                 </div>
             ) : (
-                <SetList ref={listRef} highlighted={isOver} />
+                <SetList
+                    ref={listRef}
+                    highlighted={isOver}
+                    // Clear all unmounts with the list, so focus goes to the drop area that replaces it.
+                    onCleared={() => requestAnimationFrame(() => dropAreaRef.current?.focus())}
+                />
             )}
 
             <div className="mt-auto flex items-center justify-between gap-2.5">

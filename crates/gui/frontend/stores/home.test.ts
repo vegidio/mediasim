@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { addToSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+import { addToSet, clearSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+import { useHomeStore } from "@/stores/home";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
-import { useStartStore } from "@/stores/start";
 
-vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
+vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), clearSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
 
 const mockedAdd = addToSet as Mock;
 const mockedRemove = removeFromSet as Mock;
 const mockedRescan = rescanSet as Mock;
+const mockedClear = clearSet as Mock;
 
 const folder = (path: string, overrides: Partial<SourceView> = {}): SourceView => ({
     path,
@@ -32,14 +33,14 @@ const deferred = <T>() => {
     return { promise, resolve };
 };
 
-const state = () => useStartStore.getState();
+const state = () => useHomeStore.getState();
 
-describe("useStartStore", () => {
+describe("useHomeStore", () => {
     beforeEach(() => {
         localStorage.clear();
-        // Settings first: resetting them afterwards would reach the start store through its subscription.
+        // Settings first: resetting them afterwards would reach the Home store through its subscription.
         useSettingsStore.setState(SETTINGS_DEFAULTS);
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
     });
 
     it("starts with subfolders not scanned and an empty set", () => {
@@ -124,6 +125,55 @@ describe("useStartStore", () => {
 
         expect(mockedRemove).toHaveBeenCalledExactlyOnceWith("/a");
         expect(state().sources).toEqual([]);
+    });
+
+    describe("clearing the set", () => {
+        it("empties the list at once, then applies Rust's view", async () => {
+            mockedAdd.mockResolvedValueOnce(view(2, [folder("/a", { count: 48 })], 48));
+            await state().add(["/a"]);
+            const response = deferred<SetView>();
+            mockedClear.mockReturnValueOnce(response.promise);
+
+            const clearing = state().clear();
+
+            expect(state().sources).toEqual([]);
+            expect(state().view.total).toBe(0);
+            expect(mockedClear).toHaveBeenCalledOnce();
+
+            response.resolve(view(3, []));
+            await clearing;
+
+            expect(state().sources).toEqual([]);
+            expect(state().view.revision).toBe(3);
+        });
+
+        it("drops a pending add, and ignores its late view from before the clear", async () => {
+            const slow = deferred<SetView>();
+            mockedAdd.mockReturnValueOnce(slow.promise);
+            mockedClear.mockResolvedValueOnce(view(3, []));
+
+            const adding = state().add(["/big"]);
+            expect(state().sources).toEqual([{ path: "/big", name: "big", pending: true }]);
+            await state().clear();
+            expect(state().sources).toEqual([]);
+
+            slow.resolve(view(2, [folder("/big", { count: 1000 })], 1000));
+            await adding;
+
+            expect(state().sources).toEqual([]);
+            expect(state().view.total).toBe(0);
+        });
+
+        it("leaves Scan subfolders as it is", async () => {
+            mockedRescan.mockResolvedValueOnce(view(1, []));
+            await state().toggleScanSubfolders();
+            mockedClear.mockResolvedValueOnce(view(2, []));
+
+            await state().clear();
+
+            expect(state().scanSubfolders).toBe(true);
+            expect(mockedRescan).toHaveBeenCalledOnce();
+        });
     });
 
     it("toggles scanning subfolders and rescans with the new setting", async () => {
@@ -230,7 +280,7 @@ describe("useStartStore", () => {
             );
             vi.resetModules();
 
-            const { useStartStore: launched } = await import("@/stores/start");
+            const { useHomeStore: launched } = await import("@/stores/home");
 
             expect(launched.getState().scanSubfolders).toBe(true);
         });

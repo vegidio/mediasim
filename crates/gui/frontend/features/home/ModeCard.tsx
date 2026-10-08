@@ -13,7 +13,7 @@ type ModeCardProps = {
     children: ReactNode;
 };
 
-/** One of the start screen's mode cards: its icon, title and description, then the mode's own controls. */
+/** One of the Home screen's mode cards: its icon, title and description, then the mode's own controls. */
 export const ModeCard = ({ ref, icon, title, description, children }: ModeCardProps) => {
     const titleId = useId();
 

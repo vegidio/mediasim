@@ -3,11 +3,11 @@ import { ArrowLeftIcon, ArrowRightIcon, ChevronDownIcon, FolderIcon, ImagesIcon 
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { focusContinue } from "@/features/start/SetCard";
+import { focusContinue } from "@/features/home/SetCard";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
+import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
 import { MATCH_THRESHOLD_MAX, MATCH_THRESHOLD_MIN } from "@/stores/settings";
-import { useStartStore } from "@/stores/start";
 import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "./derive";
 
 /** The filter tabs, in the order the toolbar shows them. */
@@ -20,7 +20,7 @@ const FILTERS: { value: GalleryFilter; label: string }[] = [
 /** The files as read, or `undefined` while they are being read or couldn't be. */
 const useFiles = () => useGalleryStore((state) => (state.listing.status === "ready" ? state.listing.files : undefined));
 
-/** Back to the start screen, with focus on its Continue button. */
+/** Back to the Home screen, with focus on its Continue button. */
 const BackButton = () => {
     const show = useScreenStore((state) => state.show);
 
@@ -28,7 +28,7 @@ const BackButton = () => {
         <Button
             variant="outline"
             onClick={() => {
-                show("start");
+                show("home");
                 focusContinue();
             }}
             className="h-9 gap-1.5 rounded-lg border-[#27272A] bg-transparent pr-3 pl-2 text-[#E4E4E7] text-sm dark:border-[#27272A] dark:bg-transparent [&_svg:not([class*='size-'])]:size-4"
@@ -41,8 +41,8 @@ const BackButton = () => {
 
 /** What the set is: one folder by its name and path, or a group of files by their count and locations. */
 const IdentityBlock = () => {
-    const sources = useStartStore((state) => state.view.sources);
-    const total = useStartStore((state) => state.view.total);
+    const sources = useHomeStore((state) => state.view.sources);
+    const total = useHomeStore((state) => state.view.total);
     const { kind, title, details } = identity(sources, total, useFiles());
     const Icon = kind === "folder" ? FolderIcon : ImagesIcon;
 

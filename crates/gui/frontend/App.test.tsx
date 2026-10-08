@@ -35,7 +35,7 @@ describe("App", () => {
         expect(within(header).getByRole("navigation", { name: "Progress" })).toBeInTheDocument();
     });
 
-    it("lands on the start screen", () => {
+    it("lands on the Home screen", () => {
         render(<App />);
 
         const main = screen.getByRole("main");
@@ -48,7 +48,7 @@ describe("App", () => {
         expect(main).toHaveTextContent("Images:");
     });
 
-    it("marks Select as the current step on the start screen", () => {
+    it("marks Select as the current step on the Home screen", () => {
         render(<App />);
 
         const progress = screen.getByRole("navigation", { name: "Progress" });
@@ -132,7 +132,7 @@ describe("App", () => {
             usePairResultStore.setState(usePairResultStore.getInitialState(), true);
         });
 
-        it("opens from the start screen, reading Settings in the header with the button as the current page", () => {
+        it("opens from the Home screen, reading Settings in the header with the button as the current page", () => {
             render(<App />);
 
             fireEvent.click(settingsButton());
@@ -145,7 +145,7 @@ describe("App", () => {
             expect(screen.getByRole("region", { name: "Deleting files" })).toBeInTheDocument();
         });
 
-        it("goes Back to the start screen with its slots, and focus on the Settings button", async () => {
+        it("goes Back to the Home screen with its slots, and focus on the Settings button", async () => {
             usePairStore.setState({ a, b });
             render(<App />);
             fireEvent.click(settingsButton());
@@ -208,7 +208,7 @@ describe("App", () => {
     describe("deletion footer", () => {
         const footer = () => screen.queryByRole("region", { name: "Deletion" });
 
-        it("is absent on the start screen", () => {
+        it("is absent on the Home screen", () => {
             render(<App />);
 
             expect(footer()).not.toBeInTheDocument();
@@ -231,7 +231,7 @@ describe("App", () => {
             render(<App />);
             act(() => useScreenStore.getState().show("pair"));
 
-            act(() => useScreenStore.getState().show("start"));
+            act(() => useScreenStore.getState().show("home"));
 
             expect(footer()).not.toBeInTheDocument();
         });
@@ -248,7 +248,7 @@ describe("App", () => {
                         !screen.queryByRole("region", { name: "Deletion" })?.contains(region),
                 );
 
-        it("is absent on the start screen", () => {
+        it("is absent on the Home screen", () => {
             render(<App />);
 
             expect(notice()).toBeUndefined();

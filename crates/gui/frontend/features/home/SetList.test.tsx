@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { removeFromSet, type SourceView } from "@/ipc/set";
-import { type SourceRow, useStartStore } from "@/stores/start";
+import { clearSet, removeFromSet, type SourceView } from "@/ipc/set";
+import { type SourceRow, useHomeStore } from "@/stores/home";
 import { SetList } from "./SetList";
 
-vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
+vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), clearSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn() }));
 vi.mock("@/ipc/dialog", () => ({ pickFiles: vi.fn(), pickFolders: vi.fn() }));
 vi.mock("@/ipc/formats", () => ({ supportedFormats: vi.fn(() => Promise.resolve([])) }));
 
@@ -35,9 +35,9 @@ const heic = source({
     size: 3_100_000,
 });
 
-const show = (sources: SourceRow[]) => {
-    useStartStore.setState({ sources });
-    render(<SetList />);
+const show = (sources: SourceRow[], onCleared?: () => void) => {
+    useHomeStore.setState({ sources });
+    render(<SetList {...(onCleared && { onCleared })} />);
 };
 
 /** The row whose name is `name`. */
@@ -49,7 +49,7 @@ const row = (name: string) => {
 
 describe("SetList", () => {
     beforeEach(() => {
-        useStartStore.setState(useStartStore.getInitialState(), true);
+        useHomeStore.setState(useHomeStore.getInitialState(), true);
     });
 
     it("shows a folder's path, count and size, and a file's folder and size, in order", () => {
@@ -119,5 +119,30 @@ describe("SetList", () => {
         const list = screen.getByRole("list", { name: "Selected sources" });
         expect(list).toHaveClass("overflow-y-auto");
         expect(list).not.toContainElement(screen.getByRole("button", { name: /add more/ }));
+    });
+
+    it("ends with Clear all beside the add-more button, past a divider", () => {
+        show([holiday]);
+
+        const addMore = screen.getByRole("button", { name: "Drop or click to add more files or folders" });
+        const clearAll = screen.getByRole("button", { name: "Clear all" });
+        const divider = addMore.nextElementSibling;
+        expect(addMore.parentElement).toBe(clearAll.parentElement);
+        expect(addMore).toHaveClass("flex-1");
+        expect(divider).toHaveAttribute("aria-hidden", "true");
+        expect(divider?.nextElementSibling).toBe(clearAll);
+        expect(clearAll).not.toHaveAttribute("aria-haspopup");
+    });
+
+    it("clears the set from Clear all, then reports it", () => {
+        (clearSet as Mock).mockResolvedValue({ revision: 1, sources: [], total: 0 });
+        const onCleared = vi.fn();
+        show([holiday, heic], onCleared);
+
+        fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+
+        expect(clearSet).toHaveBeenCalledOnce();
+        expect(onCleared).toHaveBeenCalledOnce();
+        expect(screen.queryAllByRole("listitem")).toEqual([]);
     });
 });

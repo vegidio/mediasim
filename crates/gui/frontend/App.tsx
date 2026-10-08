@@ -1,10 +1,10 @@
 import { GalleryScreen } from "@/features/gallery/GalleryScreen";
+import { HomeScreen } from "@/features/home/HomeScreen";
 import { DeletionFooter } from "@/features/pair/DeletionFooter";
 import { DeletionNotice } from "@/features/pair/DeletionNotice";
 import { PairResultScreen } from "@/features/pair/PairResultScreen";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { Header } from "@/features/shell/Header";
-import { StartScreen } from "@/features/start/StartScreen";
 import { cn } from "@/lib/utils";
 import { useScreenStore } from "@/stores/screen";
 
@@ -40,7 +40,7 @@ const App = () => {
                     ) : current === "gallery" ? (
                         <GalleryScreen />
                     ) : (
-                        <StartScreen />
+                        <HomeScreen />
                     )}
                 </main>
                 {current === "pair" && <DeletionNotice className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2" />}

@@ -1,6 +1,6 @@
 import { Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Slot } from "@/features/start/routePairDrop";
+import type { Slot } from "@/features/home/routePairDrop";
 import { cn } from "@/lib/utils";
 
 type MarkButtonProps = {

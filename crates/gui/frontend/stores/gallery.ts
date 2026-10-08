@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { listSetMedia } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
+import { useHomeStore } from "@/stores/home";
 import { useSettingsStore } from "@/stores/settings";
-import { useStartStore } from "@/stores/start";
 
 /** Which files a comparison includes: the images, the videos, or both. */
 export type GalleryFilter = "images" | "videos" | "both";
@@ -58,17 +58,17 @@ type GalleryStore = {
     addBack: (path: string) => void;
 };
 
-type StartState = ReturnType<typeof useStartStore.getState>;
+type HomeState = ReturnType<typeof useHomeStore.getState>;
 
 /** Whether the set is fully counted: no rescan running and no row still being counted. */
-const isSettled = ({ rescans, sources }: StartState) => rescans === 0 && !sources.some((row) => row.pending);
+const isSettled = ({ rescans, sources }: HomeState) => rescans === 0 && !sources.some((row) => row.pending);
 
 /** Resolves once the set is fully counted, at once when it already is. */
 const settled = () =>
     new Promise<void>((resolve) => {
-        if (isSettled(useStartStore.getState())) return resolve();
+        if (isSettled(useHomeStore.getState())) return resolve();
 
-        const unsubscribe = useStartStore.subscribe((state) => {
+        const unsubscribe = useHomeStore.subscribe((state) => {
             if (!isSettled(state)) return;
             unsubscribe();
             resolve();
@@ -108,22 +108,22 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     begin: () => {
         set({ threshold: useSettingsStore.getState().matchThreshold, removed: new Set() });
         // The recount bumps the set's revision, so the next load reads the files again instead of keeping the last read.
-        void useStartStore.getState().refresh();
+        void useHomeStore.getState().refresh();
     },
     listing: { status: "idle" },
 
     load: async () => {
         const request = ++requests;
 
-        if (!isSettled(useStartStore.getState())) {
+        if (!isSettled(useHomeStore.getState())) {
             set({ listing: { status: "loading" } });
             await settled();
             if (request !== requests) return;
         }
 
         const { listing } = get();
-        // Rust's revision can run ahead of the view the start screen applied, never behind it.
-        if (listing.status === "ready" && listing.revision >= useStartStore.getState().view.revision) return;
+        // Rust's revision can run ahead of the view the Home screen applied, never behind it.
+        if (listing.status === "ready" && listing.revision >= useHomeStore.getState().view.revision) return;
 
         set({ listing: { status: "loading" } });
         try {
