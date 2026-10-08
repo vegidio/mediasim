@@ -93,10 +93,10 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
             <DialogContent
                 aria-describedby={undefined}
                 onKeyDown={onKeyDown}
-                // The grid hands focus back to the tile, which may have been virtualized away while stepping.
+                // The grid takes focus back itself, selecting the last file's tile, which may have been virtualized away.
                 onCloseAutoFocus={(event) => event.preventDefault()}
-                // A click on the backdrop closes it, unless it is the second click of a double click on a tile's Open
-                // button, which opened it with the first.
+                // A click on the backdrop closes it, unless it is the second click of a double click on a tile, which
+                // opened it with the first.
                 onPointerDownOutside={(event) => {
                     if (performance.now() - openedAt.current < DOUBLE_CLICK_MS) event.preventDefault();
                 }}

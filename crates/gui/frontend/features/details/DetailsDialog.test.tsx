@@ -131,14 +131,14 @@ describe("DetailsDialog", () => {
         expect(shownPath()).toBe(nth(5).path);
     });
 
-    it("closes on Escape, handing focus back to the tile", () => {
+    it("closes on Escape, selecting the tile of the file last shown and asking the grid for focus", () => {
         openOn(4);
         fireEvent.click(button("Next file"));
 
         fireEvent.keyDown(dialog(), { key: "Escape" });
 
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        expect(useGalleryStore.getState().focusTile).toBe(nth(5).path);
+        expect(useGalleryStore.getState()).toMatchObject({ selected: nth(5).path, focusGrid: { reveal: true } });
     });
 
     it("closes with Close", () => {
@@ -147,7 +147,7 @@ describe("DetailsDialog", () => {
         fireEvent.click(button("Close"));
 
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        expect(useGalleryStore.getState().focusTile).toBe(nth(4).path);
+        expect(useGalleryStore.getState()).toMatchObject({ selected: nth(4).path, focusGrid: { reveal: true } });
     });
 
     it("opens the shown file, and drops a failure's message on stepping to the next file", async () => {
@@ -247,11 +247,11 @@ describe("DetailsDialog", () => {
             fireEvent.click(backdrop());
         };
 
-        it("closes it, handing focus back to the tile", async () => {
+        it("closes it, selecting the tile of the file last shown and asking the grid for focus", async () => {
             await pressBackdropAfter(600);
 
             expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-            expect(useGalleryStore.getState().focusTile).toBe(nth(4).path);
+            expect(useGalleryStore.getState()).toMatchObject({ selected: nth(4).path, focusGrid: { reveal: true } });
         });
 
         it("keeps it open when it is the second click of the double click that opened it", async () => {

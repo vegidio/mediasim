@@ -61,19 +61,32 @@ const IdentityBlock = () => {
     );
 };
 
-/** Images, Videos and Both, each with its count once the files are read. */
-const FilterTabs = ({ counts }: { counts?: FilterCounts }) => (
-    <TabsList aria-label="Filter media" className="h-auto rounded-[9px] border-[#27272A] bg-[#18181B]">
-        {FILTERS.map(({ value, label }) => (
-            <TabsTrigger key={value} value={value} className="flex-none">
-                {label}
-                {/* A space, so the name reads "Images 36"; a flex container doesn't render it. */}
-                {counts && " "}
-                {counts && <span className="font-mono text-[#A1A1AA] text-[11px]">{counts[value]}</span>}
-            </TabsTrigger>
-        ))}
-    </TabsList>
-);
+/**
+ * Images, Videos and Both, each with its count once the files are read. A click on one hands keyboard focus back to the
+ * grid, so the arrow keys go on moving the selection; reached from the keyboard, the tabs keep their arrow keys.
+ */
+const FilterTabs = ({ counts }: { counts?: FilterCounts }) => {
+    const returnToGrid = useGalleryStore((state) => state.returnToGrid);
+
+    return (
+        <TabsList aria-label="Filter media" className="h-auto rounded-[9px] border-[#27272A] bg-[#18181B]">
+            {FILTERS.map(({ value, label }) => (
+                // A click from Enter or Space has no pointer press, and so a `detail` of 0.
+                <TabsTrigger
+                    key={value}
+                    value={value}
+                    onClick={(event) => event.detail > 0 && returnToGrid()}
+                    className="flex-none"
+                >
+                    {label}
+                    {/* A space, so the name reads "Images 36"; a flex container doesn't render it. */}
+                    {counts && " "}
+                    {counts && <span className="font-mono text-[#A1A1AA] text-[11px]">{counts[value]}</span>}
+                </TabsTrigger>
+            ))}
+        </TabsList>
+    );
+};
 
 /** The session's match threshold: a slider in whole percent, with its value beside it. */
 const ThresholdControl = () => {

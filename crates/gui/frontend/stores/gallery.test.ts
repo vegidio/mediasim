@@ -171,7 +171,8 @@ describe("useGalleryStore", () => {
     });
 
     describe("media details", () => {
-        it("opens on a file, steps to another and closes, handing focus to the last file's tile", () => {
+        it("opens on a file, steps to another and closes, selecting the last file's tile and asking for grid focus", () => {
+            state().select("/p/a.jpg");
             state().openDetails("/p/a.jpg");
             expect(state().details).toBe("/p/a.jpg");
 
@@ -179,19 +180,27 @@ describe("useGalleryStore", () => {
             state().closeDetails();
 
             expect(state().details).toBeUndefined();
-            expect(state().focusTile).toBe("/p/b.jpg");
+            expect(state().selected).toBe("/p/b.jpg");
+            expect(state().focusGrid).toEqual({ reveal: true });
 
-            state().tileFocused();
-            expect(state().focusTile).toBeUndefined();
+            state().gridFocused();
+            expect(state().focusGrid).toBeUndefined();
+            expect(state().selected).toBe("/p/b.jpg");
         });
 
-        it("forgets a tile still waiting for focus when it opens again", () => {
+        it("forgets a grid focus request still pending when it opens again", () => {
             state().openDetails("/p/a.jpg");
             state().closeDetails();
 
             state().openDetails("/p/b.jpg");
 
-            expect(state().focusTile).toBeUndefined();
+            expect(state().focusGrid).toBeUndefined();
+        });
+
+        it("asks the grid for focus where it stands, as after a click on a filter tab", () => {
+            state().returnToGrid();
+
+            expect(state().focusGrid).toEqual({ reveal: false });
         });
 
         it("closes when a new listing no longer holds its file", async () => {
@@ -209,6 +218,52 @@ describe("useGalleryStore", () => {
             mockedList.mockResolvedValue(media(4, [file("a.jpg")]));
             await state().load();
             expect(state().details).toBeUndefined();
+        });
+    });
+
+    describe("selection", () => {
+        it("starts with none, selects one tile at a time, and clears", () => {
+            expect(state().selected).toBeUndefined();
+
+            state().select("/p/a.jpg");
+            state().select("/p/b.jpg");
+            expect(state().selected).toBe("/p/b.jpg");
+
+            state().clearSelection();
+            expect(state().selected).toBeUndefined();
+        });
+
+        it("is kept across a tab change", () => {
+            state().select("/p/b.mp4");
+
+            state().setFilter("images");
+
+            expect(state().selected).toBe("/p/b.mp4");
+        });
+
+        it("starts a new comparison with none", () => {
+            state().select("/p/a.jpg");
+
+            state().begin();
+
+            expect(state().selected).toBeUndefined();
+        });
+
+        it("is kept across a re-read that still holds the file, and cleared by one that doesn't", async () => {
+            atRevision(2);
+            mockedList.mockResolvedValue(media(2, [file("a.jpg"), file("b.jpg")]));
+            await state().load();
+            state().select("/p/b.jpg");
+
+            atRevision(3);
+            mockedList.mockResolvedValue(media(3, [file("a.jpg"), file("b.jpg"), file("c.jpg")]));
+            await state().load();
+            expect(state().selected).toBe("/p/b.jpg");
+
+            atRevision(4);
+            mockedList.mockResolvedValue(media(4, [file("a.jpg")]));
+            await state().load();
+            expect(state().selected).toBeUndefined();
         });
     });
 

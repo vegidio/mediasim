@@ -86,6 +86,39 @@ const grid = () => screen.getByTestId("gallery-grid");
 /** The rows the grid renders, each holding its tiles. */
 const rows = () => Array.from(grid().firstElementChild?.children ?? [], (row) => row.firstElementChild);
 const tiles = () => screen.queryAllByRole("button", { name: /^Open / });
+/** The tile, the grid's cell, of the file named `name`. */
+const cell = (name: string) =>
+    screen.getByRole("button", { name: `Open ${name}` }).closest('[role="gridcell"]') as HTMLElement;
+/** Whether `tile`'s picture and text are dimmed and in grayscale. */
+const isDimmed = (tile: HTMLElement) => tile.querySelector(".grayscale") !== null;
+/** The path of the selected tile's file, as the store holds it. */
+const selected = () => useGalleryStore.getState().selected;
+/** The names of the tiles the grid shows as selected. */
+const shownSelected = () =>
+    screen
+        .queryAllByRole("gridcell", { selected: true })
+        .map((tile) => tile.querySelector("button")?.getAttribute("aria-label"));
+/** Press `key` on the grid; whether the grid let the browser act on it. */
+const press = (key: string) => fireEvent.keyDown(grid(), { key });
+const compare = () => screen.getByRole("button", { name: /^Compare/ });
+
+/** Make the grid scroll as a browser would; jsdom has no `scrollTo` and no scroll height. */
+const scrollable = (count: number) => {
+    Object.defineProperty(grid(), "scrollHeight", { get: () => Math.ceil(count / 7) * 164 + 28 });
+    Object.defineProperty(grid(), "scrollTo", {
+        value: ({ top = 0 }: ScrollToOptions) => {
+            grid().scrollTop = top;
+            fireEvent.scroll(grid());
+        },
+    });
+};
+
+/** Render the gallery on `read`, waiting for its tiles. */
+const showGallery = async (read: MediaFile[]) => {
+    withSet(read.length, { revision: 1, files: read });
+    render(<GalleryScreen />);
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+};
 
 describe("GalleryScreen", () => {
     beforeEach(() => {
@@ -191,7 +224,7 @@ describe("GalleryScreen", () => {
             // The Open button sits in the picture, inside the tile that carries the tooltip and dimming.
             const tile = open.closest(".group") as HTMLElement;
             expect(tile.hasAttribute("title")).toBe(leftOut);
-            expect(tile.classList.contains("grayscale")).toBe(leftOut);
+            expect(isDimmed(tile)).toBe(leftOut);
         }
         expect(screen.getByRole("tabpanel")).toContainElement(grid());
     });
@@ -244,7 +277,7 @@ describe("GalleryScreen", () => {
         expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(read.map((file) => `Open ${file.name}`));
         const tile = screen.getByRole("button", { name: "Open IMG_00001.jpg" }).closest(".group") as HTMLElement;
         expect(tile).toHaveAttribute("title", "Removed from this comparison");
-        expect(tile).toHaveClass("grayscale");
+        expect(isDimmed(tile)).toBe(true);
         expect(within(tile).queryByText("Removed")).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 3 files");
     });
@@ -267,7 +300,7 @@ describe("GalleryScreen", () => {
             screen.getByRole("button", { name: `Open ${name}` }).closest(".group") as HTMLElement;
         expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(read.map((file) => `Open ${file.name}`));
         expect(tile("VID_00001.mp4")).not.toHaveAttribute("title");
-        expect(tile("VID_00001.mp4")).not.toHaveClass("grayscale");
+        expect(isDimmed(tile("VID_00001.mp4"))).toBe(false);
         expect(tile("VID_00003.mp4")).toHaveAttribute("title", "Not included in this comparison");
         expect(tile("IMG_00000.jpg")).toHaveAttribute("title", "Removed from this comparison");
         expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 2 files");
@@ -296,33 +329,307 @@ describe("GalleryScreen", () => {
         await waitFor(() => expect(tiles()).toHaveLength(3));
         expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 3 files");
         const tile = screen.getByRole("button", { name: "Open IMG_00000.jpg" }).closest(".group") as HTMLElement;
-        expect(tile).not.toHaveClass("grayscale");
+        expect(isDimmed(tile)).toBe(false);
     });
 
-    it("hands focus back to the tile of the file last shown, scrolled into view, when the details close", async () => {
-        const read = images(200);
-        withSet(200, { revision: 1, files: read });
-        render(<GalleryScreen />);
-        await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
-        // jsdom has no `scrollTo` and no scroll height; this moves the grid as a browser would, so the virtualizer
-        // renders the rows in view.
-        Object.defineProperty(grid(), "scrollHeight", { get: () => Math.ceil(200 / 7) * 164 + 28 });
-        Object.defineProperty(grid(), "scrollTo", {
-            value: ({ top = 0 }: ScrollToOptions) => {
-                grid().scrollTop = top;
-                fireEvent.scroll(grid());
-            },
+    describe("selection", () => {
+        it("selects a tile on a click, moving the selection on another, with the grid focused", async () => {
+            await showGallery(images(10));
+
+            fireEvent.click(screen.getByText("IMG_00003.jpg"));
+
+            expect(shownSelected()).toEqual(["Open IMG_00003.jpg"]);
+            expect(grid()).toHaveFocus();
+            expect(grid()).toHaveAttribute("aria-activedescendant", cell("IMG_00003.jpg").id);
+
+            fireEvent.click(cell("IMG_00004.jpg"));
+
+            expect(shownSelected()).toEqual(["Open IMG_00004.jpg"]);
+            expect(cell("IMG_00003.jpg")).toHaveAttribute("aria-selected", "false");
         });
 
-        fireEvent.click(screen.getByRole("button", { name: "Open IMG_00003.jpg" }));
-        expect(screen.getByRole("dialog", { name: "Media details: IMG_00003.jpg" })).toBeInTheDocument();
-        act(() => useGalleryStore.getState().showDetails("/p/IMG_00150.jpg"));
-        expect(screen.queryByRole("button", { name: "Open IMG_00150.jpg" })).not.toBeInTheDocument();
+        it("selects the tile and opens the details on a click on its Open chip", async () => {
+            await showGallery(images(10));
 
-        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+            fireEvent.click(screen.getByRole("button", { name: "Open IMG_00002.jpg" }));
 
-        await waitFor(() => expect(screen.getByRole("button", { name: "Open IMG_00150.jpg" })).toHaveFocus());
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        expect(useGalleryStore.getState().focusTile).toBeUndefined();
+            expect(selected()).toBe("/p/IMG_00002.jpg");
+            expect(screen.getByRole("dialog", { name: "Media details: IMG_00002.jpg" })).toBeInTheDocument();
+        });
+
+        it("clears the selection on a click on the grid's empty space", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00003.jpg"));
+
+            // The second row, beside its three tiles.
+            fireEvent.click(rows()[1] as HTMLElement);
+
+            expect(shownSelected()).toEqual([]);
+            expect(grid()).not.toHaveAttribute("aria-activedescendant");
+        });
+
+        it("keeps the selection on a dimmed tile across a tab change, with its ring outside the dimming", async () => {
+            await showGallery(files(["image", "video", "image"]));
+            fireEvent.click(cell("VID_00001.mp4"));
+
+            fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
+
+            const tile = cell("VID_00001.mp4");
+            expect(shownSelected()).toEqual(["Open VID_00001.mp4"]);
+            expect(isDimmed(tile)).toBe(true);
+            expect(tile.querySelector(".ring-2")).not.toHaveClass("grayscale");
+        });
+
+        it("starts a new comparison with no tile selected", async () => {
+            withSet(3, { revision: 1, files: images(3) });
+            render(<App />);
+            act(() => useScreenStore.getState().show("gallery"));
+            await waitFor(() => expect(tiles()).toHaveLength(3));
+            fireEvent.click(cell("IMG_00001.jpg"));
+
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+            fireEvent.click(screen.getByRole("button", { name: "Continue with 3 files" }));
+
+            await waitFor(() => expect(tiles()).toHaveLength(3));
+            expect(shownSelected()).toEqual([]);
+        });
+    });
+
+    describe("keyboard", () => {
+        it("is a single tab stop, with the Open chips out of the tab order", async () => {
+            await showGallery(images(48));
+
+            expect(grid()).toHaveAttribute("tabindex", "0");
+            expect(tiles().length).toBeGreaterThan(0);
+            for (const open of tiles()) expect(open).toHaveAttribute("tabindex", "-1");
+            expect(grid().querySelectorAll('[tabindex]:not([tabindex="-1"])')).toHaveLength(0);
+        });
+
+        it("selects the first tile when tabbed into with none selected", async () => {
+            await showGallery(images(10));
+
+            act(() => grid().focus());
+
+            expect(shownSelected()).toEqual(["Open IMG_00000.jpg"]);
+        });
+
+        it("keeps the selection when tabbed into with one selected", async () => {
+            await showGallery(images(10));
+            act(() => useGalleryStore.getState().select("/p/IMG_00005.jpg"));
+
+            act(() => grid().focus());
+
+            expect(shownSelected()).toEqual(["Open IMG_00005.jpg"]);
+        });
+
+        it("moves right across a row's end, and left back across its start", async () => {
+            await showGallery(images(20));
+            fireEvent.click(cell("IMG_00006.jpg"));
+
+            expect(press("ArrowRight")).toBe(false);
+            expect(shownSelected()).toEqual(["Open IMG_00007.jpg"]);
+
+            press("ArrowLeft");
+            expect(shownSelected()).toEqual(["Open IMG_00006.jpg"]);
+        });
+
+        it("selects a left-out tile with the arrow keys, with its ring outside the dimming", async () => {
+            await showGallery(files(["video", "image", "video"]));
+            fireEvent.mouseDown(screen.getByRole("tab", { name: /^Videos/ }));
+            fireEvent.click(cell("VID_00000.mp4"));
+
+            press("ArrowRight");
+
+            const tile = cell("IMG_00001.jpg");
+            expect(shownSelected()).toEqual(["Open IMG_00001.jpg"]);
+            expect(isDimmed(tile)).toBe(true);
+            expect(tile.querySelector(".ring-2")).not.toHaveClass("grayscale");
+        });
+
+        it("doesn't wrap at the gallery's ends", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00009.jpg"));
+
+            press("ArrowRight");
+            expect(shownSelected()).toEqual(["Open IMG_00009.jpg"]);
+        });
+
+        it("moves down into a shorter last row, to its last tile", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00005.jpg"));
+
+            press("ArrowDown");
+
+            expect(shownSelected()).toEqual(["Open IMG_00009.jpg"]);
+        });
+
+        it("selects the first tile on an arrow key with none selected", async () => {
+            await showGallery(images(10));
+
+            press("ArrowDown");
+
+            expect(shownSelected()).toEqual(["Open IMG_00000.jpg"]);
+        });
+
+        it("follows the columns at the window's width", async () => {
+            await showGallery(images(48));
+            fireEvent.click(cell("IMG_00006.jpg"));
+
+            resize(1440);
+            press("ArrowDown");
+
+            expect(shownSelected()).toEqual(["Open IMG_00014.jpg"]);
+        });
+
+        it("scrolls down to a row out of view", async () => {
+            await showGallery(images(200));
+            scrollable(200);
+            // The fourth row is the last one in view.
+            fireEvent.click(cell("IMG_00022.jpg"));
+            expect(grid().scrollTop).toBe(0);
+
+            press("ArrowDown");
+
+            expect(shownSelected()).toEqual(["Open IMG_00029.jpg"]);
+            expect(grid().scrollTop).toBeGreaterThan(0);
+        });
+
+        it("opens the details on Enter", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00004.jpg"));
+
+            // Not left to the browser, which would press the dialog's newly focused Previous button with it.
+            expect(press("Enter")).toBe(false);
+
+            expect(screen.getByRole("dialog", { name: "Media details: IMG_00004.jpg" })).toBeInTheDocument();
+        });
+
+        it("removes the selected file on Space and adds it back, without scrolling", async () => {
+            await showGallery(images(4));
+            fireEvent.click(cell("IMG_00001.jpg"));
+            expect(compare()).toHaveAccessibleName("Compare 4 files");
+
+            expect(press(" ")).toBe(false);
+
+            expect(cell("IMG_00001.jpg")).toHaveAttribute("title", "Removed from this comparison");
+            expect(isDimmed(cell("IMG_00001.jpg"))).toBe(true);
+            expect(compare()).toHaveAccessibleName("Compare 3 files");
+
+            press(" ");
+
+            expect(cell("IMG_00001.jpg")).not.toHaveAttribute("title");
+            expect(isDimmed(cell("IMG_00001.jpg"))).toBe(false);
+            expect(compare()).toHaveAccessibleName("Compare 4 files");
+        });
+
+        it("adds a left-out file on Space", async () => {
+            await showGallery(files(["image", "video", "image", "video"]));
+            fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
+            fireEvent.click(cell("VID_00001.mp4"));
+            expect(compare()).toHaveAccessibleName("Compare 2 files");
+
+            press(" ");
+
+            expect(cell("VID_00001.mp4")).not.toHaveAttribute("title");
+            expect(compare()).toHaveAccessibleName("Compare 3 files");
+        });
+
+        it("clears the selection on Escape", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00004.jpg"));
+
+            press("Escape");
+
+            expect(shownSelected()).toEqual([]);
+        });
+
+        it("leaves the keys to the slider while it has focus", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00004.jpg"));
+            const slider = screen.getByRole("slider", { name: "Match threshold" });
+            slider.focus();
+
+            fireEvent.keyDown(slider, { key: "ArrowRight" });
+
+            expect(slider).toHaveAttribute("aria-valuenow", "81");
+            expect(shownSelected()).toEqual(["Open IMG_00004.jpg"]);
+        });
+    });
+
+    describe("a click on a filter tab", () => {
+        /** Click the filter tab named `name` with the pointer, which presses it, then clicks it. */
+        const clickTab = (name: RegExp) => {
+            const tab = screen.getByRole("tab", { name });
+            fireEvent.mouseDown(tab);
+            tab.focus();
+            fireEvent.click(tab, { detail: 1 });
+        };
+
+        it("hands focus back to the grid, where the arrow keys go on moving the selection", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00003.jpg"));
+
+            clickTab(/^Images/);
+
+            expect(screen.getByRole("tab", { name: /^Images/ })).toHaveAttribute("aria-selected", "true");
+            expect(grid()).toHaveFocus();
+            press("ArrowRight");
+            expect(shownSelected()).toEqual(["Open IMG_00004.jpg"]);
+        });
+
+        it("selects no tile when none was selected", async () => {
+            await showGallery(images(10));
+
+            clickTab(/^Videos/);
+
+            expect(grid()).toHaveFocus();
+            expect(shownSelected()).toEqual([]);
+        });
+
+        it("leaves the arrow keys to the tabs when they are reached from the keyboard", async () => {
+            await showGallery(images(10));
+            fireEvent.click(cell("IMG_00003.jpg"));
+            const tab = screen.getByRole("tab", { name: /^Both/ });
+            tab.focus();
+
+            // Enter and Space click a button with no pointer press.
+            fireEvent.click(tab, { detail: 0 });
+
+            expect(tab).toHaveFocus();
+            expect(shownSelected()).toEqual(["Open IMG_00003.jpg"]);
+        });
+    });
+
+    describe("closing the details", () => {
+        it("selects the tile of the file last shown, scrolled into view, with the grid focused", async () => {
+            await showGallery(images(200));
+            scrollable(200);
+
+            fireEvent.click(screen.getByRole("button", { name: "Open IMG_00003.jpg" }));
+            expect(screen.getByRole("dialog", { name: "Media details: IMG_00003.jpg" })).toBeInTheDocument();
+            act(() => useGalleryStore.getState().showDetails("/p/IMG_00150.jpg"));
+            expect(screen.queryByRole("button", { name: "Open IMG_00150.jpg" })).not.toBeInTheDocument();
+
+            fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+            await waitFor(() => expect(shownSelected()).toEqual(["Open IMG_00150.jpg"]));
+            expect(grid()).toHaveFocus();
+            expect(grid()).toHaveAttribute("aria-activedescendant", cell("IMG_00150.jpg").id);
+            expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+            expect(useGalleryStore.getState().focusGrid).toBeUndefined();
+        });
+
+        it("lets the keys go on from the tile of the file last shown", async () => {
+            await showGallery(images(20));
+            fireEvent.click(cell("IMG_00003.jpg"));
+            press("Enter");
+            act(() => useGalleryStore.getState().showDetails("/p/IMG_00008.jpg"));
+
+            fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+            await waitFor(() => expect(grid()).toHaveFocus());
+            press("ArrowRight");
+
+            expect(shownSelected()).toEqual(["Open IMG_00009.jpg"]);
+        });
     });
 });

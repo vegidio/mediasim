@@ -37,16 +37,27 @@ type GalleryStore = {
     load: () => Promise<void>;
     /** The path of the file the media details dialog shows, while it is open. */
     details?: string;
-    /** The path of the file whose tile takes focus once the grid shows it, as after the dialog closes. */
-    focusTile?: string;
+    /** The path of the selected tile's file, if a tile is selected. */
+    selected?: string;
+    /** Select the tile of the file at `path`. */
+    select: (path: string) => void;
+    /** Leave no tile selected. */
+    clearSelection: () => void;
+    /**
+     * A request for the grid to take keyboard focus, scrolling the selected tile into view when `reveal` says so, as
+     * after the dialog closes.
+     */
+    focusGrid?: { reveal: boolean };
+    /** Hand keyboard focus back to the grid, where it stands, as after a click on a filter tab. */
+    returnToGrid: () => void;
     /** Open the media details dialog on the file at `path`. */
     openDetails: (path: string) => void;
     /** Show the file at `path` in the open media details dialog. */
     showDetails: (path: string) => void;
-    /** Close the media details dialog, handing focus to the tile of the file it last showed. */
+    /** Close the media details dialog, selecting the tile of the file it last showed and asking the grid for focus. */
     closeDetails: () => void;
-    /** Forget {@link focusTile}, once the tile has taken focus. */
-    tileFocused: () => void;
+    /** Forget {@link focusGrid}, once the grid has taken focus. */
+    gridFocused: () => void;
     /**
      * The paths of the files whose inclusion the user flipped against the selected tab: removed when the tab includes
      * them, added when it leaves them out. Cleared when the tab changes, and kept across re-reads of the set's files
@@ -79,20 +90,25 @@ let requests = 0;
 /** `state` without the details dialog's file. */
 const withoutDetails = ({ details: _closed, ...rest }: GalleryStore): GalleryStore => rest;
 
+/** `state` with no tile selected. */
+const withoutSelection = ({ selected: _cleared, ...rest }: GalleryStore): GalleryStore => rest;
+
 /**
- * `state` with `listing`, closing the details dialog when its file is no longer in it, and forgetting the override of
- * any file no longer in it.
+ * `state` with `listing`, closing the details dialog and clearing the selection when their file is no longer in it, and
+ * forgetting the override of any file no longer in it.
  */
 const withListing = (state: GalleryStore, listing: GalleryListing): GalleryStore => {
     if (listing.status !== "ready") return { ...state, listing };
 
     const paths = new Set(listing.files.map((file) => file.path));
-    const { details, overrides } = state;
-    const gone = details !== undefined && !paths.has(details);
+    const { details, selected, overrides } = state;
+    const gone = (path?: string) => !!path && !paths.has(path);
     const kept = [...overrides].filter((path) => paths.has(path));
+    let next = gone(details) ? withoutDetails(state) : state;
+    if (gone(selected)) next = withoutSelection(next);
 
     return {
-        ...(gone ? withoutDetails(state) : state),
+        ...next,
         listing,
         ...(kept.length !== overrides.size && { overrides: new Set(kept) }),
     };
@@ -106,7 +122,14 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     threshold: useSettingsStore.getState().matchThreshold,
     setThreshold: (threshold) => set({ threshold }),
     begin: () => {
-        set({ threshold: useSettingsStore.getState().matchThreshold, overrides: new Set() });
+        set(
+            (state) => ({
+                ...withoutSelection(state),
+                threshold: useSettingsStore.getState().matchThreshold,
+                overrides: new Set(),
+            }),
+            true,
+        );
         // The recount bumps the set's revision, so the next load reads the files again instead of keeping the last read.
         void useHomeStore.getState().refresh();
     },
@@ -135,14 +158,17 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
         }
     },
 
-    openDetails: (path) => set(({ focusTile: _stale, ...rest }) => ({ ...rest, details: path }), true),
+    select: (path) => set({ selected: path }),
+    clearSelection: () => set(withoutSelection, true),
+    returnToGrid: () => set({ focusGrid: { reveal: false } }),
+    openDetails: (path) => set(({ focusGrid: _stale, ...rest }) => ({ ...rest, details: path }), true),
     showDetails: (path) => set({ details: path }),
     closeDetails: () =>
         set((state) => {
             const { details } = state;
-            return details === undefined ? state : { ...withoutDetails(state), focusTile: details };
+            return !details ? state : { ...withoutDetails(state), selected: details, focusGrid: { reveal: true } };
         }, true),
-    tileFocused: () => set(({ focusTile: _done, ...rest }) => rest, true),
+    gridFocused: () => set(({ focusGrid: _done, ...rest }) => rest, true),
     overrides: new Set(),
     toggle: (path) =>
         set(({ overrides }) => {

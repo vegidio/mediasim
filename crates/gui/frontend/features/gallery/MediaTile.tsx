@@ -73,7 +73,13 @@ const useDuration = (file: MediaFile) => {
 };
 
 type MediaTileProps = {
+    /** The tile's id, which the grid names as its active descendant while the tile is selected. */
+    id: string;
     file: MediaFile;
+    /** Whether the tile is the grid's selected one, which shows the lime ring and the Open chip. */
+    selected: boolean;
+    /** Select the tile, as a click anywhere on it does. */
+    onSelect: () => void;
     /** Whether the file is in the comparison; a left-out or removed file stays in place, dimmed. */
     inclusion: Inclusion;
 };
@@ -85,55 +91,77 @@ const TOOLTIPS: Record<Inclusion, string | undefined> = {
 };
 
 /**
- * One file of the gallery: its picture, with a play mark and duration for a video, then its name and size. Its one
- * button is the "Open" chip, which opens the file's media details, as does a double click anywhere on the tile.
+ * One file of the gallery, a cell of its grid: its picture, with a play mark and duration for a video, then its name
+ * and size. A click selects it. Its one button is the "Open" chip, which opens the file's media details, as does a
+ * double click anywhere on the tile; the keyboard reaches it through the grid, which opens the selected tile on Enter.
  */
-export const MediaTile = ({ file, inclusion }: MediaTileProps) => {
+export const MediaTile = ({ id, file, selected, onSelect, inclusion }: MediaTileProps) => {
     const duration = useDuration(file);
     const tooltip = TOOLTIPS[inclusion];
+    // The ring stays bright on a dimmed tile, so only the picture's contents and the text below it are dimmed.
+    const dimmed = inclusion !== "included" && "opacity-28 grayscale";
     const openDetails = useGalleryStore((state) => state.openDetails);
     const open = () => openDetails(file.path);
 
     return (
-        // The double click is a shortcut for the pointer; the Open button is the way in from the keyboard.
-        // biome-ignore lint/a11y/noStaticElementInteractions: the tile's button is its Open chip, which a button can't hold.
+        // The grid handles the keys for the selected tile, its active descendant; the tile itself never takes focus,
+        // and sits in a row of absolutely placed tiles, which table elements can't be.
+        // biome-ignore lint/a11y/useKeyWithClickEvents: see above.
+        // biome-ignore lint/a11y/useFocusableInteractive: see above.
+        // biome-ignore lint/a11y/useSemanticElements: see above.
         <div
+            id={id}
+            role="gridcell"
+            aria-selected={selected}
             data-path={file.path}
+            onClick={onSelect}
             onDoubleClick={open}
             {...(tooltip && { title: tooltip })}
-            className={cn(
-                "group flex w-40 flex-col gap-2 text-left",
-                inclusion !== "included" && "opacity-28 grayscale",
-            )}
+            className="group flex w-40 flex-col gap-2 text-left"
         >
-            <span className="relative block h-[120px] w-40 overflow-hidden rounded-[10px] bg-[#18181B] group-hover:ring-2 group-hover:ring-primary group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-primary">
-                <Thumbnail key={file.identity} file={file} />
-                {/* Over the picture, which would otherwise hide an inset border. */}
-                <span className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] group-hover:hidden group-has-[:focus-visible]:hidden" />
-                {file.type === "video" && (
-                    <>
-                        <span className="absolute top-1/2 left-1/2 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(9,9,11,0.6)]">
-                            <PlayIcon aria-hidden="true" className="size-4 fill-[#FAFAFA] stroke-none" />
-                        </span>
-                        {duration !== undefined && (
-                            <span className="absolute right-2 bottom-2 rounded-md bg-[rgba(9,9,11,0.8)] px-[7px] py-0.5 font-medium font-mono text-[#FAFAFA] text-[11px]">
-                                {formatDuration(duration)}
-                            </span>
-                        )}
-                    </>
+            <span
+                className={cn(
+                    "relative block h-[120px] w-40 overflow-hidden rounded-[10px]",
+                    selected && "ring-2 ring-primary",
                 )}
-                {/* Transparent rather than hidden, so it stays in the tab order and the accessibility tree. */}
+            >
+                <span className={cn("absolute inset-0 bg-[#18181B]", dimmed)}>
+                    <Thumbnail key={file.identity} file={file} />
+                    {/* Over the picture, which would otherwise hide an inset border. */}
+                    {!selected && (
+                        <span className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]" />
+                    )}
+                    {file.type === "video" && (
+                        <>
+                            <span className="absolute top-1/2 left-1/2 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(9,9,11,0.6)]">
+                                <PlayIcon aria-hidden="true" className="size-4 fill-[#FAFAFA] stroke-none" />
+                            </span>
+                            {duration !== undefined && (
+                                <span className="absolute right-2 bottom-2 rounded-md bg-[rgba(9,9,11,0.8)] px-[7px] py-0.5 font-medium font-mono text-[#FAFAFA] text-[11px]">
+                                    {formatDuration(duration)}
+                                </span>
+                            )}
+                        </>
+                    )}
+                </span>
+                {/* Transparent rather than hidden, so it stays in the accessibility tree. Out of the tab order, and kept
+                    from taking focus on a press, so focus stays on the grid; its click still selects the tile. */}
                 <button
                     type="button"
+                    tabIndex={-1}
                     aria-label={`Open ${file.name}`}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={open}
-                    className="absolute top-2 right-2 flex h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-[#FAFAFA] text-xs opacity-0 outline-none group-hover:opacity-100 focus-visible:opacity-100"
+                    className={cn(
+                        "absolute top-2 right-2 flex h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-[#FAFAFA] text-xs opacity-0 outline-none group-hover:opacity-100",
+                        selected && "opacity-100",
+                    )}
                 >
                     <ExternalLinkIcon aria-hidden="true" className="size-[13px]" />
                     Open
                 </button>
             </span>
-            <span className="flex items-baseline justify-between gap-2">
+            <span className={cn("flex items-baseline justify-between gap-2", dimmed)}>
                 <span className="truncate font-mono text-[#E4E4E7] text-xs">{file.name}</span>
                 <span className="whitespace-nowrap text-[#A1A1AA] text-[11px]">{formatSize(file.size)}</span>
             </span>
