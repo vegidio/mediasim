@@ -25,6 +25,9 @@ image.workspace = true
 mediasim = { path = "../mediasim", features = ["serde", "cache"] }
 # A video's preview frame, extracted at the thumbnail's size by `Resolution::Fit`.
 media.workspace = true
+# Scores the pairs inside each group in parallel, on the pool the grouper uses. Already in the build through
+# `mediasim`, at the same version.
+rayon.workspace = true
 # `memo` is the thumbnail cache and `crypto` the XXH3-64 behind an admitted file's identity.
 rust-sak = { workspace = true, features = ["memo", "crypto"] }
 serde.workspace = true

@@ -28,14 +28,68 @@ beforeEach(() => {
 
 describe("startScan", () => {
     it("sends the request with a channel and resolves to the result", async () => {
-        const result = { groups: [["/a.png", "/b.png"]], skipped: [] };
+        const file = (path: string) => ({
+            path,
+            type: "image",
+            width: 640,
+            height: 480,
+            size: 1000,
+            duration: JSON.parse("null"),
+            created: "2025-01-02T03:04:05Z",
+            modified: "2025-01-02T03:04:05Z",
+        });
+        const result = {
+            groups: [
+                {
+                    files: [file("/a.png"), file("/b.png")],
+                    scores: [
+                        [1, 0.97],
+                        [0.97, 1],
+                    ],
+                },
+            ],
+            skipped: [{ path: "/c.png", message: "boom" }],
+        };
         mockedInvoke.mockResolvedValue(result);
 
-        await expect(startScan(request, () => {})).resolves.toEqual(result);
+        const { duration: _, ...read } = file("/a.png");
+        await expect(startScan(request, () => {})).resolves.toStrictEqual({
+            groups: [
+                {
+                    files: [read, { ...read, path: "/b.png" }],
+                    scores: [
+                        [1, 0.97],
+                        [0.97, 1],
+                    ],
+                },
+            ],
+            skipped: [{ path: "/c.png", message: "boom" }],
+        });
         expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("start_scan", {
             ...request,
             onEvent: expect.anything(),
         });
+    });
+
+    it("leaves out a grouped file's null metadata", async () => {
+        const nothing = JSON.parse("null");
+        const file = { path: "/v.mp4", type: "video", width: 1, height: 1, size: 1 };
+        mockedInvoke.mockResolvedValue({
+            groups: [
+                {
+                    files: [
+                        { ...file, duration: nothing, created: nothing, modified: nothing },
+                        { ...file, duration: 42.5, created: nothing, modified: nothing },
+                    ],
+                    scores: [],
+                },
+            ],
+            skipped: [],
+        });
+
+        const result = await startScan(request, () => {});
+
+        expect(result.groups[0]?.files).toStrictEqual([file, { ...file, duration: 42.5 }]);
     });
 
     it("delivers each message to the callback, leaving out a null estimate", async () => {
@@ -46,11 +100,13 @@ describe("startScan", () => {
         sent().onmessage({ kind: "processing", path: "/u/a.png", display: "~/a.png" });
         sent().onmessage({ kind: "progress", done: 0, total: 2, skipped: 0, etaSeconds: JSON.parse("null") });
         sent().onmessage({ kind: "progress", done: 1, total: 2, skipped: 1, etaSeconds: 4.5 });
+        sent().onmessage({ kind: "scoring", done: 2, total: 9 });
 
         expect(messages).toStrictEqual([
             { kind: "processing", path: "/u/a.png", display: "~/a.png" },
             { kind: "progress", done: 0, total: 2, skipped: 0 },
             { kind: "progress", done: 1, total: 2, skipped: 1, etaSeconds: 4.5 },
+            { kind: "scoring", done: 2, total: 9 },
         ]);
     });
 

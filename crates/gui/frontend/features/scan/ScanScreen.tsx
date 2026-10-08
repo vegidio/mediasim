@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { MediaKindIcon } from "@/components/MediaKindIcon";
 import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
 import { formatCount } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useScanStore } from "@/stores/scan";
 import { formatKinds, formatTimeLeft, formatUnreadable, percentDone } from "./format";
+import { groupingPhase, type PhaseState } from "./phases";
 
 /** The longest edge, in pixels, the "Now processing" thumbnail is asked for: its 48×36 box on a 2× display. */
 const THUMB_BOUND = 96;
@@ -58,32 +61,48 @@ const Progress = () => {
     );
 };
 
-/** The grouping phase: a spinning mark while the scan runs, its name and hint, and the files done. */
+/** The phase row's mark: a check once done, and a spinning mark while it runs. */
+const PhaseMark = ({ state }: { state: PhaseState }) => (
+    <span className="flex size-6 shrink-0 items-center justify-center">
+        {state === "done" ? (
+            <span
+                data-testid="phase-done"
+                className="flex size-6 items-center justify-center rounded-full bg-primary/12 text-primary"
+            >
+                <Check aria-hidden="true" className="size-[13px]" strokeWidth={3} />
+            </span>
+        ) : (
+            <span
+                data-testid="spinner"
+                aria-hidden="true"
+                className="size-5 animate-spin rounded-full border-[3px] border-[#3F3F46] border-t-primary [animation-duration:0.9s] motion-reduce:animate-none"
+            />
+        )}
+    </span>
+);
+
+/** The scan's phase: its mark, its name and hint, and its status, in lime while it runs. */
 const PhaseRow = () => {
-    const { done, total, skipped } = useScanStore((state) => state.progress);
-    const running = useScanStore((state) => state.status === "running");
+    const progress = useScanStore((state) => state.progress);
+    const scoring = useScanStore((state) => state.scoring);
+    const { state, status } = groupingPhase(progress, scoring);
+    const { skipped } = progress;
 
     return (
-        <div className="flex items-center gap-3">
-            <span className="flex size-6 shrink-0 items-center justify-center">
-                {running && (
-                    <span
-                        data-testid="spinner"
-                        aria-hidden="true"
-                        className="size-6 animate-spin rounded-full border-2 border-[#3F3F46] border-t-primary [animation-duration:0.9s] motion-reduce:animate-none"
-                    />
-                )}
-            </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="font-medium text-sm">Grouping similar files</span>
-                <span className="text-[#A1A1AA] text-xs">
-                    Matching media above the threshold{skipped > 0 && ` · ${formatUnreadable(skipped)}`}
+        <ol className="flex flex-col border-[#1F1F23] border-t">
+            <li className="flex items-center gap-3.5 py-3.5">
+                <PhaseMark state={state} />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="font-medium text-sm">Grouping similar files</span>
+                    <span className="text-[#A1A1AA] text-xs">
+                        Matching media above the threshold{skipped > 0 && ` · ${formatUnreadable(skipped)}`}
+                    </span>
+                </div>
+                <span className={cn("font-mono text-xs", state === "active" ? "text-primary" : "text-[#A1A1AA]")}>
+                    {status}
                 </span>
-            </div>
-            <span className="font-mono text-primary text-xs">
-                {done} / {total}
-            </span>
-        </div>
+            </li>
+        </ol>
     );
 };
 

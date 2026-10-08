@@ -1,5 +1,9 @@
 //! The Tauri commands behind the scan screen: a scan of the gallery's files, streamed to the window, and its cancel.
 //!
+//! Once the files are grouped, the scan scores every pair of files inside each group, so the window can show how close
+//! each file is to the one it recommends keeping. The grouper stops at a group's first match, so these scores don't
+//! exist before.
+//!
 //! At most one scan runs at a time. Starting one cancels any earlier one still running, so its loads stop and it
 //! resolves as cancelled, and [`cancel_scan`] stops the one in flight when the user cancels.
 //!
@@ -12,7 +16,10 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use mediasim::{CancelToken, CompareOptions, OnError, Scan, ScanError, ScanEvent, ScanProgress, Scanned};
+use mediasim::{
+    CancelToken, CompareError, CompareOptions, Media, OnError, Scan, ScanError, ScanEvent, ScanProgress, Scanned,
+};
+use rayon::prelude::*;
 use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
@@ -45,6 +52,13 @@ pub enum ScanMessage {
         /// The estimated time left, in seconds; `null` before there is one.
         eta_seconds: Option<f64>,
     },
+    /// How far the scoring of the groups has got, once every file is grouped.
+    Scoring {
+        /// The pairs scored.
+        done: usize,
+        /// The pairs inside the groups.
+        total: usize,
+    },
 }
 
 impl ScanMessage {
@@ -53,12 +67,13 @@ impl ScanMessage {
         match self {
             Self::Processing { .. } => 0,
             Self::Progress { .. } => 1,
+            Self::Scoring { .. } => 2,
         }
     }
 
-    /// Whether this is the progress of a scan with every file done.
+    /// Whether this is the progress of a scan with every file done, or of a scoring with every pair done.
     fn is_final(&self) -> bool {
-        matches!(self, Self::Progress { done, total, .. } if done == total)
+        matches!(self, Self::Progress { done, total, .. } | Self::Scoring { done, total } if done == total)
     }
 }
 
@@ -83,22 +98,34 @@ pub struct SkippedFile {
     message: String,
 }
 
+/// A group of similar files and how alike each pair of them is.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ScanGroup {
+    /// The files, with their metadata, in path order.
+    files: Vec<Media>,
+    /// `scores[i][j]` is the similarity of `files[i]` and `files[j]`, from `0` to `1`: symmetric, with `1` on the
+    /// diagonal.
+    scores: Vec<Vec<f64>>,
+}
+
 /// What a finished scan returns to the window.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ScanResult {
-    /// The groups of similar files, as paths, each group and the groups in path order.
-    groups: Vec<Vec<String>>,
+    /// The groups of similar files, ordered by the path of their first file.
+    groups: Vec<ScanGroup>,
     /// The files that couldn't be read, in the order they were given.
     skipped: Vec<SkippedFile>,
 }
 
-impl From<Scanned> for ScanResult {
-    fn from(scanned: Scanned) -> Self {
+impl ScanResult {
+    /// The result of `scanned`, whose groups `scores` holds the score matrices of, in the same order.
+    fn new(scanned: Scanned, scores: Vec<Vec<Vec<f64>>>) -> Self {
         Self {
             groups: scanned
                 .groups
-                .iter()
-                .map(|group| group.iter().map(|media| media.path.to_string_lossy().into_owned()).collect())
+                .into_iter()
+                .zip(scores)
+                .map(|(files, scores)| ScanGroup { files, scores })
                 .collect(),
             skipped: scanned
                 .skipped
@@ -131,6 +158,13 @@ impl From<ScanError> for ScanFailure {
             // A scan that skips unreadable files never ends with one, but a message is better than a panic.
             ScanError::Load(err) => Self::Task { message: err.to_string() },
         }
+    }
+}
+
+impl From<CompareError> for ScanFailure {
+    fn from(err: CompareError) -> Self {
+        // The grouper never puts an image and a video together, but a message is better than a panic.
+        Self::Task { message: err.to_string() }
     }
 }
 
@@ -191,7 +225,8 @@ struct Request {
 }
 
 /// Scans `paths`, grouping the files scoring at least `threshold` against each other, with rotated frames tried if
-/// `rotate` and flipped ones if `flip`. Files that can't be read are skipped and returned with the groups.
+/// `rotate` and flipped ones if `flip`, then scores every pair of files inside each group under the same options. Files
+/// that can't be read are skipped and returned with the groups.
 ///
 /// Sends [`ScanMessage`]s to `on_event` while it runs, at most one of each kind every 100 ms, always the latest, plus
 /// the final progress. Cancels any scan still running first.
@@ -233,19 +268,23 @@ where
     }
 
     let (id, token) = state.start();
-    let scan = Scan::new(paths, threshold)
-        .options(CompareOptions::new().rotate(rotate).flip(flip))
-        .cancel(token)
-        .on_error(OnError::Skip);
-    let result = spawn_blocking(move || run_throttled(scan, &send)).await;
+    let options = CompareOptions::new().rotate(rotate).flip(flip);
+    let scan = Scan::new(paths, threshold).options(options).cancel(token.clone()).on_error(OnError::Skip);
+    let result = spawn_blocking(move || run_throttled(scan, options, &token, &send)).await;
     state.finish(id);
 
-    Ok(result??.into())
+    result?
 }
 
-/// Runs `scan`, sending its events through a [`Throttle`]. A flusher thread sends the messages it held back once
-/// they are due, so the window catches up even while one comparison takes long.
-fn run_throttled(scan: Scan, send: &(impl Fn(ScanMessage) + Sync)) -> Result<Scanned, ScanError> {
+/// Runs `scan`, then scores its groups under `options` until `token` is cancelled, sending the events of both
+/// through a [`Throttle`]. A flusher thread sends the messages it held back once they are due, so the window catches
+/// up even while one comparison takes long.
+fn run_throttled(
+    scan: Scan,
+    options: CompareOptions,
+    token: &CancelToken,
+    send: &(impl Fn(ScanMessage) + Sync),
+) -> Result<ScanResult, ScanFailure> {
     let throttle = Mutex::new(Throttle::default());
     // Sending under the lock keeps the messages in order.
     let throttled = |messages: Vec<ScanMessage>| messages.into_iter().for_each(send);
@@ -260,13 +299,77 @@ fn run_throttled(scan: Scan, send: &(impl Fn(ScanMessage) + Sync)) -> Result<Sca
             }
         });
 
-        let result = scan.run(|event| {
+        let offer = |message: ScanMessage| {
             let mut throttle = throttle.lock().unwrap_or_else(PoisonError::into_inner);
-            throttled(throttle.offer(event.into(), Instant::now()));
+            throttled(throttle.offer(message, Instant::now()));
+        };
+        let result = scan.run(|event| offer(event.into())).map_err(ScanFailure::from).and_then(|scanned| {
+            let scores = score(&scanned.groups, options, token, &offer)?;
+            Ok(ScanResult::new(scanned, scores))
         });
         drop(stop);
         result
     })
+}
+
+/// The score matrix of each of `groups` under `options`, scoring their pairs in parallel. Offers
+/// [`ScanMessage::Scoring`] to `offer` before the first pair, after each one, and once every pair is done.
+///
+/// # Errors
+///
+/// - `cancelled` if `token` is cancelled before every pair is scored. The pairs left are skipped.
+/// - `task` if a pair can't be compared, which the grouper rules out.
+fn score(
+    groups: &[Vec<Media>],
+    options: CompareOptions,
+    token: &CancelToken,
+    offer: &(impl Fn(ScanMessage) + Sync),
+) -> Result<Vec<Vec<Vec<f64>>>, ScanFailure> {
+    let pairs: Vec<(usize, usize, usize)> = groups
+        .iter()
+        .enumerate()
+        .flat_map(|(g, group)| (0..group.len()).flat_map(move |i| (i + 1..group.len()).map(move |j| (g, i, j))))
+        .collect();
+    let total = pairs.len();
+    offer(ScanMessage::Scoring { done: 0, total });
+
+    // Counting under a lock keeps the offered counts in order; the final one is offered once the pairs are done.
+    let done = Mutex::new(0);
+    let scored = pairs
+        .par_iter()
+        .map(|&(g, i, j)| {
+            if token.is_cancelled() {
+                return Ok(None);
+            }
+            let score = groups[g][i].similarity_with(&groups[g][j], options)?;
+            let mut done = done.lock().unwrap_or_else(PoisonError::into_inner);
+            *done += 1;
+            if *done < total {
+                offer(ScanMessage::Scoring { done: *done, total });
+            }
+            Ok(Some(score))
+        })
+        .collect::<Result<Vec<_>, CompareError>>()?;
+
+    if token.is_cancelled() {
+        return Err(ScanFailure::Cancelled);
+    }
+    if total > 0 {
+        offer(ScanMessage::Scoring { done: total, total });
+    }
+
+    let mut matrices: Vec<_> = groups.iter().map(|group| identity(group.len())).collect();
+    for (&(g, i, j), score) in pairs.iter().zip(scored) {
+        let score = score.unwrap_or_default();
+        matrices[g][i][j] = score;
+        matrices[g][j][i] = score;
+    }
+    Ok(matrices)
+}
+
+/// An `n × n` matrix with `1` on the diagonal and `0` elsewhere.
+fn identity(n: usize) -> Vec<Vec<f64>> {
+    (0..n).map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect()).collect()
 }
 
 /// Lets each kind of [`ScanMessage`] through at most once every [`INTERVAL`], holding back the latest one that came
@@ -274,15 +377,15 @@ fn run_throttled(scan: Scan, send: &(impl Fn(ScanMessage) + Sync)) -> Result<Sca
 #[derive(Debug, Default)]
 struct Throttle {
     /// When each kind was last let through.
-    sent: [Option<Instant>; 2],
+    sent: [Option<Instant>; 3],
     /// The latest message of each kind held back.
-    pending: [Option<ScanMessage>; 2],
+    pending: [Option<ScanMessage>; 3],
 }
 
 impl Throttle {
     /// The messages to send now that `message` has come, at `now`: it, if its kind is due, and otherwise none, with
-    /// `message` held back in place of any older one of its kind. The final progress always goes at once, after the
-    /// processing message held back, and replaces any progress held back.
+    /// `message` held back in place of any older one of its kind. A final progress or scoring always goes at once,
+    /// after the messages held back, and replaces any of its kind held back.
     fn offer(&mut self, message: ScanMessage, now: Instant) -> Vec<ScanMessage> {
         let kind = message.kind();
 
@@ -349,6 +452,10 @@ mod tests {
 
     fn progress(done: usize, total: usize) -> ScanMessage {
         ScanMessage::Progress { done, total, skipped: 0, eta_seconds: None }
+    }
+
+    fn scoring(done: usize, total: usize) -> ScanMessage {
+        ScanMessage::Scoring { done, total }
     }
 
     fn request(paths: Vec<PathBuf>, threshold: f64) -> Request {
@@ -432,6 +539,31 @@ mod tests {
         assert!(throttle.due(start + INTERVAL * 5).is_empty(), "the held-back progress was replaced");
     }
 
+    #[test]
+    fn scoring_is_throttled_apart_from_the_other_kinds() {
+        let mut throttle = Throttle::default();
+        let start = Instant::now();
+        throttle.offer(processing("a"), start);
+        throttle.offer(progress(1, 9), start);
+
+        assert_eq!(throttle.offer(scoring(0, 9), start), [scoring(0, 9)]);
+        assert!(throttle.offer(scoring(1, 9), start + Duration::from_millis(10)).is_empty());
+        assert_eq!(throttle.due(start + INTERVAL), [scoring(1, 9)]);
+    }
+
+    #[test]
+    fn the_final_scoring_always_goes() {
+        let mut throttle = Throttle::default();
+        let start = Instant::now();
+        throttle.offer(scoring(0, 3), start);
+        let soon = start + Duration::from_millis(10);
+        throttle.offer(scoring(2, 3), soon);
+
+        assert_eq!(throttle.offer(scoring(3, 3), soon), [scoring(3, 3)]);
+        assert!(throttle.due(start + INTERVAL * 5).is_empty(), "the held-back scoring was replaced");
+        assert_eq!(Throttle::default().offer(scoring(0, 0), start), [scoring(0, 0)]);
+    }
+
     // Serialization
 
     #[test]
@@ -448,19 +580,31 @@ mod tests {
             json!({ "kind": "progress", "done": 30, "total": 48, "skipped": 1, "etaSeconds": 24.5 })
         );
         assert_eq!(serde_json::to_value(estimating).unwrap()["etaSeconds"], json!(null));
+        assert_eq!(
+            serde_json::to_value(scoring(2, 9)).unwrap(),
+            json!({ "kind": "scoring", "done": 2, "total": 9 })
+        );
     }
 
     #[test]
-    fn a_result_serializes_as_paths_and_skipped_files() {
+    fn a_result_serializes_as_files_scores_and_skipped_files() {
+        let media = Media::from_file(fixture("test1.png")).unwrap();
         let result = ScanResult {
-            groups: vec![vec!["/a.png".into(), "/b.png".into()]],
+            groups: vec![ScanGroup { files: vec![media.clone()], scores: vec![vec![1.0]] }],
             skipped: vec![SkippedFile { path: "/c.png".into(), message: "boom".into() }],
         };
 
         assert_eq!(
             serde_json::to_value(result).unwrap(),
-            json!({ "groups": [["/a.png", "/b.png"]], "skipped": [{ "path": "/c.png", "message": "boom" }] })
+            json!({
+                "groups": [{ "files": [serde_json::to_value(&media).unwrap()], "scores": [[1.0]] }],
+                "skipped": [{ "path": "/c.png", "message": "boom" }],
+            })
         );
+        let file = serde_json::to_value(&media).unwrap();
+        for key in ["path", "type", "width", "height", "size", "duration", "created", "modified"] {
+            assert!(file.get(key).is_some(), "{key} is missing from {file}");
+        }
     }
 
     #[test]
@@ -497,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    fn a_scan_groups_its_files_skips_the_unreadable_and_ends_with_the_final_progress() {
+    fn a_scan_groups_its_files_skips_the_unreadable_and_ends_with_the_final_progress_then_scoring() {
         let (a, b, missing) = (fixture("test1.png"), fixture("test1.png"), fixture("missing.png"));
         let state = ScanState::default();
 
@@ -507,8 +651,14 @@ mod tests {
         assert_eq!(result.groups.len(), 1);
         assert_eq!(result.skipped.len(), 1);
         assert_eq!(result.skipped[0].path, missing.to_string_lossy());
-        let last = messages.last().unwrap();
-        assert!(matches!(last, ScanMessage::Progress { done: 3, total: 3, skipped: 1, .. }), "{messages:?}");
+        let last_progress = messages.iter().rposition(|message| matches!(message, ScanMessage::Progress { .. }));
+        let last_progress = &messages[last_progress.unwrap()..];
+        assert!(
+            matches!(last_progress[0], ScanMessage::Progress { done: 3, total: 3, skipped: 1, .. }),
+            "{messages:?}"
+        );
+        assert!(last_progress[1..].iter().all(|message| matches!(message, ScanMessage::Scoring { .. })));
+        assert_eq!(last_progress.last(), Some(&scoring(1, 1)), "{messages:?}");
         assert!(
             messages.contains(&ScanMessage::Processing {
                 path: a.to_string_lossy().into_owned(),
@@ -516,6 +666,54 @@ mod tests {
             })
         );
         assert!(state.lock().is_none(), "a finished scan is forgotten");
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp, reason = "the matrix holds the exact scores, and exactly 1 on its diagonal")]
+    fn a_group_carries_its_files_and_a_symmetric_score_matrix() {
+        // `test2.png` scores about 0.95 against `test1.png`, so it stays out of the group at 0.99.
+        let (a, other) = (fixture("test1.png"), fixture("test2.png"));
+
+        let (result, _) = collect(&ScanState::default(), request(vec![a.clone(), a.clone(), other], 0.99));
+
+        let result = result.unwrap();
+        let [group] = result.groups.as_slice() else { panic!("expected one group: {result:?}") };
+        assert_eq!(group.files.len(), 2);
+        assert!(
+            group
+                .files
+                .iter()
+                .all(|file| file.path == a && file.width > 0 && file.height > 0 && file.size > 0)
+        );
+        assert_eq!(group.scores.len(), 2);
+        assert_eq!(group.scores[0][0], 1.0);
+        assert_eq!(group.scores[1][1], 1.0);
+        assert_eq!(group.scores[0][1], group.scores[1][0]);
+        assert_eq!(group.scores[0][1], group.files[0].similarity(&group.files[1]).unwrap());
+    }
+
+    #[test]
+    fn a_scan_with_no_group_ends_with_an_empty_scoring() {
+        let (result, messages) = collect(&ScanState::default(), request(vec![fixture("test1.png")], 0.9));
+
+        assert!(result.unwrap().groups.is_empty());
+        assert_eq!(messages.last(), Some(&scoring(0, 0)));
+    }
+
+    #[test]
+    fn cancelling_while_scoring_resolves_cancelled() {
+        let state = Arc::new(ScanState::default());
+        let canceller = Arc::clone(&state);
+        let image = fixture("test1.png");
+        let paths = vec![image.clone(), image.clone(), image];
+
+        let result = block_on(scan(&state, request(paths, 0.9), move |message| {
+            if matches!(message, ScanMessage::Scoring { .. }) {
+                canceller.cancel();
+            }
+        }));
+
+        assert_eq!(result, Err(ScanFailure::Cancelled));
     }
 
     #[test]

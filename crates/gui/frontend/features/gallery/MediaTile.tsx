@@ -1,50 +1,15 @@
 import { useEffect, useState } from "react";
 import { ExternalLinkIcon, PlayIcon } from "lucide-react";
-import { MediaKindIcon } from "@/components/MediaKindIcon";
-import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
+import { SHIMMER, Thumbnail, TILE_BOUND } from "@/components/Thumbnail";
+import type { MediaFile } from "@/ipc/thumbs";
 import { probeVideo } from "@/ipc/video";
 import { formatDuration, formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
 import type { Inclusion } from "./derive";
 
-/**
- * The longest edge, in pixels, a tile's picture is asked for. A 160×120 tile on a 2× display needs 320×240 covered,
- * which a 16:9 or 3:4 picture fitted to 512 does.
- */
-export const TILE_BOUND = 512;
-
 /** How long a video tile must stay shown before its duration is read, so a fast scroll past it reads nothing. */
 export const DURATION_DWELL_MS = 150;
-
-/** A light sweeping across a dark placeholder, while something loads. */
-const SHIMMER =
-    "animate-shimmer bg-[linear-gradient(90deg,#1F1F23_0%,#2E2E33_50%,#1F1F23_100%)] bg-size-[200%_100%] motion-reduce:animate-none";
-
-/** A file's picture filling its tile: a shimmer while it loads, the icon of its kind if it can't be produced. */
-const Thumbnail = ({ file }: { file: MediaFile }) => {
-    const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
-
-    return (
-        <>
-            {state === "loading" && <span data-testid="shimmer" className={cn("absolute inset-0", SHIMMER)} />}
-            {state === "failed" && (
-                <span className="absolute inset-0 flex items-center justify-center text-muted-foreground [&_svg]:size-[22px]">
-                    <MediaKindIcon type={file.type} />
-                </span>
-            )}
-            {/* Decorative: the tile is named after the file. */}
-            <img
-                alt=""
-                src={renditionUrl(file.identity, TILE_BOUND)}
-                decoding="async"
-                onLoad={() => setState("loaded")}
-                onError={() => setState("failed")}
-                className={cn("absolute inset-0 size-full object-cover", state !== "loaded" && "invisible")}
-            />
-        </>
-    );
-};
 
 /** A video's duration in seconds, read once the tile has been shown for a moment; `undefined` until then or on failure. */
 const useDuration = (file: MediaFile) => {
@@ -126,7 +91,7 @@ export const MediaTile = ({ id, file, selected, onSelect, inclusion }: MediaTile
                 )}
             >
                 <span className={cn("absolute inset-0 bg-[#18181B]", dimmed)}>
-                    <Thumbnail key={file.identity} file={file} />
+                    <Thumbnail key={file.identity} type={file.type} identity={file.identity} bound={TILE_BOUND} />
                     {/* Over the picture, which would otherwise hide an inset border. */}
                     {!selected && (
                         <span className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]" />

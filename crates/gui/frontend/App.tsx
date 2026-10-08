@@ -11,10 +11,10 @@ import { cn } from "@/lib/utils";
 import { useScreenStore } from "@/stores/screen";
 
 /**
- * The application shell: the header, below it the current screen in a vertically scrolling main area (the gallery
- * scrolls its own grid instead), and on the pair screen the deletion footer, which stays in view below the main area
- * rather than scrolling with it, and the notice of the last deletion, floating 20 px above the footer over the main area
- * without scrolling with it.
+ * The application shell: the header, below it the current screen in a vertically scrolling main area (the gallery and
+ * the groups screen scroll their own area below their toolbar instead), and on the pair screen the deletion footer,
+ * which stays in view below the main area rather than scrolling with it, and the notice of the last deletion, floating
+ * 20 px above the footer over the main area without scrolling with it.
  */
 const App = () => {
     const current = useScreenStore((state) => state.screen);
@@ -36,7 +36,7 @@ const App = () => {
                 <main
                     className={cn(
                         "flex min-h-0 flex-1 flex-col",
-                        current === "gallery" ? "overflow-hidden" : "overflow-y-auto p-10",
+                        current === "gallery" || current === "groups" ? "overflow-hidden" : "overflow-y-auto p-10",
                     )}
                 >
                     {current === "pair" ? (

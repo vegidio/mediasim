@@ -1,4 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
+import type { MediaType } from "./formats";
 import { invokeOr, isRecord } from "./wire";
 
 /** What to scan, as `start_scan` in `crates/gui/src/scan.rs` takes it. */
@@ -29,15 +30,47 @@ export type ScanMessage =
           skipped: number;
           /** The estimated time left, in seconds, once there is one. */
           etaSeconds?: number;
+      }
+    | {
+          /** How far the scoring of the groups has got, once every file is grouped. */
+          kind: "scoring";
+          /** The pairs scored. */
+          done: number;
+          /** The pairs inside the groups. */
+          total: number;
       };
 
 /** A file the scan skipped because it couldn't be read. */
 export type SkippedFile = { path: string; message: string };
 
+/** A grouped file's metadata, as `Media` in `mediasim` serializes it. */
+export type GroupFile = {
+    path: string;
+    type: MediaType;
+    width: number;
+    height: number;
+    /** In bytes. */
+    size: number;
+    /** In seconds; videos only. */
+    duration?: number;
+    /** RFC 3339, in UTC, when the filesystem records it. */
+    created?: string;
+    /** RFC 3339, in UTC, when the filesystem records it. */
+    modified?: string;
+};
+
+/** A group of similar files and how alike each pair of them is. */
+export type ScanGroup = {
+    /** In path order. */
+    files: GroupFile[];
+    /** `scores[i][j]` is the similarity of `files[i]` and `files[j]`, from 0 to 1, with 1 on the diagonal. */
+    scores: number[][];
+};
+
 /** What a finished scan resolves to. */
 export type ScanResult = {
-    /** The groups of similar files, as paths, each group and the groups in path order. */
-    groups: string[][];
+    /** The groups of similar files, ordered by the path of their first file. */
+    groups: ScanGroup[];
     /** In the order the paths were given. */
     skipped: SkippedFile[];
 };
@@ -52,22 +85,48 @@ type WireScanMessage =
     | Exclude<ScanMessage, ProgressMessage>
     | (Omit<ProgressMessage, "etaSeconds"> & { etaSeconds: number | null });
 
+type OptionalKey = "duration" | "created" | "modified";
+
+/** {@link GroupFile} as it arrives, with each absent value as JSON `null`. */
+type WireGroupFile = Omit<GroupFile, OptionalKey> & { [K in OptionalKey]-?: NonNullable<GroupFile[K]> | null };
+
+/** {@link ScanResult} as it arrives. */
+type WireScanResult = Omit<ScanResult, "groups"> & {
+    groups: (Omit<ScanGroup, "files"> & { files: WireGroupFile[] })[];
+};
+
 /** `message` with Rust's `None` spelled as an absent property, as this project does. */
 const fromWire = (message: WireScanMessage): ScanMessage => {
-    if (message.kind === "processing") return message;
+    if (message.kind !== "progress") return message;
 
     const { etaSeconds, ...always } = message;
     return { ...always, ...(etaSeconds !== null && { etaSeconds }) };
 };
 
+/** `file` with Rust's `None` spelled as an absent property. */
+const fileFromWire = ({ duration, created, modified, ...always }: WireGroupFile): GroupFile => ({
+    ...always,
+    ...(duration !== null && { duration }),
+    ...(created !== null && { created }),
+    ...(modified !== null && { modified }),
+});
+
+const resultFromWire = ({ groups, skipped }: WireScanResult): ScanResult => ({
+    groups: groups.map(({ files, scores }) => ({ files: files.map(fileFromWire), scores })),
+    skipped,
+});
+
 /**
  * Start a scan of `request.paths`, calling `onMessage` with its progress, and resolve to its groups. Starting a scan
  * cancels any earlier one still running, which then rejects as `cancelled`. Rejects with a {@link ScanFailure}.
  */
-export const startScan = (request: ScanRequest, onMessage: (message: ScanMessage) => void): Promise<ScanResult> => {
+export const startScan = async (
+    request: ScanRequest,
+    onMessage: (message: ScanMessage) => void,
+): Promise<ScanResult> => {
     const onEvent = new Channel<WireScanMessage>((message) => onMessage(fromWire(message)));
 
-    return call<ScanResult>("start_scan", { ...request, onEvent });
+    return resultFromWire(await call<WireScanResult>("start_scan", { ...request, onEvent }));
 };
 
 /** Cancel the scan in flight, if any. */

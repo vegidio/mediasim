@@ -20,6 +20,14 @@ export type ScanProgress = {
     etaSeconds?: number;
 };
 
+/** How far the scoring of the groups has got, once every file is grouped. */
+export type ScanScoring = {
+    /** The pairs scored. */
+    done: number;
+    /** The pairs inside the groups. */
+    total: number;
+};
+
 /** What the scan screen's heading describes, as it was when the scan started. */
 export type ScanHeading = {
     /** The number of files scanned. */
@@ -45,6 +53,8 @@ type ScanStore = {
     files: readonly MediaFile[];
     progress: ScanProgress;
     current?: ScanCurrent;
+    /** The scoring's progress, once it has begun. */
+    scoring?: ScanScoring;
     /** The groups and the unreadable files, once the scan is done. */
     result?: ScanResult;
     /**
@@ -56,6 +66,8 @@ type ScanStore = {
     cancel: () => void;
     /** Forgets the scan and shows the gallery as it was. */
     leave: () => void;
+    /** Forgets the scan and shows the Home screen, with the set unchanged. */
+    newComparison: () => void;
 };
 
 /** The kinds `files` include. */
@@ -71,13 +83,20 @@ const IDLE: Pick<ScanStore, "status" | "files" | "progress"> = {
     progress: { done: 0, total: 0, skipped: 0 },
 };
 
-/** `state` without what belongs to one scan: its heading, current file and result. */
-const withoutRun = ({ heading: _heading, current: _current, result: _result, ...rest }: ScanStore) => rest;
+/** `state` without what belongs to one scan: its heading, current file, scoring and result. */
+const withoutRun = ({ heading: _heading, current: _current, scoring: _scoring, result: _result, ...rest }: ScanStore) =>
+    rest;
 
 export const useScanStore = create<ScanStore>()((set, get) => {
     /** Applies `update` only while scan `run` is still the current one. */
     const forRun = (run: number, update: () => void) => {
         if (get().run === run) update();
+    };
+
+    /** Forgets the scan, so its late messages and outcome are ignored. */
+    const reset = () => {
+        const state = get();
+        set({ ...withoutRun(state), ...IDLE, run: state.run + 1 }, true);
     };
 
     return {
@@ -116,6 +135,8 @@ export const useScanStore = create<ScanStore>()((set, get) => {
                 forRun(run, () => {
                     if (message.kind === "processing") {
                         set({ current: { path: message.path, display: message.display } });
+                    } else if (message.kind === "scoring") {
+                        set({ scoring: { done: message.done, total: message.total } });
                     } else {
                         const { kind: _, ...progress } = message;
                         set({ progress });
@@ -143,9 +164,13 @@ export const useScanStore = create<ScanStore>()((set, get) => {
         },
 
         leave: () => {
-            const state = get();
-            set({ ...withoutRun(state), ...IDLE, run: state.run + 1 }, true);
+            reset();
             useScreenStore.getState().show("gallery");
+        },
+
+        newComparison: () => {
+            reset();
+            useScreenStore.getState().show("home");
         },
     };
 });

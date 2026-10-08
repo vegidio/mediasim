@@ -1,39 +1,73 @@
-import { ArrowLeftIcon } from "lucide-react";
+import { useMemo } from "react";
+import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { focusCompare } from "@/features/gallery/GalleryToolbar";
-import { formatUnreadable } from "@/features/scan/format";
+import type { MediaFile } from "@/ipc/thumbs";
 import { useScanStore } from "@/stores/scan";
+import { summary, uniqueLine } from "./format";
+import { GroupCard, type GroupView } from "./GroupCard";
+import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
+import { bestIndex } from "./rules";
 
-/** "N similar groups found", "1 similar group found", or "No similar files found" when there is none. */
-export const groupsHeading = (count: number) =>
-    count === 0 ? "No similar files found" : `${count} similar ${count === 1 ? "group" : "groups"} found`;
-
-/**
- * Where a finished scan leads: for now, how many groups it found and how many files it couldn't read, with Back to the
- * gallery. The groups themselves are shown by a later change.
- */
-export const GroupsScreen = () => {
-    const groups = useScanStore((state) => state.result?.groups.length ?? 0);
-    const skipped = useScanStore((state) => state.result?.skipped.length ?? 0);
-    const leave = useScanStore((state) => state.leave);
+/** What the groups area shows when the scan found no group: the files compared are unique, and New comparison. */
+const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }) => {
+    const newComparison = useNewComparison();
 
     return (
-        <div className="m-auto flex w-full max-w-[680px] flex-col items-start gap-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="font-semibold text-[32px] tracking-[-0.02em]">{groupsHeading(groups)}</h1>
-                {skipped > 0 && <p className="text-[#A1A1AA] text-[15px]">{formatUnreadable(skipped)}</p>}
-            </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3.5 p-6 text-center">
+            <span className="flex size-14 items-center justify-center rounded-full bg-primary/12 text-primary">
+                <CheckIcon aria-hidden="true" className="size-[26px]" strokeWidth={2.4} />
+            </span>
+            <h2 className="font-semibold text-[22px] tracking-[-0.02em]">No similar files found</h2>
+            <p className="max-w-[440px] text-[#A1A1AA] text-sm leading-normal">{uniqueLine(read, threshold)}</p>
             <Button
-                variant="outline"
-                onClick={() => {
-                    leave();
-                    focusCompare();
-                }}
-                className="h-10 gap-1.5 rounded-lg border-[#3F3F46] bg-transparent pr-4 pl-3 text-sm dark:border-[#3F3F46] dark:bg-transparent [&_svg:not([class*='size-'])]:size-4"
+                onClick={newComparison}
+                className="mt-1.5 h-10 rounded-lg px-[18px] font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90"
             >
-                <ArrowLeftIcon aria-hidden="true" />
-                Back
+                New comparison
             </Button>
+        </div>
+    );
+};
+
+/**
+ * The groups screen (6b/6c): the toolbar with Back, New comparison and the summary, then the groups of similar files,
+ * each with its best file and the others' scores against it, or the "No similar files found" state.
+ */
+export const GroupsScreen = () => {
+    const result = useScanStore((state) => state.result);
+    const heading = useScanStore((state) => state.heading);
+    const files = useScanStore((state) => state.files);
+
+    const media = useMemo(() => new Map<string, MediaFile>(files.map((file) => [file.path, file])), [files]);
+    const groups = useMemo(
+        () =>
+            (result?.groups ?? []).map(({ files, scores }): GroupView => {
+                const best = bestIndex(files);
+                return { files, best, scores: scores[best] ?? [] };
+            }),
+        [result],
+    );
+
+    if (!result || !heading) return null;
+
+    const { count: scanned, threshold } = heading;
+    const unreadable = result.skipped.length;
+    const grouped = groups.reduce((total, group) => total + group.files.length, 0);
+
+    return (
+        <div className="flex min-h-0 flex-1 flex-col">
+            <GroupsToolbar
+                summary={summary({ files: grouped, groups: groups.length, scanned, threshold, unreadable })}
+            />
+            {groups.length === 0 ? (
+                <NothingSimilar read={scanned - unreadable} threshold={threshold} />
+            ) : (
+                <div className="flex min-h-0 flex-1 flex-wrap content-start gap-4 overflow-y-auto p-6">
+                    {groups.map((group, index) => (
+                        <GroupCard key={group.files[0]?.path} number={index + 1} group={group} media={media} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

@@ -80,7 +80,7 @@ describe("Scan screen heading", () => {
 });
 
 describe("Scan progress", () => {
-    it("shows the percentage, the time left, the bar and the files done partway", () => {
+    it("shows the percentage, the time left, the bar and the files done partway, with one phase row", () => {
         running({ done: 30, etaSeconds: 24 });
         render(<ScanScreen />);
 
@@ -88,7 +88,31 @@ describe("Scan progress", () => {
         expect(card).toHaveTextContent("62%");
         expect(card).toHaveTextContent("About 24 s left");
         expect(screen.getByRole("progressbar", { name: "Comparison progress" })).toHaveAttribute("aria-valuenow", "62");
-        expect(card).toHaveTextContent("30 / 48");
+        expect(screen.getByText("30 / 48")).toHaveClass("text-primary");
+        expect(screen.getAllByRole("listitem")).toHaveLength(1);
+        expect(card).not.toHaveTextContent("Scoring");
+    });
+
+    it("keeps the phase running while the groups are scored", () => {
+        running({ done: 48, etaSeconds: 0 });
+        useScanStore.setState({ scoring: { done: 2, total: 9 } });
+        render(<ScanScreen />);
+
+        const card = screen.getByRole("region", { name: "Comparison" });
+        expect(card).toHaveTextContent("100%");
+        expect(card).toHaveTextContent("Almost done");
+        expect(screen.getByText("48 / 48")).toBeInTheDocument();
+        expect(screen.getByTestId("spinner")).toBeInTheDocument();
+    });
+
+    it("reads Done with a check once every pair is scored", () => {
+        running({ done: 48, etaSeconds: 0 });
+        useScanStore.setState({ scoring: { done: 9, total: 9 } });
+        render(<ScanScreen />);
+
+        expect(screen.getByText("Done")).toHaveClass("text-[#A1A1AA]");
+        expect(screen.getByTestId("phase-done")).toBeInTheDocument();
+        expect(screen.queryByTestId("spinner")).not.toBeInTheDocument();
     });
 
     it("starts at 0% with no estimate, and no file processing", () => {
@@ -113,7 +137,7 @@ describe("Scan progress", () => {
 
     it("stops the spinning mark once the scan is done", () => {
         running({ done: 48, etaSeconds: 0 });
-        useScanStore.setState({ status: "done" });
+        useScanStore.setState({ status: "done", scoring: { done: 0, total: 0 } });
         render(<ScanScreen />);
 
         expect(screen.queryByTestId("spinner")).not.toBeInTheDocument();

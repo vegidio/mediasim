@@ -146,12 +146,48 @@ describe("progress", () => {
 
         expect(state().progress.done).toBe(0);
     });
+
+    it("follows the scoring", () => {
+        state().start();
+
+        scans[0]?.send({ kind: "scoring", done: 2, total: 9 });
+
+        expect(state().scoring).toEqual({ done: 2, total: 9 });
+    });
+
+    it("drops the scoring of an earlier scan", () => {
+        state().start();
+        state().cancel();
+        state().start();
+
+        scans[0]?.send({ kind: "scoring", done: 2, total: 9 });
+
+        expect(state().scoring).toBeUndefined();
+    });
 });
 
 describe("scan finishes", () => {
     it("keeps the result and shows the groups screen", async () => {
         state().start();
-        const result = { groups: [["/u/Holiday 2025/a.jpg", "/u/Holiday 2025/b.jpg"]], skipped: [] };
+        const groupFile = (name: string) => ({
+            path: `/u/Holiday 2025/${name}`,
+            type: "image" as const,
+            width: 1,
+            height: 1,
+            size: 1,
+        });
+        const result = {
+            groups: [
+                {
+                    files: [groupFile("a.jpg"), groupFile("b.jpg")],
+                    scores: [
+                        [1, 0.9],
+                        [0.9, 1],
+                    ],
+                },
+            ],
+            skipped: [],
+        };
 
         scans[0]?.resolve(result);
         await settle();
@@ -223,6 +259,22 @@ describe("cancelling a scan", () => {
         expect(useScreenStore.getState().screen).toBe("gallery");
     });
 
+    it("stops while the groups are scored, and never shows the groups screen", async () => {
+        state().start();
+        scans[0]?.send({ kind: "progress", done: 4, total: 4, skipped: 0 });
+        scans[0]?.send({ kind: "scoring", done: 2, total: 9 });
+
+        state().cancel();
+        scans[0]?.reject({ kind: "cancelled" });
+        await settle();
+
+        expect(mockedCancel).toHaveBeenCalledOnce();
+        expect(useScreenStore.getState().screen).toBe("gallery");
+        expect(state().status).toBe("idle");
+        expect(state().scoring).toBeUndefined();
+        expect(state().result).toBeUndefined();
+    });
+
     it("starts again from 0% when Compare is activated again", () => {
         state().start();
         scans[0]?.send({ kind: "progress", done: 2, total: 4, skipped: 0 });
@@ -234,5 +286,38 @@ describe("cancelling a scan", () => {
         expect(state().status).toBe("running");
         expect(state().progress).toEqual({ done: 0, total: 4, skipped: 0 });
         expect(state().current).toBeUndefined();
+    });
+});
+
+describe("leaving the groups", () => {
+    /** Runs a scan to the groups screen. */
+    const finish = async () => {
+        state().start();
+        scans[0]?.send({ kind: "scoring", done: 0, total: 0 });
+        scans[0]?.resolve({ groups: [], skipped: [] });
+        await settle();
+    };
+
+    it("shows the gallery on Back, forgetting the result and the scoring", async () => {
+        await finish();
+
+        state().leave();
+
+        expect(useScreenStore.getState().screen).toBe("gallery");
+        expect(state().result).toBeUndefined();
+        expect(state().scoring).toBeUndefined();
+        expect(state().status).toBe("idle");
+    });
+
+    it("shows Home on New comparison, forgetting the result and the scoring", async () => {
+        await finish();
+
+        state().newComparison();
+
+        expect(useScreenStore.getState().screen).toBe("home");
+        expect(state().result).toBeUndefined();
+        expect(state().scoring).toBeUndefined();
+        expect(state().status).toBe("idle");
+        expect(useHomeStore.getState().view.sources).toEqual([folder]);
     });
 });
