@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
@@ -35,8 +35,21 @@ const mediaOf = (files: readonly GroupFile[]) =>
         ]),
     );
 
-const renderCard = (group: GroupView, number = 1) =>
-    render(<GroupCard number={number} group={group} media={mediaOf(group.files)} />);
+const renderCard = (
+    group: GroupView,
+    number = 1,
+    { marks = new Set<string>(), onToggle = () => {}, onKeepBestOnly = () => {} } = {},
+) =>
+    render(
+        <GroupCard
+            number={number}
+            group={group}
+            media={mediaOf(group.files)}
+            marks={marks}
+            onToggle={onToggle}
+            onKeepBestOnly={onKeepBestOnly}
+        />,
+    );
 
 /** The tile of the file at `path`. */
 const tile = (path: string) => {
@@ -52,7 +65,7 @@ describe("GroupCard", () => {
             image("IMG_2041 (1).jpg"),
             image("IMG_2041-edit.jpg", { width: 2048, height: 1536, size: 1_100_000 }),
         ];
-        renderCard({ files, best: 0, scores: [1, 1, 0.968] });
+        renderCard({ files, best: 0 });
 
         const card = screen.getByRole("region", { name: "Group 1" });
         expect(card).toHaveTextContent("Group 1");
@@ -67,39 +80,31 @@ describe("GroupCard", () => {
 
     it("names a video group and shows each video's duration", () => {
         const files = [video("VID_0714.mov"), video("VID_0714_small.mp4")];
-        renderCard({ files, best: 0, scores: [1, 0.96] });
+        renderCard({ files, best: 0 });
 
         expect(screen.getByRole("region", { name: "Group 1" })).toHaveTextContent("2 videos");
         expect(within(tile("/v/VID_0714.mov")).getByText("0:42")).toBeInTheDocument();
         expect(within(tile("/v/VID_0714_small.mp4")).getByText("0:42")).toBeInTheDocument();
     });
 
-    it("shows the Keep badge and best on the best file, and the others' scores against it", () => {
+    it("shows the Keep badge and best on the best file, and no score on the others", () => {
         const files = [image("IMG_2041.jpg"), image("IMG_2041 (1).jpg"), image("IMG_2041-edit.jpg")];
-        renderCard({ files, best: 0, scores: [1, 1, 0.968] });
+        renderCard({ files, best: 0 });
 
         const best = tile("/p/IMG_2041.jpg");
         expect(within(best).getByText("Keep")).toBeInTheDocument();
         expect(within(best).getByText("best")).toHaveClass("text-primary");
         expect(best.querySelector(".ring-primary")).not.toBeNull();
-        expect(within(tile("/p/IMG_2041 (1).jpg")).getByText("100%")).toBeInTheDocument();
         const edit = tile("/p/IMG_2041-edit.jpg");
-        expect(within(edit).getByText("97%")).toBeInTheDocument();
+        expect(edit).not.toHaveTextContent(/%|best/);
+        expect(tile("/p/IMG_2041 (1).jpg")).not.toHaveTextContent(/%|best/);
         expect(within(edit).queryByText("Keep")).not.toBeInTheDocument();
         expect(edit.querySelector(".ring-primary")).toBeNull();
     });
 
-    it("shows the measured score against the best, even below the threshold", () => {
-        // At 90%, A matches B at 0.92 and B matches C at 0.91, so all three are grouped, though A and C score 0.84.
-        const files = [image("A.jpg"), image("B.jpg"), image("C.jpg")];
-        renderCard({ files, best: 0, scores: [1, 0.92, 0.84] });
-
-        expect(within(tile("/p/C.jpg")).getByText("84%")).toBeInTheDocument();
-    });
-
     it("keeps a group of 6 files small, with 160 × 120 px thumbnails", () => {
         const files = Array.from({ length: 6 }, (_, i) => image(`IMG_${i}.jpg`));
-        renderCard({ files, best: 0, scores: files.map(() => 1) });
+        renderCard({ files, best: 0 });
 
         const card = screen.getByRole("region", { name: "Group 1" });
         expect(card).not.toHaveClass("w-full");
@@ -109,7 +114,7 @@ describe("GroupCard", () => {
 
     it("spans the full width in 8 columns of 4:3 tiles from 7 files", () => {
         const files = Array.from({ length: 7 }, (_, i) => image(`IMG_${i}.jpg`));
-        renderCard({ files, best: 0, scores: files.map(() => 1) });
+        renderCard({ files, best: 0 });
 
         const card = screen.getByRole("region", { name: "Group 1" });
         expect(card).toHaveClass("w-full");
@@ -119,9 +124,62 @@ describe("GroupCard", () => {
 
     it("falls back to the icon of the file's kind without a scanned file", () => {
         const files = [image("a.jpg"), image("b.jpg")];
-        render(<GroupCard number={2} group={{ files, best: 0, scores: [1, 0.9] }} media={new Map()} />);
+        render(
+            <GroupCard
+                number={2}
+                group={{ files, best: 0 }}
+                media={new Map()}
+                marks={new Set()}
+                onToggle={() => {}}
+                onKeepBestOnly={() => {}}
+            />,
+        );
 
         expect(tile("/p/a.jpg").querySelector("img")).toBeNull();
         expect(tile("/p/a.jpg").querySelector("svg.lucide-image")).not.toBeNull();
+    });
+
+    describe("marking", () => {
+        const files = [image("IMG_2041.jpg"), image("IMG_2041 (1).jpg"), image("IMG_2041-edit.jpg")];
+
+        it("ends the heading row with Keep best only, which calls onKeepBestOnly", () => {
+            const onKeepBestOnly = vi.fn();
+            renderCard({ files, best: 0 }, 1, { onKeepBestOnly });
+
+            const button = screen.getByRole("button", { name: "Keep best only" });
+            expect(button.parentElement).toHaveTextContent(/^Group 13 imagesKeep best only$/);
+            fireEvent.click(button);
+
+            expect(onKeepBestOnly).toHaveBeenCalledOnce();
+        });
+
+        it("calls onToggle with a tile's path when its box is checked", () => {
+            const onToggle = vi.fn();
+            renderCard({ files, best: 0 }, 1, { onToggle });
+
+            fireEvent.click(screen.getByRole("checkbox", { name: "Mark IMG_2041-edit.jpg for deletion" }));
+
+            expect(onToggle).toHaveBeenCalledExactlyOnceWith("/p/IMG_2041-edit.jpg");
+        });
+
+        it.each([
+            ["small", 3],
+            ["large", 7],
+        ])("shows the tiles in marks as marked, in a %s card", (_, size) => {
+            const group = Array.from({ length: size }, (_, i) => image(`IMG_${i}.jpg`));
+            renderCard({ files: group, best: 0 }, 1, {
+                marks: new Set(["/p/IMG_0.jpg", "/p/IMG_2.jpg"]),
+            });
+
+            const checked = screen
+                .getAllByRole("checkbox")
+                .filter((box) => box.getAttribute("aria-checked") === "true");
+            expect(checked.map((box) => box.getAttribute("aria-label"))).toEqual([
+                "Mark IMG_0.jpg for deletion",
+                "Mark IMG_2.jpg for deletion",
+            ]);
+            expect(within(tile("/p/IMG_0.jpg")).getByText("Delete")).toBeInTheDocument();
+            expect(within(tile("/p/IMG_1.jpg")).queryByText("Delete")).not.toBeInTheDocument();
+        });
     });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
-import { detailsLine, fileName, groupSize, scoreText, summary, uniqueLine } from "./format";
+import { detailsLine, fileName, groupSize, summary, uniqueLine } from "./format";
 
 describe("summary", () => {
     it("counts several groups", () => {
@@ -41,17 +41,6 @@ describe("detailsLine", () => {
         const file: GroupFile = { path: "/a/IMG_2041.jpg", type: "image", width: 4032, height: 3024, size: 4_800_000 };
 
         expect(detailsLine(file)).toBe("4032×3024 · 4.8 MB");
-    });
-});
-
-describe("scoreText", () => {
-    it.each([
-        [1, "100%"],
-        [0.968, "97%"],
-        [0.845, "85%"],
-        [0.84, "84%"],
-    ])("reads %s as %s", (score, text) => {
-        expect(scoreText(score)).toBe(text);
     });
 });
 

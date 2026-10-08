@@ -5,7 +5,9 @@ import type { MediaFile } from "@/ipc/thumbs";
 import { useScanStore } from "@/stores/scan";
 import { summary, uniqueLine } from "./format";
 import { GroupCard, type GroupView } from "./GroupCard";
+import { GroupsFooter } from "./GroupsFooter";
 import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
+import { autoSelect, keepBestOnly, markedFiles } from "./marks";
 import { bestIndex } from "./rules";
 
 /** What the groups area shows when the scan found no group: the files compared are unique, and New comparison. */
@@ -30,23 +32,25 @@ const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }
 };
 
 /**
- * The groups screen (6b/6c): the toolbar with Back, New comparison and the summary, then the groups of similar files,
- * each with its best file and the others' scores against it, or the "No similar files found" state.
+ * The groups screen (6b/6c): the toolbar with Back, New comparison, the summary and the marking buttons, then the
+ * groups of similar files, each with its best file, and the footer with what is marked for deletion; or the "No similar
+ * files found" state.
  */
 export const GroupsScreen = () => {
     const result = useScanStore((state) => state.result);
     const heading = useScanStore((state) => state.heading);
     const files = useScanStore((state) => state.files);
+    const marks = useScanStore((state) => state.marks);
+    const toggleMark = useScanStore((state) => state.toggleMark);
+    const setMarks = useScanStore((state) => state.setMarks);
+    const clearMarks = useScanStore((state) => state.clearMarks);
 
     const media = useMemo(() => new Map<string, MediaFile>(files.map((file) => [file.path, file])), [files]);
     const groups = useMemo(
-        () =>
-            (result?.groups ?? []).map(({ files, scores }): GroupView => {
-                const best = bestIndex(files);
-                return { files, best, scores: scores[best] ?? [] };
-            }),
+        () => (result?.groups ?? []).map(({ files }): GroupView => ({ files, best: bestIndex(files) })),
         [result],
     );
+    const marked = useMemo(() => markedFiles(groups, marks), [groups, marks]);
 
     if (!result || !heading) return null;
 
@@ -58,15 +62,29 @@ export const GroupsScreen = () => {
         <div className="flex min-h-0 flex-1 flex-col">
             <GroupsToolbar
                 summary={summary({ files: grouped, groups: groups.length, scanned, threshold, unreadable })}
+                {...(groups.length > 0 && {
+                    marking: { onClear: clearMarks, onAutoSelect: () => setMarks(autoSelect(groups)) },
+                })}
             />
             {groups.length === 0 ? (
                 <NothingSimilar read={scanned - unreadable} threshold={threshold} />
             ) : (
-                <div className="flex min-h-0 flex-1 flex-wrap content-start gap-4 overflow-y-auto p-6">
-                    {groups.map((group, index) => (
-                        <GroupCard key={group.files[0]?.path} number={index + 1} group={group} media={media} />
-                    ))}
-                </div>
+                <>
+                    <div className="flex min-h-0 flex-1 flex-wrap content-start gap-4 overflow-y-auto p-6">
+                        {groups.map((group, index) => (
+                            <GroupCard
+                                key={group.files[0]?.path}
+                                number={index + 1}
+                                group={group}
+                                media={media}
+                                marks={marks}
+                                onToggle={toggleMark}
+                                onKeepBestOnly={() => setMarks(keepBestOnly(marks, group))}
+                            />
+                        ))}
+                    </div>
+                    <GroupsFooter marked={marked} />
+                </>
             )}
         </div>
     );

@@ -57,6 +57,8 @@ type ScanStore = {
     scoring?: ScanScoring;
     /** The groups and the unreadable files, once the scan is done. */
     result?: ScanResult;
+    /** The paths of the files marked for deletion on the groups screen. */
+    marks: ReadonlySet<string>;
     /**
      * Scans the files the gallery's Compare button includes, under its threshold and comparison options, and shows the
      * scan screen. Once the scan is done, shows the groups screen in its place, or makes Settings return to it.
@@ -68,6 +70,12 @@ type ScanStore = {
     leave: () => void;
     /** Forgets the scan and shows the Home screen, with the set unchanged. */
     newComparison: () => void;
+    /** Marks the file at `path`, or unmarks it when it is marked. */
+    toggleMark: (path: string) => void;
+    /** Marks exactly the files at `paths`, unmarking every other. */
+    setMarks: (paths: Iterable<string>) => void;
+    /** Unmarks every file. */
+    clearMarks: () => void;
 };
 
 /** The kinds `files` include. */
@@ -77,10 +85,11 @@ const kindsOf = (files: readonly MediaFile[]): GalleryFilter => {
     return images && videos ? "both" : videos ? "videos" : "images";
 };
 
-const IDLE: Pick<ScanStore, "status" | "files" | "progress"> = {
+const IDLE: Pick<ScanStore, "status" | "files" | "progress" | "marks"> = {
     status: "idle",
     files: [],
     progress: { done: 0, total: 0, skipped: 0 },
+    marks: new Set(),
 };
 
 /** `state` without what belongs to one scan: its heading, current file, scoring and result. */
@@ -125,6 +134,7 @@ export const useScanStore = create<ScanStore>()((set, get) => {
                     heading,
                     files,
                     progress: { done: 0, total: files.length, skipped: 0 },
+                    marks: new Set(),
                 },
                 true,
             );
@@ -172,5 +182,15 @@ export const useScanStore = create<ScanStore>()((set, get) => {
             reset();
             useScreenStore.getState().show("home");
         },
+
+        toggleMark: (path) => {
+            const marks = new Set(get().marks);
+            if (!marks.delete(path)) marks.add(path);
+            set({ marks });
+        },
+
+        setMarks: (paths) => set({ marks: new Set(paths) }),
+
+        clearMarks: () => set({ marks: new Set() }),
     };
 });

@@ -101,7 +101,7 @@ describe("Groups screen", () => {
         expect(summary).toHaveClass("truncate");
     });
 
-    it("shows the best file and the others' scores against it", () => {
+    it("shows the best file, and no score on the others", () => {
         finished([
             {
                 files: [
@@ -122,8 +122,8 @@ describe("Groups screen", () => {
         const tile = (name: string) => within(card).getByText(name).closest("[data-path]") as HTMLElement;
         expect(within(tile("IMG_2041.jpg")).getByText("Keep")).toBeInTheDocument();
         expect(within(tile("IMG_2041.jpg")).getByText("best")).toBeInTheDocument();
-        expect(within(tile("IMG_2041 (1).jpg")).getByText("100%")).toBeInTheDocument();
-        expect(within(tile("IMG_2041-edit.jpg")).getByText("97%")).toBeInTheDocument();
+        expect(tile("IMG_2041 (1).jpg")).not.toHaveTextContent(/%|best/);
+        expect(tile("IMG_2041-edit.jpg")).not.toHaveTextContent(/%|best/);
     });
 
     it("spans a group of 19 files across the full width, with the small groups below it", () => {
@@ -215,4 +215,104 @@ describe("Leaving the groups", () => {
             await waitFor(() => expect(screen.getByRole("button", { name: /^Continue/ })).toHaveFocus());
         },
     );
+});
+
+describe("Marking", () => {
+    /** The footer's text. */
+    const footer = () => screen.getByRole("status").textContent;
+    const NOTHING = "Nothing marked yet. Tick files, or let Auto-select pick the extras for you.";
+    /** The labels of the checked boxes, in order. */
+    const checked = () =>
+        screen
+            .getAllByRole("checkbox")
+            .filter((box) => box.getAttribute("aria-checked") === "true")
+            .map((box) => box.getAttribute("aria-label"));
+    /** The mark checkbox of the file at `path`, looked up in its tile, since names repeat across groups. */
+    const box = (path: string) =>
+        within(document.querySelector(`[data-path="${path}"]`) as HTMLElement).getByRole("checkbox");
+
+    /** Every group's files are 4,800,000 bytes, and with every score equal the best is each group's first file. */
+    const GROUPS = Array.from({ length: 7 }, (_, i) => group(`g${i}`, i < 4 ? 3 : 2));
+
+    it("opens with nothing marked", () => {
+        finished(GROUPS);
+        render(<GroupsScreen />);
+
+        expect(checked()).toEqual([]);
+        expect(footer()).toBe(NOTHING);
+        expect(screen.getByRole("button", { name: "Move 0 to Trash…" })).toBeDisabled();
+    });
+
+    it("marks every file but the best ones on Auto-select, replacing a mark on a best file", () => {
+        finished(GROUPS);
+        render(<GroupsScreen />);
+        fireEvent.click(box("/p/g0/00.jpg"));
+
+        fireEvent.click(screen.getByRole("button", { name: "Auto-select" }));
+
+        const marks = useScanStore.getState().marks;
+        expect(marks.size).toBe(11);
+        expect(marks.has("/p/g0/00.jpg")).toBe(false);
+        expect(footer()).toBe("11 files marked for deletion · 52.8 MB will be freed");
+        expect(screen.getByRole("button", { name: "Move 11 to Trash…" })).toBeEnabled();
+    });
+
+    it("keeps only the best of one group on its Keep best only, leaving the others alone", () => {
+        finished(GROUPS);
+        render(<GroupsScreen />);
+        fireEvent.click(box("/p/g1/00.jpg"));
+        fireEvent.click(box("/p/g0/00.jpg"));
+
+        const card = screen.getByRole("region", { name: "Group 1" });
+        fireEvent.click(within(card).getByRole("button", { name: "Keep best only" }));
+
+        expect([...useScanStore.getState().marks].sort()).toEqual(["/p/g0/01.jpg", "/p/g0/02.jpg", "/p/g1/00.jpg"]);
+        expect(footer()).toBe("3 files marked for deletion · 14.4 MB will be freed");
+    });
+
+    it("unmarks everything on Clear marks", () => {
+        finished(GROUPS);
+        render(<GroupsScreen />);
+        fireEvent.click(screen.getByRole("button", { name: "Auto-select" }));
+
+        fireEvent.click(screen.getByRole("button", { name: "Clear marks" }));
+
+        expect(checked()).toEqual([]);
+        expect(footer()).toBe(NOTHING);
+    });
+
+    it("marks a file when its box is checked, and unmarks it when unchecked", () => {
+        finished(GROUPS);
+        render(<GroupsScreen />);
+
+        fireEvent.click(box("/p/g2/01.jpg"));
+
+        expect(checked()).toEqual(["Mark 01.jpg for deletion"]);
+        expect(footer()).toBe("1 file marked for deletion · 4.8 MB will be freed");
+
+        fireEvent.click(box("/p/g2/01.jpg"));
+
+        expect(checked()).toEqual([]);
+    });
+
+    it("keeps the marks when the footer's button is activated", () => {
+        finished(GROUPS);
+        render(<GroupsScreen />);
+        fireEvent.click(box("/p/g2/01.jpg"));
+
+        fireEvent.click(screen.getByRole("button", { name: "Move 1 to Trash…" }));
+
+        expect([...useScanStore.getState().marks]).toEqual(["/p/g2/01.jpg"]);
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("shows no footer, Clear marks or Auto-select without a group", () => {
+        finished([]);
+        render(<GroupsScreen />);
+
+        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+        expect(screen.queryByRole("region", { name: "Deletion" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Clear marks" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Auto-select" })).not.toBeInTheDocument();
+    });
 });

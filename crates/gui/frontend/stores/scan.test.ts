@@ -321,3 +321,69 @@ describe("leaving the groups", () => {
         expect(useHomeStore.getState().view.sources).toEqual([folder]);
     });
 });
+
+describe("marks", () => {
+    /** Runs a scan to the groups screen. */
+    const finish = async () => {
+        state().start();
+        scans.at(-1)?.resolve({ groups: [], skipped: [] });
+        await settle();
+    };
+
+    it("start empty", () => {
+        expect(state().marks.size).toBe(0);
+    });
+
+    it("toggle a file on, then off, in a new set each time", () => {
+        const before = state().marks;
+
+        state().toggleMark("/a.jpg");
+        const marked = state().marks;
+        state().toggleMark("/a.jpg");
+
+        expect(marked).not.toBe(before);
+        expect([...marked]).toEqual(["/a.jpg"]);
+        expect(state().marks).not.toBe(marked);
+        expect(state().marks.size).toBe(0);
+    });
+
+    it("are replaced by setMarks", () => {
+        state().setMarks(["/a.jpg", "/b.jpg"]);
+
+        state().setMarks(["/c.jpg"]);
+
+        expect([...state().marks]).toEqual(["/c.jpg"]);
+    });
+
+    it("are emptied by clearMarks", () => {
+        state().setMarks(["/a.jpg", "/b.jpg"]);
+
+        state().clearMarks();
+
+        expect(state().marks.size).toBe(0);
+    });
+
+    it.each([
+        ["Back", () => state().leave()],
+        ["New comparison", () => state().newComparison()],
+        ["a new scan", () => state().start()],
+    ])("are forgotten on %s", async (_, end) => {
+        await finish();
+        state().setMarks(["/u/Holiday 2025/a.jpg"]);
+
+        end();
+
+        expect(state().marks.size).toBe(0);
+    });
+
+    it("are kept across Settings", async () => {
+        await finish();
+        state().setMarks(["/u/Holiday 2025/a.jpg"]);
+
+        useScreenStore.getState().openSettings();
+        useScreenStore.getState().closeSettings();
+
+        expect(useScreenStore.getState().screen).toBe("groups");
+        expect([...state().marks]).toEqual(["/u/Holiday 2025/a.jpg"]);
+    });
+});

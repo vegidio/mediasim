@@ -1,4 +1,3 @@
-import { percent } from "@/features/pair/score";
 import type { MediaType } from "@/ipc/formats";
 import type { GroupFile } from "@/ipc/scan";
 import { formatSize } from "@/lib/format";
@@ -37,9 +36,6 @@ export const groupSize = (count: number, type: MediaType) => `${count} ${type}${
 
 /** A grouped file's details: "4032×3024 · 4.8 MB". */
 export const detailsLine = ({ width, height, size }: GroupFile) => `${width}×${height} · ${formatSize(size)}`;
-
-/** A score against the best file, as a whole percentage: "97%". */
-export const scoreText = (score: number) => `${percent(score)}%`;
 
 /** What the "No similar files found" state says of the `read` files compared at `threshold` percent. */
 export const uniqueLine = (read: number, threshold: number) => {

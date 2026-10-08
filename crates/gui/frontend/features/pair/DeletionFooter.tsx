@@ -1,6 +1,7 @@
 import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
+import { deletionLabel } from "@/lib/deletion";
 import { formatCount, formatSize, totalSize } from "@/lib/format";
 import { selectMarkedFiles, usePairResultStore } from "@/stores/pairResult";
 import { useSettingsStore } from "@/stores/settings";
@@ -22,7 +23,7 @@ export const DeletionFooter = () => {
     const count = chosen.length;
     // A run started without confirmation shows here, as the dialog isn't there to show it.
     const running = deletion.status === "removing" && !deletion.confirmed ? deletion.mode : undefined;
-    const label = `${mode === "trash" ? `Move ${count} to Trash` : `Delete ${count} permanently`}${confirm ? "…" : ""}`;
+    const label = deletionLabel(mode, confirm, count);
 
     return (
         <section

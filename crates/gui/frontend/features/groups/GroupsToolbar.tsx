@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, HouseIcon } from "lucide-react";
+import { ArrowLeftIcon, HouseIcon, SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { focusContinue } from "@/features/home/SetCard";
@@ -14,8 +14,25 @@ export const useNewComparison = () => {
     };
 };
 
-/** Above the groups: Back to the gallery, New comparison, and the summary of what the scan found. */
-export const GroupsToolbar = ({ summary }: { summary: string }) => {
+/** The toolbar's marking buttons, shown while there is a group to mark files in. */
+export type GroupsMarking = {
+    /** Unmarks every file. */
+    onClear: () => void;
+    /** Marks every file but its group's best, and unmarks the best files. */
+    onAutoSelect: () => void;
+};
+
+type GroupsToolbarProps = {
+    summary: string;
+    /** Clear marks and Auto-select, when given. */
+    marking?: GroupsMarking;
+};
+
+/**
+ * Above the groups: Back to the gallery, New comparison, the summary of what the scan found, then Clear marks and
+ * Auto-select while there is something to mark.
+ */
+export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
     const leave = useScanStore((state) => state.leave);
     const newComparison = useNewComparison();
 
@@ -44,6 +61,25 @@ export const GroupsToolbar = ({ summary }: { summary: string }) => {
             <span title={summary} className="min-w-0 flex-1 truncate text-[#A1A1AA] text-[13px]">
                 {summary}
             </span>
+            {marking && (
+                <>
+                    <Button
+                        variant="ghost"
+                        onClick={marking.onClear}
+                        className="h-[38px] shrink-0 rounded-lg px-3.5 font-medium text-[#A1A1AA] text-sm"
+                    >
+                        Clear marks
+                    </Button>
+                    {/* A single button until the chevron with the other auto-select options joins it. */}
+                    <Button
+                        onClick={marking.onAutoSelect}
+                        className="h-[38px] shrink-0 gap-2 rounded-lg px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 [&_svg:not([class*='size-'])]:size-4"
+                    >
+                        <SparklesIcon aria-hidden="true" />
+                        Auto-select
+                    </Button>
+                </>
+            )}
         </div>
     );
 };
