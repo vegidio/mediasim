@@ -6,6 +6,7 @@ import { probeVideo } from "@/ipc/video";
 import { formatDuration, formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
+import type { Inclusion } from "./derive";
 
 /**
  * The longest edge, in pixels, a tile's picture is asked for. A 160×120 tile on a 2× display needs 320×240 covered,
@@ -73,23 +74,23 @@ const useDuration = (file: MediaFile) => {
 
 type MediaTileProps = {
     file: MediaFile;
-    /** Whether the selected tab includes this file; a left-out file stays in place, dimmed. */
-    included: boolean;
-    /** Whether the file was removed from the comparison; it stays in place too, dimmed. */
-    removed?: boolean;
+    /** Whether the file is in the comparison; a left-out or removed file stays in place, dimmed. */
+    inclusion: Inclusion;
+};
+
+const TOOLTIPS: Record<Inclusion, string | undefined> = {
+    included: undefined,
+    removed: "Removed from this comparison",
+    "left-out": "Not included in this comparison",
 };
 
 /**
  * One file of the gallery: its picture, with a play mark and duration for a video, then its name and size. Its one
  * button is the "Open" chip, which opens the file's media details, as does a double click anywhere on the tile.
  */
-export const MediaTile = ({ file, included, removed }: MediaTileProps) => {
+export const MediaTile = ({ file, inclusion }: MediaTileProps) => {
     const duration = useDuration(file);
-    const tooltip = removed
-        ? "Removed from this comparison"
-        : !included
-          ? "Not included in this comparison"
-          : undefined;
+    const tooltip = TOOLTIPS[inclusion];
     const openDetails = useGalleryStore((state) => state.openDetails);
     const open = () => openDetails(file.path);
 
@@ -100,7 +101,10 @@ export const MediaTile = ({ file, included, removed }: MediaTileProps) => {
             data-path={file.path}
             onDoubleClick={open}
             {...(tooltip && { title: tooltip })}
-            className={cn("group flex w-40 flex-col gap-2 text-left", (!included || removed) && "opacity-28 grayscale")}
+            className={cn(
+                "group flex w-40 flex-col gap-2 text-left",
+                inclusion !== "included" && "opacity-28 grayscale",
+            )}
         >
             <span className="relative block h-[120px] w-40 overflow-hidden rounded-[10px] bg-[#18181B] group-hover:ring-2 group-hover:ring-primary group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-primary">
                 <Thumbnail key={file.identity} file={file} />

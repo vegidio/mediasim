@@ -46,7 +46,7 @@ describe("MediaTile", () => {
     });
 
     it("shows the name and size, with one button named after the file", () => {
-        const { container } = render(<MediaTile file={image} included />);
+        const { container } = render(<MediaTile file={image} inclusion="included" />);
 
         expect(tile(container)).toHaveTextContent("IMG_2041.jpg");
         expect(tile(container)).toHaveTextContent("4.8 MB");
@@ -55,7 +55,7 @@ describe("MediaTile", () => {
     });
 
     it("opens the media details from its Open button", () => {
-        render(<MediaTile file={image} included />);
+        render(<MediaTile file={image} inclusion="included" />);
 
         fireEvent.click(open("IMG_2041.jpg"));
 
@@ -63,7 +63,7 @@ describe("MediaTile", () => {
     });
 
     it("opens the media details on Enter, as a button does", () => {
-        render(<MediaTile file={image} included />);
+        render(<MediaTile file={image} inclusion="included" />);
         open("IMG_2041.jpg").focus();
 
         // jsdom doesn't turn Enter on a button into a click, so this checks the element is a real button that will.
@@ -73,7 +73,7 @@ describe("MediaTile", () => {
     });
 
     it("opens the media details on a double click on the name", () => {
-        render(<MediaTile file={video} included />);
+        render(<MediaTile file={video} inclusion="included" />);
 
         fireEvent.doubleClick(screen.getByText("VID_0714.mov"));
 
@@ -81,7 +81,7 @@ describe("MediaTile", () => {
     });
 
     it("asks for the picture at 512 and shimmers until it loads", () => {
-        const { container } = render(<MediaTile file={image} included />);
+        const { container } = render(<MediaTile file={image} inclusion="included" />);
         const img = picture(container);
 
         expect(img).toHaveAttribute("src", "thumb://localhost/0123456789abcdef?size=512");
@@ -95,7 +95,7 @@ describe("MediaTile", () => {
     });
 
     it("shows the icon of the file's kind when the picture can't be produced", () => {
-        const { container } = render(<MediaTile file={image} included />);
+        const { container } = render(<MediaTile file={image} inclusion="included" />);
 
         fireEvent.error(picture(container) as HTMLImageElement);
 
@@ -104,7 +104,7 @@ describe("MediaTile", () => {
     });
 
     it("dims a left-out file with a tooltip, keeping it focusable and openable", () => {
-        const { container } = render(<MediaTile file={image} included={false} />);
+        const { container } = render(<MediaTile file={image} inclusion="left-out" />);
 
         expect(tile(container)).toHaveAttribute("title", "Not included in this comparison");
         expect(tile(container)).toHaveClass("opacity-28", "grayscale");
@@ -117,7 +117,7 @@ describe("MediaTile", () => {
     });
 
     it("dims a removed file, without a mark, keeping it focusable and openable", () => {
-        const { container } = render(<MediaTile file={image} included removed />);
+        const { container } = render(<MediaTile file={image} inclusion="removed" />);
 
         expect(tile(container)).toHaveAttribute("title", "Removed from this comparison");
         expect(tile(container)).toHaveClass("opacity-28", "grayscale");
@@ -130,14 +130,8 @@ describe("MediaTile", () => {
         expect(shown()).toBe("/p/IMG_2041.jpg");
     });
 
-    it("prefers the removed tooltip on a file that is also left out", () => {
-        const { container } = render(<MediaTile file={image} included={false} removed />);
-
-        expect(tile(container)).toHaveAttribute("title", "Removed from this comparison");
-    });
-
-    it("has no dimming and no tooltip when included and not removed", () => {
-        const { container } = render(<MediaTile file={image} included removed={false} />);
+    it("has no dimming and no tooltip when included", () => {
+        const { container } = render(<MediaTile file={image} inclusion="included" />);
 
         expect(tile(container)).not.toHaveAttribute("title");
         expect(tile(container)).not.toHaveClass("opacity-28");
@@ -146,7 +140,7 @@ describe("MediaTile", () => {
 
     it("shows a video's duration once read", async () => {
         mockedProbe.mockResolvedValue({ format: "mov", duration: 42.7 });
-        const { container } = render(<MediaTile file={video} included />);
+        const { container } = render(<MediaTile file={video} inclusion="included" />);
         expect(tile(container)).not.toHaveTextContent("0:42");
 
         await act(() => vi.advanceTimersByTimeAsync(DURATION_DWELL_MS));
@@ -157,7 +151,7 @@ describe("MediaTile", () => {
 
     it("shows no badge when the duration can't be read", async () => {
         mockedProbe.mockRejectedValue({ kind: "unreadable", message: "boom" });
-        render(<MediaTile file={video} included />);
+        render(<MediaTile file={video} inclusion="included" />);
 
         await act(() => vi.advanceTimersByTimeAsync(DURATION_DWELL_MS));
 
@@ -166,7 +160,7 @@ describe("MediaTile", () => {
     });
 
     it("reads no duration for a tile gone within the dwell", async () => {
-        const { unmount } = render(<MediaTile file={video} included />);
+        const { unmount } = render(<MediaTile file={video} inclusion="included" />);
 
         await act(() => vi.advanceTimersByTimeAsync(DURATION_DWELL_MS - 1));
         unmount();
@@ -176,7 +170,7 @@ describe("MediaTile", () => {
     });
 
     it("reads no duration for an image", async () => {
-        render(<MediaTile file={image} included />);
+        render(<MediaTile file={image} inclusion="included" />);
 
         await act(() => vi.advanceTimersByTimeAsync(DURATION_DWELL_MS));
 

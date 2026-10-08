@@ -176,20 +176,57 @@ describe("GalleryToolbar", () => {
 
         // Two images and one video.
         act(() => {
-            for (const path of ["/p/000", "/p/001", "/p/040"]) useGalleryStore.getState().remove(path);
+            for (const path of ["/p/000", "/p/001", "/p/040"]) useGalleryStore.getState().toggle(path);
         });
 
         expect(compare()).toHaveAccessibleName("Compare 45 files");
         expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Images 36", "Videos 12", "Both 48"]);
     });
 
-    it("counts every image under Images when only a video is removed", async () => {
+    it("counts every image under Images when only a video is removed, since the tab change clears it", async () => {
         withSet([holiday], media(36, 12));
         await renderGallery();
-        act(() => useGalleryStore.getState().remove("/p/040"));
+        act(() => useGalleryStore.getState().toggle("/p/040"));
 
         fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
 
+        expect(compare()).toHaveAccessibleName("Compare 36 files");
+    });
+
+    it("counts a file added against the tab, while the tabs keep their counts", async () => {
+        withSet([holiday], media(36, 12));
+        await renderGallery();
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
+
+        act(() => useGalleryStore.getState().toggle("/p/040"));
+
+        expect(compare()).toHaveAccessibleName("Compare 37 files");
+        expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Images 36", "Videos 12", "Both 48"]);
+    });
+
+    it("enables Compare once an added file makes two", async () => {
+        withSet([holiday], media(3, 1));
+        await renderGallery();
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Videos/ }));
+        expect(compare()).toBeDisabled();
+
+        act(() => useGalleryStore.getState().toggle("/p/000"));
+
+        expect(compare()).toHaveAccessibleName("Compare 2 files");
+        expect(compare()).toBeEnabled();
+    });
+
+    it("drops an added file from the count when the tab changes", async () => {
+        withSet([holiday], media(36, 12));
+        await renderGallery();
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
+        act(() => useGalleryStore.getState().toggle("/p/040"));
+        expect(compare()).toHaveAccessibleName("Compare 37 files");
+
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Videos/ }));
+        expect(compare()).toHaveAccessibleName("Compare 12 files");
+
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
         expect(compare()).toHaveAccessibleName("Compare 36 files");
     });
 
@@ -198,8 +235,8 @@ describe("GalleryToolbar", () => {
         await renderGallery();
 
         act(() => {
-            useGalleryStore.getState().remove("/p/000");
-            useGalleryStore.getState().remove("/p/001");
+            useGalleryStore.getState().toggle("/p/000");
+            useGalleryStore.getState().toggle("/p/001");
         });
 
         expect(compare()).toHaveAccessibleName("Compare 1 file");

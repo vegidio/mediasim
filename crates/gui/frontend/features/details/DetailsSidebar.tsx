@@ -3,6 +3,7 @@ import { CircleMinusIcon, CirclePlusIcon, ExternalLinkIcon, FolderIcon } from "l
 import { openMedia, revealMedia } from "@/ipc/open";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
+import type { Inclusion } from "../gallery/derive";
 import { type DetailsRow, detailsSections, type FileDetails } from "./rows";
 
 const Chip = ({ children }: { children: ReactNode }) => (
@@ -37,23 +38,29 @@ const FAILURE_MESSAGES: Record<Failure, string> = {
     reveal: "Couldn't show this file in its folder.",
 };
 
+/** The chip saying why a file is not in the comparison, and what the button that flips it reads. */
+const INCLUSION_UI: Record<Inclusion, { chip?: string; action: string }> = {
+    included: { action: "Remove from comparison" },
+    removed: { chip: "Removed", action: "Add back to comparison" },
+    "left-out": { chip: "Not included", action: "Add to comparison" },
+};
+
 type DetailsSidebarProps = {
     file: MediaFile;
     details: FileDetails;
-    /** Whether the selected tab includes the file in the comparison. */
-    included: boolean;
-    /** Whether the file was removed from the comparison. */
-    removed: boolean;
-    /** Remove the file from the comparison, or add it back when it was removed. */
-    onToggleRemoved: () => void;
+    /** Whether the file is in the comparison. */
+    inclusion: Inclusion;
+    /** Flip whether the file is in the comparison. */
+    onToggle: () => void;
 };
 
 /**
  * The file's kind, its details by section, and the actions on it. A failed action's message stays until an action is
  * tried again; the dialog keys this by path, so it is also gone once another file is shown.
  */
-export const DetailsSidebar = ({ file, details, included, removed, onToggleRemoved }: DetailsSidebarProps) => {
+export const DetailsSidebar = ({ file, details, inclusion, onToggle }: DetailsSidebarProps) => {
     const { type } = file;
+    const { chip, action: toggleLabel } = INCLUSION_UI[inclusion];
     const [failure, setFailure] = useState<Failure>();
 
     const attempt = (action: Failure) => {
@@ -66,8 +73,7 @@ export const DetailsSidebar = ({ file, details, included, removed, onToggleRemov
         <aside aria-label="File details" className="flex min-h-0 w-[340px] shrink-0 flex-col border-[#27272A] border-l">
             <div className="flex flex-wrap gap-1.5 border-[#1F1F23] border-b px-5 pt-4 pb-3">
                 <Chip>{type === "video" ? "Video" : "Image"}</Chip>
-                {!included && <Chip>Not included</Chip>}
-                {removed && <Chip>Removed</Chip>}
+                {chip && <Chip>{chip}</Chip>}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2">
@@ -114,13 +120,13 @@ export const DetailsSidebar = ({ file, details, included, removed, onToggleRemov
                         Show in folder
                     </button>
                 </div>
-                <button type="button" onClick={onToggleRemoved} className={cn(ACTION, "h-[38px] gap-2 text-sm")}>
-                    {removed ? (
-                        <CirclePlusIcon aria-hidden="true" className="size-[15px]" />
-                    ) : (
+                <button type="button" onClick={onToggle} className={cn(ACTION, "h-[38px] gap-2 text-sm")}>
+                    {inclusion === "included" ? (
                         <CircleMinusIcon aria-hidden="true" className="size-[15px]" />
+                    ) : (
+                        <CirclePlusIcon aria-hidden="true" className="size-[15px]" />
                     )}
-                    {removed ? "Add back to comparison" : "Remove from comparison"}
+                    {toggleLabel}
                 </button>
             </div>
         </aside>

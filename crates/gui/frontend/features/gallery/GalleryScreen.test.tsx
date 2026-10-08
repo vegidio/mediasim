@@ -249,16 +249,47 @@ describe("GalleryScreen", () => {
         expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 3 files");
     });
 
+    it("shows a file added in the details as included in place, until the tab changes", async () => {
+        const read = files(["image", "video", "image", "video"]);
+        withSet(4, { revision: 1, files: read });
+        render(<GalleryScreen />);
+        await waitFor(() => expect(tiles()).toHaveLength(4));
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Images/ }));
+
+        fireEvent.click(screen.getByRole("button", { name: "Open IMG_00000.jpg" }));
+        fireEvent.click(screen.getByRole("button", { name: "Remove from comparison" }));
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+        fireEvent.click(screen.getByRole("button", { name: "Open VID_00001.mp4" }));
+        fireEvent.click(screen.getByRole("button", { name: "Add to comparison" }));
+        fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+        const tile = (name: string) =>
+            screen.getByRole("button", { name: `Open ${name}` }).closest(".group") as HTMLElement;
+        expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(read.map((file) => `Open ${file.name}`));
+        expect(tile("VID_00001.mp4")).not.toHaveAttribute("title");
+        expect(tile("VID_00001.mp4")).not.toHaveClass("grayscale");
+        expect(tile("VID_00003.mp4")).toHaveAttribute("title", "Not included in this comparison");
+        expect(tile("IMG_00000.jpg")).toHaveAttribute("title", "Removed from this comparison");
+        expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 2 files");
+
+        fireEvent.mouseDown(screen.getByRole("tab", { name: /^Videos/ }));
+
+        for (const name of ["VID_00001.mp4", "VID_00003.mp4"]) expect(tile(name)).not.toHaveAttribute("title");
+        for (const name of ["IMG_00000.jpg", "IMG_00002.jpg"])
+            expect(tile(name)).toHaveAttribute("title", "Not included in this comparison");
+        expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 2 files");
+    });
+
     it("keeps removals across Back, and drops them when a new comparison starts", async () => {
         withSet(3, { revision: 1, files: images(3) });
         render(<App />);
         act(() => useScreenStore.getState().show("gallery"));
         await waitFor(() => expect(tiles()).toHaveLength(3));
-        act(() => useGalleryStore.getState().remove("/p/IMG_00000.jpg"));
+        act(() => useGalleryStore.getState().toggle("/p/IMG_00000.jpg"));
         expect(screen.getByRole("button", { name: /^Compare/ })).toHaveAccessibleName("Compare 2 files");
 
         fireEvent.click(screen.getByRole("button", { name: "Back" }));
-        expect(useGalleryStore.getState().removed).toEqual(new Set(["/p/IMG_00000.jpg"]));
+        expect(useGalleryStore.getState().overrides).toEqual(new Set(["/p/IMG_00000.jpg"]));
 
         fireEvent.click(screen.getByRole("button", { name: "Continue with 3 files" }));
 

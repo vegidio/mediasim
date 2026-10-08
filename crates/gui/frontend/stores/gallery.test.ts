@@ -212,59 +212,80 @@ describe("useGalleryStore", () => {
         });
     });
 
-    describe("removed files", () => {
-        it("starts with none, removes a file and adds it back", () => {
-            expect(state().removed).toEqual(new Set());
+    describe("overrides", () => {
+        it("starts with none, and toggling a file twice returns to the start", () => {
+            expect(state().overrides).toEqual(new Set());
 
-            state().remove("/p/a.jpg");
-            state().remove("/p/b.jpg");
-            expect(state().removed).toEqual(new Set(["/p/a.jpg", "/p/b.jpg"]));
+            state().toggle("/p/a.jpg");
+            state().toggle("/p/b.jpg");
+            expect(state().overrides).toEqual(new Set(["/p/a.jpg", "/p/b.jpg"]));
 
-            state().addBack("/p/a.jpg");
-            expect(state().removed).toEqual(new Set(["/p/b.jpg"]));
+            state().toggle("/p/a.jpg");
+            expect(state().overrides).toEqual(new Set(["/p/b.jpg"]));
         });
 
         it("hands selectors a new set on each change", () => {
-            const before = state().removed;
+            const before = state().overrides;
 
-            state().remove("/p/a.jpg");
+            state().toggle("/p/a.jpg");
 
-            expect(state().removed).not.toBe(before);
+            expect(state().overrides).not.toBe(before);
         });
 
-        it("starts a new comparison with none removed", () => {
-            state().remove("/p/a.jpg");
+        it("clears them when another tab is selected", () => {
+            state().setFilter("images");
+            state().toggle("/p/a.jpg");
+            state().toggle("/p/b.mp4");
+
+            state().setFilter("videos");
+
+            expect(state().filter).toBe("videos");
+            expect(state().overrides).toEqual(new Set());
+        });
+
+        it("keeps them when the selected tab is selected again", () => {
+            state().setFilter("images");
+            state().toggle("/p/a.jpg");
+            const before = state().overrides;
+
+            state().setFilter("images");
+
+            expect(state().overrides).toBe(before);
+        });
+
+        it("starts a new comparison with none", () => {
+            state().toggle("/p/a.jpg");
 
             state().begin();
 
-            expect(state().removed).toEqual(new Set());
+            expect(state().overrides).toEqual(new Set());
         });
 
-        it("keeps a removal across a re-read that still holds the file", async () => {
+        it("keeps an override across a re-read that still holds the file", async () => {
             atRevision(2);
             mockedList.mockResolvedValue(media(2, [file("a.jpg"), file("b.jpg")]));
             await state().load();
-            state().remove("/p/a.jpg");
+            state().toggle("/p/a.jpg");
 
             atRevision(3);
             mockedList.mockResolvedValue(media(3, [file("a.jpg"), file("b.jpg"), file("c.jpg")]));
             await state().load();
 
-            expect(state().removed).toEqual(new Set(["/p/a.jpg"]));
+            expect(state().overrides).toEqual(new Set(["/p/a.jpg"]));
         });
 
-        it("forgets a removal when a re-read no longer holds the file", async () => {
+        it("forgets an override when a re-read no longer holds the file", async () => {
             atRevision(2);
             mockedList.mockResolvedValue(media(2, [file("a.jpg"), file("b.jpg")]));
             await state().load();
-            state().remove("/p/a.jpg");
-            state().remove("/p/b.jpg");
+            state().toggle("/p/a.jpg");
+            state().toggle("/p/b.jpg");
 
             atRevision(3);
             mockedList.mockResolvedValue(media(3, [file("b.jpg")]));
             await state().load();
 
-            expect(state().removed).toEqual(new Set(["/p/b.jpg"]));
+            expect(state().overrides).toEqual(new Set(["/p/b.jpg"]));
         });
     });
 });

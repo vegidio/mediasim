@@ -4,7 +4,7 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
-import { isIncluded } from "../gallery/derive";
+import { inclusion } from "../gallery/derive";
 import { DetailsSidebar } from "./DetailsSidebar";
 import { DetailsStage } from "./DetailsStage";
 import { Filmstrip } from "./Filmstrip";
@@ -53,9 +53,8 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
     const filter = useGalleryStore((state) => state.filter);
     const showDetails = useGalleryStore((state) => state.showDetails);
     const closeDetails = useGalleryStore((state) => state.closeDetails);
-    const removed = useGalleryStore((state) => state.removed.has(file.path));
-    const remove = useGalleryStore((state) => state.remove);
-    const addBack = useGalleryStore((state) => state.addBack);
+    const overridden = useGalleryStore((state) => state.overrides.has(file.path));
+    const toggle = useGalleryStore((state) => state.toggle);
     const details = useFileDetails(file);
     const [ratio, setRatio] = useState(FIRST_RATIO);
     // The shape the picture reported once it loaded, which stands in when the details can't give one. Kept per file,
@@ -150,9 +149,8 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
                         key={file.path}
                         file={file}
                         details={details}
-                        included={isIncluded(file.type, filter)}
-                        removed={removed}
-                        onToggleRemoved={() => (removed ? addBack : remove)(file.path)}
+                        inclusion={inclusion(file.type, filter, overridden)}
+                        onToggle={() => toggle(file.path)}
                     />
                 </div>
             </DialogContent>

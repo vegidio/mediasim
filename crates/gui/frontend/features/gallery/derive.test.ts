@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MediaType } from "@/ipc/formats";
 import type { SourceView } from "@/ipc/set";
-import { compareCount, compareState, filterCounts, identity, isIncluded } from "./derive";
+import { compareCount, compareState, filterCounts, identity, inclusion, isIncluded } from "./derive";
 
 const files = (images: number, videos: number) => [
     ...Array.from({ length: images }, () => ({ type: "image" as MediaType })),
@@ -44,11 +44,29 @@ describe("isIncluded", () => {
     });
 });
 
+describe("inclusion", () => {
+    it("includes a file the tab includes and the user left alone", () => {
+        expect(inclusion("image", "images", false)).toBe("included");
+    });
+
+    it("removes a file the tab includes and the user flipped", () => {
+        expect(inclusion("image", "images", true)).toBe("removed");
+    });
+
+    it("leaves out a file the tab leaves out and the user left alone", () => {
+        expect(inclusion("video", "images", false)).toBe("left-out");
+    });
+
+    it("includes a file the tab leaves out and the user flipped", () => {
+        expect(inclusion("video", "images", true)).toBe("included");
+    });
+});
+
 describe("compareCount", () => {
     const paths = (images: number, videos: number) =>
         files(images, videos).map((file, i) => ({ ...file, path: `/p/${i}` }));
 
-    it("counts the files the filter includes when none is removed", () => {
+    it("counts the files the filter includes when none is overridden", () => {
         expect(compareCount(paths(36, 12), "both", new Set())).toBe(48);
         expect(compareCount(paths(36, 12), "images", new Set())).toBe(36);
     });
@@ -60,8 +78,18 @@ describe("compareCount", () => {
         expect(filterCounts(all)).toEqual({ images: 36, videos: 12, both: 48 });
     });
 
-    it("ignores a removed file the filter already leaves out", () => {
-        expect(compareCount(paths(36, 12), "images", new Set(["/p/40"]))).toBe(36);
+    it("counts an added file, while the tab counts stay the same", () => {
+        const all = paths(36, 12);
+
+        expect(compareCount(all, "images", new Set(["/p/40"]))).toBe(37);
+        expect(filterCounts(all)).toEqual({ images: 36, videos: 12, both: 48 });
+    });
+
+    it("counts added files toward the two files Compare needs", () => {
+        const count = compareCount(paths(3, 1), "videos", new Set(["/p/0"]));
+
+        expect(count).toBe(2);
+        expect(compareState(count)).toEqual({ label: "Compare 2 files", enabled: true });
     });
 });
 

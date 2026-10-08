@@ -5,6 +5,7 @@ import { openMedia, revealMedia } from "@/ipc/open";
 import type { MediaInfo } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import type { VideoProbe } from "@/ipc/video";
+import type { Inclusion } from "../gallery/derive";
 import { DetailsSidebar } from "./DetailsSidebar";
 import type { FileDetails } from "./rows";
 
@@ -24,20 +25,13 @@ const mediaFile = (type: MediaType): MediaFile => ({
 type SidebarProps = {
     type: MediaType;
     details: FileDetails;
-    included: boolean;
-    removed?: boolean;
+    inclusion?: Inclusion;
     onToggle?: () => void;
 };
 
-/** The sidebar for a file of kind `type`, not removed unless said so. */
-const Sidebar = ({ type, details, included, removed = false, onToggle = () => {} }: SidebarProps) => (
-    <DetailsSidebar
-        file={mediaFile(type)}
-        details={details}
-        included={included}
-        removed={removed}
-        onToggleRemoved={onToggle}
-    />
+/** The sidebar for a file of kind `type`, included unless said otherwise. */
+const Sidebar = ({ type, details, inclusion = "included", onToggle = () => {} }: SidebarProps) => (
+    <DetailsSidebar file={mediaFile(type)} details={details} inclusion={inclusion} onToggle={onToggle} />
 );
 
 const IMAGE: MediaInfo = {
@@ -96,7 +90,7 @@ describe("DetailsSidebar", () => {
 
     it("lists an image's File and Image sections in order", () => {
         const details: FileDetails = { status: "ready", info: IMAGE, path: "~/Pictures/Holiday 2025/DSC_0193.HEIC" };
-        render(<Sidebar type="image" details={details} included />);
+        render(<Sidebar type="image" details={details} />);
 
         expect(chips()).toEqual(["Image"]);
         expect(lines()).toEqual([
@@ -116,7 +110,7 @@ describe("DetailsSidebar", () => {
 
     it("lists a video's File and Video sections in order", () => {
         const details: FileDetails = { status: "ready", info: VIDEO, path: "~/Movies/VID_0714.mov", streams: STREAMS };
-        render(<Sidebar type="video" details={details} included />);
+        render(<Sidebar type="video" details={details} />);
 
         expect(lines()).toEqual([
             "File",
@@ -137,38 +131,44 @@ describe("DetailsSidebar", () => {
 
     it("shows the whole path in a tooltip", () => {
         const path = "~/Pictures/A very long folder name that will not fit/DSC_0193.HEIC";
-        render(<Sidebar type="image" details={{ status: "ready", info: IMAGE, path }} included />);
+        render(<Sidebar type="image" details={{ status: "ready", info: IMAGE, path }} />);
 
         expect(within(sidebar()).getByText(path)).toHaveAttribute("title", path);
     });
 
     it("adds Not included to a video under Images", () => {
-        render(<Sidebar type="video" details={{ status: "loading" }} included={false} />);
+        render(<Sidebar type="video" details={{ status: "loading" }} inclusion="left-out" />);
 
         expect(chips()).toEqual(["Video", "Not included"]);
     });
 
     it("shows a placeholder for every value while loading", () => {
-        render(<Sidebar type="image" details={{ status: "loading" }} included />);
+        render(<Sidebar type="image" details={{ status: "loading" }} />);
 
         expect(within(sidebar()).getAllByTestId("detail-placeholder")).toHaveLength(9);
     });
 
     it("reads Unknown for every value when the details can't be read", () => {
-        render(<Sidebar type="video" details={{ status: "failed" }} included />);
+        render(<Sidebar type="video" details={{ status: "failed" }} />);
 
         expect(within(sidebar()).getAllByText("Unknown")).toHaveLength(11);
         expect(within(sidebar()).queryByTestId("detail-placeholder")).not.toBeInTheDocument();
     });
 
-    it("adds Removed to a removed file, after Not included", () => {
-        render(<Sidebar type="video" details={{ status: "loading" }} included={false} removed />);
+    it("adds Removed to a removed file", () => {
+        render(<Sidebar type="image" details={{ status: "loading" }} inclusion="removed" />);
 
-        expect(chips()).toEqual(["Video", "Not included", "Removed"]);
+        expect(chips()).toEqual(["Image", "Removed"]);
+    });
+
+    it("adds no chip to an included file, even a video", () => {
+        render(<Sidebar type="video" details={{ status: "loading" }} />);
+
+        expect(chips()).toEqual(["Video"]);
     });
 
     it("shows the three actions, enabled", () => {
-        render(<Sidebar type="image" details={{ status: "loading" }} included />);
+        render(<Sidebar type="image" details={{ status: "loading" }} />);
 
         for (const name of ["Open in app", "Show in folder", "Remove from comparison"]) {
             expect(within(sidebar()).getByRole("button", { name })).toBeEnabled();
@@ -176,7 +176,7 @@ describe("DetailsSidebar", () => {
     });
 
     it("opens the file and shows it in its folder by its identity", () => {
-        render(<Sidebar type="image" details={{ status: "loading" }} included />);
+        render(<Sidebar type="image" details={{ status: "loading" }} />);
 
         fireEvent.click(within(sidebar()).getByRole("button", { name: "Open in app" }));
         fireEvent.click(within(sidebar()).getByRole("button", { name: "Show in folder" }));
@@ -191,7 +191,7 @@ describe("DetailsSidebar", () => {
         ["Show in folder", mockedReveal, "Couldn't show this file in its folder."],
     ])("says so when %s fails, until it is tried again", async (name, mock, message) => {
         mock.mockRejectedValueOnce({ kind: "missing", message: "it no longer exists" });
-        render(<Sidebar type="image" details={{ status: "loading" }} included />);
+        render(<Sidebar type="image" details={{ status: "loading" }} />);
         const action = within(sidebar()).getByRole("button", { name });
 
         fireEvent.click(action);
@@ -205,18 +205,18 @@ describe("DetailsSidebar", () => {
         expect(within(sidebar()).queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("reads Add back to comparison while removed, and toggles on click", () => {
+    it.each([
+        ["included", "Remove from comparison", "lucide-circle-minus"],
+        ["removed", "Add back to comparison", "lucide-circle-plus"],
+        ["left-out", "Add to comparison", "lucide-circle-plus"],
+    ] as const)("reads its label and icon for a file %s, and toggles on click", (inclusion, name, icon) => {
         const onToggle = vi.fn();
-        const { rerender } = render(
-            <Sidebar type="image" details={{ status: "loading" }} included onToggle={onToggle} />,
-        );
+        render(<Sidebar type="image" details={{ status: "loading" }} inclusion={inclusion} onToggle={onToggle} />);
+        const button = within(sidebar()).getByRole("button", { name });
 
-        fireEvent.click(within(sidebar()).getByRole("button", { name: "Remove from comparison" }));
+        expect(button.querySelector(`svg.${icon}`)).toBeInTheDocument();
+
+        fireEvent.click(button);
         expect(onToggle).toHaveBeenCalledOnce();
-
-        rerender(<Sidebar type="image" details={{ status: "loading" }} included removed onToggle={onToggle} />);
-
-        const addBack = within(sidebar()).getByRole("button", { name: "Add back to comparison" });
-        expect(addBack.querySelector("svg.lucide-circle-plus")).toBeInTheDocument();
     });
 });

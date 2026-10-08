@@ -129,7 +129,7 @@ const CompareButton = ({ count }: { count?: number }) => {
 /** The gallery's toolbar: Back and what the set is, the filter tabs, then the threshold and Compare. */
 export const GalleryToolbar = () => {
     const filter = useGalleryStore((state) => state.filter);
-    const removed = useGalleryStore((state) => state.removed);
+    const overrides = useGalleryStore((state) => state.overrides);
     const files = useFiles();
     const counts = files && filterCounts(files);
 
@@ -143,7 +143,7 @@ export const GalleryToolbar = () => {
             <FilterTabs {...(counts && { counts })} />
             <div className="flex items-center justify-end gap-5">
                 <ThresholdControl />
-                <CompareButton {...(files && { count: compareCount(files, filter, removed) })} />
+                <CompareButton {...(files && { count: compareCount(files, filter, overrides) })} />
             </div>
         </div>
     );

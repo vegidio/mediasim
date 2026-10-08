@@ -25,8 +25,8 @@ type GalleryStore = {
     threshold: number;
     setThreshold: (threshold: number) => void;
     /**
-     * Starts a new comparison: the threshold goes back to the "Default match threshold" setting, no file is removed, and
-     * every folder is recounted, so files added or deleted on disk since it was counted show up or drop out.
+     * Starts a new comparison: the threshold goes back to the "Default match threshold" setting, no file is overridden,
+     * and every folder is recounted, so files added or deleted on disk since it was counted show up or drop out.
      */
     begin: () => void;
     listing: GalleryListing;
@@ -48,14 +48,13 @@ type GalleryStore = {
     /** Forget {@link focusTile}, once the tile has taken focus. */
     tileFocused: () => void;
     /**
-     * The paths of the files removed from this comparison. They keep their place in the gallery, but Compare leaves
-     * them out. Kept across re-reads of the set's files, for as long as the files are still in it.
+     * The paths of the files whose inclusion the user flipped against the selected tab: removed when the tab includes
+     * them, added when it leaves them out. Cleared when the tab changes, and kept across re-reads of the set's files
+     * for as long as the files are still in it.
      */
-    removed: ReadonlySet<string>;
-    /** Remove the file at `path` from the comparison. */
-    remove: (path: string) => void;
-    /** Undo {@link remove} for the file at `path`. */
-    addBack: (path: string) => void;
+    overrides: ReadonlySet<string>;
+    /** Flip whether the file at `path` is in the comparison, against what the selected tab says. */
+    toggle: (path: string) => void;
 };
 
 type HomeState = ReturnType<typeof useHomeStore.getState>;
@@ -81,32 +80,33 @@ let requests = 0;
 const withoutDetails = ({ details: _closed, ...rest }: GalleryStore): GalleryStore => rest;
 
 /**
- * `state` with `listing`, closing the details dialog when its file is no longer in it, and forgetting the removal of
+ * `state` with `listing`, closing the details dialog when its file is no longer in it, and forgetting the override of
  * any file no longer in it.
  */
 const withListing = (state: GalleryStore, listing: GalleryListing): GalleryStore => {
     if (listing.status !== "ready") return { ...state, listing };
 
     const paths = new Set(listing.files.map((file) => file.path));
-    const { details, removed } = state;
+    const { details, overrides } = state;
     const gone = details !== undefined && !paths.has(details);
-    const kept = [...removed].filter((path) => paths.has(path));
+    const kept = [...overrides].filter((path) => paths.has(path));
 
     return {
         ...(gone ? withoutDetails(state) : state),
         listing,
-        ...(kept.length !== removed.size && { removed: new Set(kept) }),
+        ...(kept.length !== overrides.size && { overrides: new Set(kept) }),
     };
 };
 
 export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     filter: "both",
-    setFilter: (filter) => set({ filter }),
+    // A new tab starts over from its own default, so the files flipped against the old one are forgotten.
+    setFilter: (filter) => set((state) => (filter === state.filter ? state : { filter, overrides: new Set() })),
     // The settings store rehydrates synchronously at import, so this already reads what the user chose.
     threshold: useSettingsStore.getState().matchThreshold,
     setThreshold: (threshold) => set({ threshold }),
     begin: () => {
-        set({ threshold: useSettingsStore.getState().matchThreshold, removed: new Set() });
+        set({ threshold: useSettingsStore.getState().matchThreshold, overrides: new Set() });
         // The recount bumps the set's revision, so the next load reads the files again instead of keeping the last read.
         void useHomeStore.getState().refresh();
     },
@@ -143,13 +143,12 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
             return details === undefined ? state : { ...withoutDetails(state), focusTile: details };
         }, true),
     tileFocused: () => set(({ focusTile: _done, ...rest }) => rest, true),
-    removed: new Set(),
-    remove: (path) => set(({ removed }) => ({ removed: new Set(removed).add(path) })),
-    addBack: (path) =>
-        set(({ removed }) => {
-            const next = new Set(removed);
-            next.delete(path);
-            return { removed: next };
+    overrides: new Set(),
+    toggle: (path) =>
+        set(({ overrides }) => {
+            const next = new Set(overrides);
+            if (!next.delete(path)) next.add(path);
+            return { overrides: next };
         }),
 }));
 

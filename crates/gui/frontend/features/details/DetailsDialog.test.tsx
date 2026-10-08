@@ -165,7 +165,7 @@ describe("DetailsDialog", () => {
         expect(within(dialog()).queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    describe("Remove from comparison", () => {
+    describe("the comparison button", () => {
         /** The chips above the sidebar's sections. */
         const chips = () =>
             within(within(dialog()).getByRole("complementary", { name: "File details" }))
@@ -180,7 +180,7 @@ describe("DetailsDialog", () => {
 
             fireEvent.click(toggle);
 
-            expect(useGalleryStore.getState().removed).toEqual(new Set([nth(4).path]));
+            expect(useGalleryStore.getState().overrides).toEqual(new Set([nth(4).path]));
             expect(toggle).toHaveAccessibleName("Add back to comparison");
             expect(toggle).toHaveFocus();
             expect(chips()).toEqual(["Image", "Removed"]);
@@ -189,23 +189,38 @@ describe("DetailsDialog", () => {
 
             fireEvent.click(toggle);
 
-            expect(useGalleryStore.getState().removed).toEqual(new Set());
+            expect(useGalleryStore.getState().overrides).toEqual(new Set());
             expect(toggle).toHaveAccessibleName("Remove from comparison");
             expect(toggle).toHaveFocus();
             expect(chips()).toEqual(["Image"]);
         });
 
-        it("shows both chips for a removed file the tab leaves out", () => {
-            useGalleryStore.getState().setFilter("videos");
-            openOn(4);
+        it("adds a file the tab leaves out and takes it out again, keeping focus and the file", () => {
+            useGalleryStore.getState().setFilter("images");
+            openOn(5);
+            expect(chips()).toEqual(["Video", "Not included"]);
+            const toggle = button("Add to comparison");
+            toggle.focus();
 
-            fireEvent.click(button("Remove from comparison"));
+            fireEvent.click(toggle);
 
-            expect(chips()).toEqual(["Image", "Not included", "Removed"]);
+            expect(useGalleryStore.getState().overrides).toEqual(new Set([nth(5).path]));
+            expect(toggle).toHaveAccessibleName("Remove from comparison");
+            expect(toggle).toHaveFocus();
+            expect(chips()).toEqual(["Video"]);
+            expect(shownPath()).toBe(nth(5).path);
+            expect(within(dialog()).getByText("5 of 48")).toBeInTheDocument();
+
+            fireEvent.click(toggle);
+
+            expect(useGalleryStore.getState().overrides).toEqual(new Set());
+            expect(toggle).toHaveAccessibleName("Add to comparison");
+            expect(toggle).toHaveFocus();
+            expect(chips()).toEqual(["Video", "Not included"]);
         });
 
         it("reads Add back for a file removed earlier, and Remove for the next one", () => {
-            useGalleryStore.getState().remove(nth(4).path);
+            useGalleryStore.getState().toggle(nth(4).path);
             openOn(4);
 
             expect(button("Add back to comparison")).toBeInTheDocument();

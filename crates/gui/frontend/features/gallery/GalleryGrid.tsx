@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@/components/ui/button";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
-import { isIncluded } from "./derive";
+import { inclusion } from "./derive";
 import { MediaTile, PlaceholderTile } from "./MediaTile";
 
 /** A tile's width, in pixels. */
@@ -83,7 +83,7 @@ const VirtualRows = ({ scroller, count, columns, row, reveal }: VirtualRowsProps
 export const GalleryGrid = () => {
     const listing = useGalleryStore((state) => state.listing);
     const filter = useGalleryStore((state) => state.filter);
-    const removed = useGalleryStore((state) => state.removed);
+    const overrides = useGalleryStore((state) => state.overrides);
     const load = useGalleryStore((state) => state.load);
     const focusTile = useGalleryStore((state) => state.focusTile);
     const tileFocused = useGalleryStore((state) => state.tileFocused);
@@ -160,8 +160,7 @@ export const GalleryGrid = () => {
                                 <MediaTile
                                     key={file.path}
                                     file={file}
-                                    included={isIncluded(file.type, filter)}
-                                    removed={removed.has(file.path)}
+                                    inclusion={inclusion(file.type, filter, overrides.has(file.path))}
                                 />
                             ))
                     }

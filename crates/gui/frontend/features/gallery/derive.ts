@@ -16,12 +16,25 @@ export const filterCounts = (files: readonly { type: MediaType }[]): FilterCount
 export const isIncluded = (type: MediaType, filter: GalleryFilter) =>
     filter === "both" || (filter === "images" ? type === "image" : type === "video");
 
-/** How many of `files` a comparison under `filter` includes, leaving out those `removed` from it. */
+/**
+ * Whether a file is in the comparison: `"included"` when it is, `"removed"` when the tab includes it but the user took
+ * it out, and `"left-out"` when the tab leaves it out. A file the user added against the tab counts as `"included"`.
+ */
+export type Inclusion = "included" | "left-out" | "removed";
+
+/** The {@link Inclusion} of a file of kind `type` under `filter`, flipped against the tab when `overridden`. */
+export const inclusion = (type: MediaType, filter: GalleryFilter, overridden: boolean): Inclusion => {
+    const byTab = isIncluded(type, filter);
+    if (byTab !== overridden) return "included";
+    return byTab ? "removed" : "left-out";
+};
+
+/** How many of `files` a comparison under `filter` includes, with the `overrides` flipped against the tab. */
 export const compareCount = (
     files: readonly { path: string; type: MediaType }[],
     filter: GalleryFilter,
-    removed: ReadonlySet<string>,
-) => files.filter((file) => isIncluded(file.type, filter) && !removed.has(file.path)).length;
+    overrides: ReadonlySet<string>,
+) => files.filter((file) => inclusion(file.type, filter, overrides.has(file.path)) === "included").length;
 
 /** What the Compare button reads, and whether it can be activated. */
 export type CompareState = { label: string; enabled: boolean };
