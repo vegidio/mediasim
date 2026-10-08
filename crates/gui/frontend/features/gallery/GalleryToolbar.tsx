@@ -6,10 +6,19 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { focusContinue } from "@/features/home/SetCard";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
+import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
 import { MATCH_THRESHOLD_MAX, MATCH_THRESHOLD_MIN } from "@/stores/settings";
 import { ComparisonOptionsMenu } from "./ComparisonOptionsMenu";
 import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "./derive";
+
+/** The Compare button's id, which focus is sent to on coming back from a comparison. */
+export const COMPARE_BUTTON_ID = "gallery-compare";
+
+/** Move focus to the gallery's Compare button, once React has rendered the gallery just shown. */
+export const focusCompare = () => {
+    requestAnimationFrame(() => document.getElementById(COMPARE_BUTTON_ID)?.focus());
+};
 
 /** The filter tabs, in the order the toolbar shows them. */
 const FILTERS: { value: GalleryFilter; label: string }[] = [
@@ -118,8 +127,8 @@ const ThresholdControl = () => {
 };
 
 /**
- * Compare and its options chevron, joined. The chevron opens the comparison options, whatever the count; Compare does
- * nothing until the comparison exists.
+ * Compare and its options chevron, joined. Compare starts the comparison of the included files; the chevron opens the
+ * comparison options, whatever the count.
  */
 const CompareButton = ({ count }: { count?: number }) => {
     const { label, enabled } = compareState(count);
@@ -127,7 +136,9 @@ const CompareButton = ({ count }: { count?: number }) => {
     return (
         <div className="flex shrink-0 items-center">
             <Button
+                id={COMPARE_BUTTON_ID}
                 disabled={!enabled}
+                onClick={() => useScanStore.getState().start()}
                 className="h-[38px] gap-2 rounded-r-none px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90"
             >
                 {label}

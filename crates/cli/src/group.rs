@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use mediasim::{CompareOptions, DirCache, Grouper, Media, MediaError};
+use mediasim::{CompareOptions, DirCache, Media, OnError, Scan, Scanned};
 
 use crate::args::{GroupArgs, OutputFormat};
 use crate::error::CliError;
@@ -38,25 +38,21 @@ pub fn run(
         println!("{}", header(ui.color));
         println!("{}", output::threshold(group.threshold, ui.color));
     }
-    let stream = match &cache {
-        Some(cache) => Media::from_files_cached(paths.to_vec(), cache),
-        None => Media::from_files(paths.to_vec()),
-    };
-    let grouper = Grouper::with_options(group.threshold, options);
-    let progress::Loaded { sink, mut skipped } =
-        progress::load(stream, paths.len(), "Processing", grouper, group.ignore_errors, ui)?;
+    let on_error = if group.ignore_errors { OnError::Skip } else { OnError::Stop };
+    let mut scan = Scan::new(paths.to_vec(), group.threshold).options(options).on_error(on_error);
+    if let Some(cache) = &cache {
+        scan = scan.cache(cache);
+    }
+    let Scanned { mut groups, skipped } = progress::scan(scan, paths.len(), "Processing", ui)?;
     if let Some(cache) = cache {
         cache.finish();
     }
-    let mut groups = sink.finish();
     for members in &mut groups {
         members.sort_by(best_first);
     }
-    let positions = positions(paths);
-    in_path_order(&mut groups, &positions);
+    in_path_order(&mut groups, &positions(paths));
 
     if !skipped.is_empty() {
-        skipped_in_path_order(&mut skipped, &positions);
         if ui.interactive {
             eprintln!();
         }
@@ -110,12 +106,6 @@ fn in_path_order(groups: &mut [Vec<Media>], positions: &HashMap<&Path, usize>) {
             .min()
             .expect("every grouped media was loaded from one of the paths")
     });
-}
-
-/// Orders the errors of skipped files by their path's [`positions`], so the report does not depend on the order the
-/// files failed in.
-fn skipped_in_path_order(errors: &mut [MediaError], positions: &HashMap<&Path, usize>) {
-    errors.sort_by_key(|err| positions.get(err.path()).copied().unwrap_or(usize::MAX));
 }
 
 #[cfg(test)]
@@ -199,17 +189,5 @@ mod tests {
         ];
 
         assert_eq!(best_first_order(group), paths(&["a.png", "b.png"]));
-    }
-
-    #[test]
-    fn skipped_files_follow_the_paths() {
-        let args = paths(&["a", "b", "c", "d"]);
-        let mut errors: Vec<_> =
-            ["d", "a", "c"].into_iter().map(|path| MediaError::Unsupported { path: path.into() }).collect();
-
-        skipped_in_path_order(&mut errors, &positions(&args));
-
-        let order: Vec<_> = errors.iter().map(MediaError::path).collect();
-        assert_eq!(order, [Path::new("a"), Path::new("c"), Path::new("d")]);
     }
 }

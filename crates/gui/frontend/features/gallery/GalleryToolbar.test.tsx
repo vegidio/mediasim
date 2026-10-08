@@ -3,10 +3,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import App from "@/App";
 import type { MediaType } from "@/ipc/formats";
+import { startScan } from "@/ipc/scan";
 import { listSetMedia, type SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
+import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { GalleryScreen } from "./GalleryScreen";
@@ -19,8 +21,10 @@ vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
 }));
 vi.mock("@/ipc/video", () => ({ probeVideo: vi.fn(() => new Promise(() => {})) }));
+vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
 
 const mockedList = listSetMedia as Mock;
+const mockedStart = startScan as Mock;
 
 const source = (overrides: Partial<SourceView>): SourceView => ({
     path: "/p",
@@ -66,6 +70,8 @@ describe("GalleryToolbar", () => {
         useHomeStore.setState(useHomeStore.getInitialState(), true);
         useGalleryStore.setState(useGalleryStore.getInitialState(), true);
         useScreenStore.setState(useScreenStore.getInitialState(), true);
+        useScanStore.setState(useScanStore.getInitialState(), true);
+        mockedStart.mockReset().mockReturnValue(new Promise(() => {}));
     });
 
     it("goes Back to the Home screen with the set unchanged, and focus on Continue", async () => {
@@ -254,5 +260,66 @@ describe("GalleryToolbar", () => {
         expect(screen.getByRole("slider", { name: "Match threshold" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Compare 48 files" })).toBeEnabled();
         expect(screen.getByRole("button", { name: "Comparison options" })).toBeInTheDocument();
+    });
+
+    describe("Compare", () => {
+        /** The paths of the scan started, in order. */
+        const scanned = () => (mockedStart.mock.calls[0]?.[0] as { paths: string[] } | undefined)?.paths;
+
+        it("starts the comparison of the included files with the threshold and options, on the scan screen", async () => {
+            withSet([holiday], media(36, 12));
+            useGalleryStore.setState({ threshold: 85, frameRotate: true, frameFlip: false });
+            render(<App />);
+            act(() => useScreenStore.getState().show("gallery"));
+            await waitFor(() => expect(compare()).toHaveAccessibleName("Compare 48 files"));
+            fireEvent.mouseDown(screen.getByRole("tab", { name: "Images 36" }));
+
+            fireEvent.click(screen.getByRole("button", { name: "Compare 36 files" }));
+
+            expect(screen.getByRole("heading", { level: 1, name: "Comparing 36 files" })).toBeInTheDocument();
+            expect(useScreenStore.getState().screen).toBe("scan");
+            expect(mockedStart).toHaveBeenCalledExactlyOnceWith(
+                {
+                    paths: media(36, 0).map((file) => file.path),
+                    threshold: 0.85,
+                    rotate: true,
+                    flip: false,
+                },
+                expect.any(Function),
+            );
+        });
+
+        it("scans the included files, leaving out the removed ones and adding the added ones", async () => {
+            const files = media(36, 12);
+            withSet([holiday], files);
+            await renderGallery();
+            const [removed, kept] = [files[3], files[40]];
+            act(() => {
+                if (removed) useGalleryStore.getState().toggle(removed.path);
+            });
+            expect(compare()).toHaveAccessibleName("Compare 47 files");
+
+            fireEvent.click(compare());
+
+            expect(scanned()).toHaveLength(47);
+            expect(scanned()).not.toContain(removed?.path);
+            expect(scanned()).toContain(kept?.path);
+            expect(scanned()).toEqual(files.filter((file) => file !== removed).map((file) => file.path));
+        });
+
+        it("scans a file added against the tab", async () => {
+            const files = media(3, 1);
+            withSet([holiday], files);
+            await renderGallery();
+            fireEvent.mouseDown(screen.getByRole("tab", { name: "Videos 1" }));
+            const [added] = files;
+            act(() => {
+                if (added) useGalleryStore.getState().toggle(added.path);
+            });
+
+            fireEvent.click(screen.getByRole("button", { name: "Compare 2 files" }));
+
+            expect(scanned()).toEqual([added?.path, files[3]?.path]);
+        });
     });
 });

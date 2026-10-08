@@ -26,4 +26,29 @@ describe("StepIndicator", () => {
         expect(screen.queryAllByRole("button")).toEqual([]);
         expect(screen.queryAllByRole("link")).toEqual([]);
     });
+
+    it("shows no step done on the first step", () => {
+        render(<StepIndicator current="select" />);
+
+        expect(screen.queryByRole("listitem", { name: /, done$/ })).toBeNull();
+    });
+
+    it("shows Select done, Compare current and Review numbered on the Compare step", () => {
+        render(<StepIndicator current="compare" />);
+
+        const select = screen.getByRole("listitem", { name: "Select, done" });
+        expect(select).not.toHaveAttribute("aria-current");
+        expect(select.querySelector("svg")).not.toBeNull();
+        expect(select).not.toHaveTextContent("1");
+        expect(screen.getByText("Compare").closest("li")).toHaveAttribute("aria-current", "step");
+        expect(screen.getByText("Review").closest("li")).toHaveTextContent("3Review");
+    });
+
+    it("shows Select and Compare done on the Review step", () => {
+        render(<StepIndicator current="review" />);
+
+        expect(screen.getByRole("listitem", { name: "Select, done" })).toBeInTheDocument();
+        expect(screen.getByRole("listitem", { name: "Compare, done" })).toBeInTheDocument();
+        expect(screen.getByText("Review").closest("li")).toHaveAttribute("aria-current", "step");
+    });
 });

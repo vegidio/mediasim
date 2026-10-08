@@ -6,8 +6,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use rust_sak::memo::{CacheOpts, KeyBuilder, Memo, MemoError};
 
-use super::{Decoded, FileInfo, Media, MediaStream, MediaType, decode};
-use crate::MediaError;
+use super::{Decoded, FileInfo, Media, MediaStream, MediaType, decode_with};
+use crate::{CancelToken, MediaError};
 
 /// The directory, inside the cached one, that holds the cache.
 const CACHE_DIR: &str = ".mediasim";
@@ -103,33 +103,49 @@ impl DirCache {
         let _ = std::fs::remove_dir(dir);
     }
 
-    /// The decoder [`Media::from_files_cached`] loads with: the cache's entry for the file if one matches, and
-    /// otherwise a fresh decode, stored.
-    fn decoder(
+    /// The decoder that loads through this cache. It holds the cache's store rather than borrowing the handle.
+    pub(crate) fn decoder(&self) -> CachedDecoder {
+        CachedDecoder { root: self.root.clone(), memo: self.memo.clone() }
+    }
+}
+
+/// What loads through a [`DirCache`]: the cache's entry for a file if one matches, and otherwise a fresh decode,
+/// stored.
+#[derive(Debug, Clone)]
+pub(crate) struct CachedDecoder {
+    root: PathBuf,
+    memo: Memo,
+}
+
+impl CachedDecoder {
+    /// Extracts the contents of `path`, of type `media_type` and with the metadata `info`, from the cache or by
+    /// decoding it, stopping with [`MediaError::Cancelled`] once `cancel`, if given, is cancelled. Only a successful
+    /// decode is stored, so a cancelled one never is.
+    fn decode(
         &self,
-    ) -> impl Fn(&Path, MediaType, &FileInfo) -> Result<Decoded, MediaError> + Clone + Send + Sync + use<> {
-        let (root, memo) = (self.root.clone(), self.memo.clone());
+        path: &Path,
+        media_type: MediaType,
+        info: &FileInfo,
+        cancel: Option<&CancelToken>,
+    ) -> Result<Decoded, MediaError> {
+        let Some(key) = key(&self.root, path, info.size, info.modified) else {
+            return decode_with(path, media_type, cancel);
+        };
 
-        move |path, media_type, info| {
-            let Some(key) = key(&root, path, info.size, info.modified) else {
-                return decode(path, media_type);
-            };
+        // `memo` hands a failed computation back as an opaque `Compute`, so the original error waits here.
+        let mut failure = None;
+        let cached = self.memo.get_or_compute(&key, TTL, || {
+            decode_with(path, media_type, cancel).map_err(|err| {
+                failure = Some(err);
+                DecodeFailed
+            })
+        });
 
-            // `memo` hands a failed computation back as an opaque `Compute`, so the original error waits here.
-            let mut failure = None;
-            let cached = memo.get_or_compute(&key, TTL, || {
-                decode(path, media_type).map_err(|err| {
-                    failure = Some(err);
-                    DecodeFailed
-                })
-            });
-
-            match (cached, failure) {
-                (Ok(decoded), _) => Ok(decoded),
-                (Err(MemoError::Compute(_)), Some(err)) => Err(err),
-                // Anything else is the cache's own failure, which is never the reason a file fails.
-                (Err(_), _) => decode(path, media_type),
-            }
+        match (cached, failure) {
+            (Ok(decoded), _) => Ok(decoded),
+            (Err(MemoError::Compute(_)), Some(err)) => Err(err),
+            // Anything else is the cache's own failure, which is never the reason a file fails.
+            (Err(_), _) => decode_with(path, media_type, cancel),
         }
     }
 }
@@ -157,7 +173,25 @@ impl Media {
         P: AsRef<Path> + Send + 'static,
     {
         let decoder = cache.decoder();
-        Self::load_all(paths, move |path| Self::load(path, &decoder))
+        Self::load_all(paths, None, move |path| {
+            Self::load(path, |path, media_type, info| decoder.decode(path, media_type, info, None))
+        })
+    }
+
+    /// Loads every path in parallel through `decoder`, as [`from_files_cached`](Self::from_files_cached) does,
+    /// stopping once `cancel` is cancelled as [`from_files_cancellable`](Self::from_files_cancellable) does.
+    pub(crate) fn from_files_cached_cancellable<P>(
+        paths: Vec<P>,
+        decoder: CachedDecoder,
+        cancel: &CancelToken,
+    ) -> MediaStream
+    where
+        P: AsRef<Path> + Send + 'static,
+    {
+        let token = cancel.clone();
+        Self::load_all(paths, Some(cancel.clone()), move |path| {
+            Self::load(path, |path, media_type, info| decoder.decode(path, media_type, info, Some(&token)))
+        })
     }
 }
 
@@ -510,6 +544,36 @@ mod tests {
         std::fs::copy(fixture("test2.png"), &path).unwrap();
         let results = load_cached(dir.path(), vec![path]);
         assert!(matches!(&results[..], [Ok(_)]), "{results:?}");
+    }
+
+    #[test]
+    fn a_cancelled_load_stores_no_entry() {
+        let dir = directory(&[("test2.png", "a.png")]);
+        let path = dir.path().join("a.png");
+        let token = CancelToken::new();
+        token.cancel();
+
+        let cache = DirCache::open(dir.path()).unwrap();
+        let results: Vec<_> =
+            Media::from_files_cached_cancellable(vec![path.clone()], cache.decoder(), &token).collect();
+        drop(cache);
+        assert!(matches!(&results[..], [Err(MediaError::Cancelled { .. })]), "{results:?}");
+
+        overwrite_with_garbage(&path, modified(&path));
+        let results = load_cached(dir.path(), vec![path]);
+        assert!(matches!(&results[..], [Err(MediaError::Image { .. })]), "{results:?}");
+    }
+
+    #[test]
+    fn an_uncancelled_cached_load_equals_an_uncached_one() {
+        let dir = directory(&[("test1.png", "a.png"), ("test2.png", "b.png")]);
+        let paths = vec![dir.path().join("a.png"), dir.path().join("b.png")];
+
+        let cache = DirCache::open(dir.path()).unwrap();
+        let cached =
+            sorted(Media::from_files_cached_cancellable(paths.clone(), cache.decoder(), &CancelToken::new()).collect());
+
+        assert_eq!(cached, sorted(Media::from_files(paths).collect()));
     }
 
     // Keeping and finishing

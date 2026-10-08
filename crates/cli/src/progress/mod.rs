@@ -12,7 +12,7 @@ use std::iter::once;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::{Duration, Instant};
 
-use mediasim::{Media, MediaError, MediaStream};
+use mediasim::{CancelToken, Eta, Media, MediaStream, Scan, ScanEvent, Scanned};
 use ratatui::buffer::Buffer;
 use ratatui::crossterm::cursor::{MoveTo, Show};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -26,7 +26,7 @@ use ratatui::{DefaultTerminal, TerminalOptions, Viewport};
 use crate::error::CliError;
 use crate::output::{GRAY, GREEN, MAGENTA, Ui};
 use bar::GradientBar;
-use eta::{Eta, format_eta};
+use eta::format_eta;
 use spring::Spring;
 
 const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
@@ -37,91 +37,78 @@ const SETTLE_CAP: Duration = Duration::from_secs(1);
 const MAX_BAR_WIDTH: u16 = 50;
 const MIN_BAR_WIDTH: u16 = 10;
 
-/// What [`load`] returns: the sink, fed with every media that loaded, and the errors of the files it skipped.
-pub struct Loaded<C> {
-    pub sink: C,
-    /// In completion order, and always empty unless errors were ignored.
-    pub skipped: Vec<MediaError>,
-}
-
 /// Drains `stream`, which yields `total` results, into `sink` and returns it: through the progress display, labelled
-/// `label`, when `ui` is interactive, otherwise silently. The first error ends the load, unless `ignore_errors`, in
-/// which case files that fail to load are skipped and returned with the sink.
+/// `label`, when `ui` is interactive, otherwise silently. The first error ends the load.
 ///
 /// On success, the stream has been exhausted.
-pub fn load<C>(
-    stream: MediaStream,
-    total: usize,
-    label: &str,
-    mut sink: C,
-    ignore_errors: bool,
-    ui: Ui,
-) -> Result<Loaded<C>, CliError>
+pub fn load<C>(stream: MediaStream, total: usize, label: &str, mut sink: C, ui: Ui) -> Result<C, CliError>
 where
     C: Extend<Media> + Send + 'static,
 {
-    if ui.interactive {
-        return run(stream, total, label, sink, ignore_errors, ui.color);
-    }
-
-    let mut skipped = Vec::new();
-    for result in stream {
-        settle(result.map(|media| sink.extend(once(media))), ignore_errors, &mut skipped)?;
-    }
-    Ok(Loaded { sink, skipped })
-}
-
-/// Applies the outcome of one file: a failure is added to `skipped` if `ignore_errors`, and otherwise ends the load.
-fn settle(tick: Result<(), MediaError>, ignore_errors: bool, skipped: &mut Vec<MediaError>) -> Result<(), CliError> {
-    match tick {
-        Ok(()) => Ok(()),
-        Err(err) if ignore_errors => {
-            skipped.push(err);
-            Ok(())
-        }
-        Err(err) => Err(err.into()),
-    }
-}
-
-/// Shows the progress display, labelled `label`, while `stream` yields `total` results, feeds each loaded media to
-/// `sink`, and returns the sink.
-///
-/// The sink is fed on a background thread, so slow work it does (such as comparing media) never stalls the display
-/// or Ctrl+C; progress advances once the sink has taken each media. The first error ends the run at once, unless
-/// `ignore_errors`, in which case a failed file is skipped and counted as done; Ctrl+C ends it with
-/// [`CliError::Interrupted`]. The terminal is restored on every way out, with the display left on
-/// screen and the cursor on the line below it.
-fn run<C>(
-    stream: MediaStream,
-    total: usize,
-    label: &str,
-    mut sink: C,
-    ignore_errors: bool,
-    color: bool,
-) -> Result<Loaded<C>, CliError>
-where
-    C: Extend<Media> + Send + 'static,
-{
-    // `MediaStream` blocks, so a thread drains it into the sink and ticks a channel the frame loop can poll. Once the
-    // receiver is dropped, the forwarder's next send fails, which drops the stream and stops any file that has not
-    // started loading.
-    let (tx, rx) = mpsc::channel::<Result<(), MediaError>>();
-    let forwarder = std::thread::spawn(move || {
+    if !ui.interactive {
         for result in stream {
-            let tick = result.map(|media| sink.extend(once(media)));
-            let failed = tick.is_err();
-            if tx.send(tick).is_err() || (failed && !ignore_errors) {
+            sink.extend(once(result?));
+        }
+        return Ok(sink);
+    }
+
+    let work = move |ticks: &mpsc::Sender<usize>| {
+        for (done, result) in (1..).zip(stream) {
+            sink.extend(once(result?));
+            // A failed send means the display gave up, so the load stops; dropping the stream stops what remains.
+            if ticks.send(done).is_err() {
                 break;
             }
         }
-        sink
-    });
+        Ok(sink)
+    };
+    show(total, label, ui.color, work, || {})
+}
+
+/// Runs `scan` over `total` files and returns its result: through the progress display, labelled `label`, when `ui` is
+/// interactive, otherwise silently.
+///
+/// Ctrl+C cancels the scan, so its loads stop, and ends it with [`CliError::Interrupted`].
+pub fn scan(scan: Scan, total: usize, label: &str, ui: Ui) -> Result<Scanned, CliError> {
+    if !ui.interactive {
+        return Ok(scan.run(|_| {})?);
+    }
+
+    let cancel = CancelToken::new();
+    let scan = scan.cancel(cancel.clone());
+    let work = move |ticks: &mpsc::Sender<usize>| {
+        let scanned = scan.run(|event| {
+            if let ScanEvent::Progress(progress) = event {
+                // The display only goes away on Ctrl+C, which cancels the scan too.
+                let _ = ticks.send(progress.done);
+            }
+        })?;
+        Ok(scanned)
+    };
+    show(total, label, ui.color, work, move || cancel.cancel())
+}
+
+/// Shows the progress display, labelled `label`, while `work` runs over `total` items, and returns what `work`
+/// returns.
+///
+/// `work` runs on a background thread, so slow work (such as comparing media) never stalls the display or Ctrl+C. It
+/// sends the number of items done each time one is done. An error from `work` ends the display at once; Ctrl+C calls `interrupt`
+/// and ends it with [`CliError::Interrupted`], without waiting for `work`. The terminal is restored on every way out,
+/// with the display left on screen and the cursor on the line below it.
+fn show<T, W>(total: usize, label: &str, color: bool, work: W, interrupt: impl FnOnce()) -> Result<T, CliError>
+where
+    T: Send + 'static,
+    W: FnOnce(&mpsc::Sender<usize>) -> Result<T, CliError> + Send + 'static,
+{
+    // The worker's sender is dropped when `work` returns, which tells the frame loop to collect its outcome.
+    let (tx, rx) = mpsc::channel::<usize>();
+    let mut worker = Some(std::thread::spawn(move || work(&tx)));
 
     println!();
     let mut session = Session::start()?;
     let started = Instant::now();
     let mut completed = 0;
-    let mut skipped = Vec::new();
+    let mut outcome = None;
     let mut spring = Spring::default();
     let mut eta = Eta::default();
     let mut finished_at = None;
@@ -129,25 +116,25 @@ where
     loop {
         let frame_started = Instant::now();
 
-        let mut disconnected = false;
         loop {
             match rx.try_recv() {
-                Ok(tick) => {
-                    settle(tick, ignore_errors, &mut skipped)?;
-                    completed += 1;
-                }
+                Ok(done) => completed = done,
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    disconnected = true;
+                    if let Some(worker) = worker.take() {
+                        let result = worker.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+                        outcome = Some(result?);
+                    }
                     break;
                 }
             }
         }
 
-        let finished = disconnected || completed >= total;
+        let finished = outcome.is_some();
         let shown = if finished { total } else { completed };
-        spring.target = if finished { 1.0 } else { fraction(completed, total) };
+        spring.target = if finished { 1.0 } else { fraction(shown, total) };
         spring.step();
+        // Updated every frame, not only as items finish, so the estimate keeps up while one item takes long.
         eta.update(shown, total, started.elapsed());
 
         let finished_at = finished.then(|| *finished_at.get_or_insert_with(Instant::now));
@@ -159,12 +146,12 @@ where
         let line = ProgressLine { label, completed: shown, total, position: spring.position, eta: eta.value(), color };
         session.draw(line)?;
 
-        if done {
-            let sink = forwarder.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic));
-            return Ok(Loaded { sink, skipped });
+        if done && let Some(outcome) = outcome {
+            return Ok(outcome);
         }
 
         if event::poll(FRAME.saturating_sub(frame_started.elapsed()))? && is_ctrl_c(&event::read()?) {
+            interrupt();
             return Err(CliError::Interrupted);
         }
     }

@@ -8,6 +8,7 @@
 mod formats;
 mod open;
 mod pair;
+mod scan;
 mod set;
 mod thumbs;
 mod trash;
@@ -45,6 +46,7 @@ pub fn run() {
         .manage(set::commands::SetState::default())
         .manage(thumbs::ThumbState::default())
         .manage(pair::PairState::default())
+        .manage(scan::ScanState::default())
         .manage(<trash::TrashState>::default())
         .manage(video::SessionState::default())
         .manage(video::Segments::default())
@@ -83,6 +85,8 @@ pub fn run() {
             pair::probe_media,
             pair::compare_pair,
             pair::cancel_comparison,
+            scan::start_scan,
+            scan::cancel_scan,
             open::open_media,
             open::reveal_media,
             trash::trash_media,

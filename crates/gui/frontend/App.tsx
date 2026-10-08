@@ -1,8 +1,10 @@
 import { GalleryScreen } from "@/features/gallery/GalleryScreen";
+import { GroupsScreen } from "@/features/groups/GroupsScreen";
 import { HomeScreen } from "@/features/home/HomeScreen";
 import { DeletionFooter } from "@/features/pair/DeletionFooter";
 import { DeletionNotice } from "@/features/pair/DeletionNotice";
 import { PairResultScreen } from "@/features/pair/PairResultScreen";
+import { ScanScreen } from "@/features/scan/ScanScreen";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { Header } from "@/features/shell/Header";
 import { cn } from "@/lib/utils";
@@ -23,6 +25,10 @@ const App = () => {
                 <Header title="Compare two files" />
             ) : current === "settings" ? (
                 <Header title="Settings" />
+            ) : current === "scan" ? (
+                <Header current="compare" />
+            ) : current === "groups" ? (
+                <Header current="review" />
             ) : (
                 <Header current="select" />
             )}
@@ -39,6 +45,10 @@ const App = () => {
                         <SettingsScreen />
                     ) : current === "gallery" ? (
                         <GalleryScreen />
+                    ) : current === "scan" ? (
+                        <ScanScreen />
+                    ) : current === "groups" ? (
+                        <GroupsScreen />
                     ) : (
                         <HomeScreen />
                     )}

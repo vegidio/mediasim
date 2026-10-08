@@ -13,7 +13,7 @@ use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
-use super::{Job, Listing, Set, SetView, abbreviate, classify, home, list_folder};
+use super::{Job, Listing, Set, SetView, classify, display_home, home, list_folder};
 use crate::TaskError;
 use crate::thumbs::ThumbState;
 use crate::thumbs::commands::{MediaFile, describe};
@@ -92,7 +92,7 @@ pub async fn rescan_set(state: State<'_, SetState>, recursive: bool) -> Result<S
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value, reason = "Tauri passes command arguments by value")]
 pub fn display_path(path: PathBuf) -> String {
-    abbreviate(&path, home().as_deref())
+    display_home(&path)
 }
 
 /// The set's distinct media files, as the gallery shows them.

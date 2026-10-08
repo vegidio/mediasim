@@ -35,4 +35,43 @@ describe("useScreenStore", () => {
 
         expect(useScreenStore.getState().takePrevious()).toBe("settings");
     });
+
+    describe("redirect", () => {
+        it("swaps the screen shown", () => {
+            useScreenStore.getState().show("scan");
+
+            useScreenStore.getState().redirect("scan", "groups");
+
+            expect(useScreenStore.getState().screen).toBe("groups");
+        });
+
+        it("makes Settings return to the new screen", () => {
+            useScreenStore.getState().show("scan");
+            useScreenStore.getState().openSettings();
+
+            useScreenStore.getState().redirect("scan", "groups");
+            expect(useScreenStore.getState().screen).toBe("settings");
+
+            useScreenStore.getState().closeSettings();
+            expect(useScreenStore.getState().screen).toBe("groups");
+        });
+
+        it("does nothing on another screen", () => {
+            useScreenStore.getState().show("gallery");
+
+            useScreenStore.getState().redirect("scan", "groups");
+
+            expect(useScreenStore.getState().screen).toBe("gallery");
+        });
+
+        it("does nothing on Settings opened from another screen", () => {
+            useScreenStore.getState().show("gallery");
+            useScreenStore.getState().openSettings();
+
+            useScreenStore.getState().redirect("scan", "groups");
+            useScreenStore.getState().closeSettings();
+
+            expect(useScreenStore.getState().screen).toBe("gallery");
+        });
+    });
 });

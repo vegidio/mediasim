@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 use super::dsu::Dsu;
-use crate::{CompareOptions, Media};
+use crate::{CancelToken, CompareOptions, Media};
 
 /// Groups media whose similarity reaches a threshold, one media at a time.
 ///
@@ -71,6 +71,26 @@ impl Grouper {
     ///
     /// Since grouping is transitive, the comparisons against an existing group stop at its first match.
     pub fn push(&mut self, media: Media) {
+        let matched = self.matched_groups(&media, None);
+        self.add(media, matched);
+    }
+
+    /// Adds `media` as [`push`](Self::push) does, unless `cancel` is cancelled first. Once it is, no new comparison
+    /// starts, and if it is cancelled by the time the comparisons end, `media` is not added. Returns whether `media`
+    /// was added.
+    pub(crate) fn push_cancellable(&mut self, media: Media, cancel: &CancelToken) -> bool {
+        let matched = self.matched_groups(&media, Some(cancel));
+        if cancel.is_cancelled() {
+            return false;
+        }
+
+        self.add(media, matched);
+        true
+    }
+
+    /// The roots of the groups `media` matches, comparing it in parallel with the earlier media of its type. Once
+    /// `cancel`, if given, is cancelled, the comparisons not yet started count as no match.
+    fn matched_groups(&mut self, media: &Media, cancel: Option<&CancelToken>) -> Vec<usize> {
         let mut groups: HashMap<usize, Vec<&Media>> = HashMap::new();
         for (i, earlier) in self.media.iter().enumerate() {
             if earlier.media_type == media.media_type {
@@ -79,13 +99,18 @@ impl Grouper {
         }
 
         let (threshold, options) = (self.threshold, self.options);
-        let is_match = |earlier: &&Media| earlier.matches(&media, options, threshold);
-        let matched: Vec<usize> = groups
+        let is_match = |earlier: &&Media| {
+            !cancel.is_some_and(CancelToken::is_cancelled) && earlier.matches(media, options, threshold)
+        };
+        groups
             .into_par_iter()
             .filter(|(_, members)| members.par_iter().any(is_match))
             .map(|(root, _)| root)
-            .collect();
+            .collect()
+    }
 
+    /// Adds `media` to the grouper, merged into the groups of `matched`.
+    fn add(&mut self, media: Media, matched: Vec<usize>) {
         let index = self.dsu.push();
         for root in matched {
             self.dsu.union(root, index);
@@ -336,6 +361,33 @@ mod tests {
         ];
 
         assert_eq!(group_with(0.95, CompareOptions::default(), media.clone()), group(0.95, media));
+    }
+
+    #[test]
+    fn push_cancellable_with_a_cancelled_token_leaves_the_grouper_unchanged() {
+        let mut grouper = Grouper::new(0.8);
+        grouper.push(image("a.png", 30_000));
+        let token = CancelToken::new();
+        token.cancel();
+
+        let added = grouper.push_cancellable(image("b.png", 30_000), &token);
+
+        assert!(!added);
+        assert_eq!(grouper.media.len(), 1);
+        assert!(grouper.finish().is_empty());
+    }
+
+    #[test]
+    fn push_cancellable_uncancelled_groups_as_push() {
+        let media = [image("a.png", 30_000), image("b.png", 31_000), image("c.png", 60_000)];
+        let mut grouper = Grouper::new(0.8);
+        let token = CancelToken::new();
+
+        for m in media.clone() {
+            assert!(grouper.push_cancellable(m, &token));
+        }
+
+        assert_eq!(grouper.finish(), group(0.8, media));
     }
 
     #[test]

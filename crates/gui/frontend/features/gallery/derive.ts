@@ -29,12 +29,19 @@ export const inclusion = (type: MediaType, filter: GalleryFilter, overridden: bo
     return byTab ? "removed" : "left-out";
 };
 
+/** The `files` a comparison under `filter` includes, in their order, with the `overrides` flipped against the tab. */
+export const includedFiles = <F extends { path: string; type: MediaType }>(
+    files: readonly F[],
+    filter: GalleryFilter,
+    overrides: ReadonlySet<string>,
+) => files.filter((file) => inclusion(file.type, filter, overrides.has(file.path)) === "included");
+
 /** How many of `files` a comparison under `filter` includes, with the `overrides` flipped against the tab. */
 export const compareCount = (
     files: readonly { path: string; type: MediaType }[],
     filter: GalleryFilter,
     overrides: ReadonlySet<string>,
-) => files.filter((file) => inclusion(file.type, filter, overrides.has(file.path)) === "included").length;
+) => includedFiles(files, filter, overrides).length;
 
 /** What the Compare button reads, and whether it can be activated. */
 export type CompareState = { label: string; enabled: boolean };

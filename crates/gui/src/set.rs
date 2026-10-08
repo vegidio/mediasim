@@ -339,6 +339,11 @@ pub fn home() -> Option<PathBuf> {
     if cfg!(windows) { None } else { std::env::home_dir() }
 }
 
+/// `path` as the set list shows a location: with `~` for the home folder on macOS and Linux, and in full on Windows.
+pub fn display_home(path: &Path) -> String {
+    abbreviate(path, home().as_deref())
+}
+
 /// Writes `path` with a leading `home` replaced by `~`.
 fn abbreviate(path: &Path, home: Option<&Path>) -> String {
     match home.and_then(|home| path.strip_prefix(home).ok()) {

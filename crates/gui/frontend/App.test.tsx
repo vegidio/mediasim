@@ -21,6 +21,7 @@ vi.mock("@/ipc/thumbs", () => ({
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
 vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
+vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
 
 describe("App", () => {
     beforeEach(() => {
@@ -53,6 +54,34 @@ describe("App", () => {
 
         const progress = screen.getByRole("navigation", { name: "Progress" });
         expect(within(progress).getByText("Select").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
+    });
+
+    it("marks Compare as the current step on the scan screen, with Select done and Review numbered", () => {
+        render(<App />);
+        act(() => useScreenStore.getState().show("scan"));
+
+        const progress = screen.getByRole("navigation", { name: "Progress" });
+        expect(within(progress).getByRole("listitem", { name: "Select, done" })).toBeInTheDocument();
+        expect(within(progress).getByText("Compare").closest("li")).toHaveAttribute("aria-current", "step");
+        expect(within(progress).getByText("Review").closest("li")).toHaveTextContent("3Review");
+    });
+
+    it("marks Review as the current step on the groups screen, with Select and Compare done", () => {
+        render(<App />);
+        act(() => useScreenStore.getState().show("groups"));
+
+        const progress = screen.getByRole("navigation", { name: "Progress" });
+        expect(within(progress).getByRole("listitem", { name: "Select, done" })).toBeInTheDocument();
+        expect(within(progress).getByRole("listitem", { name: "Compare, done" })).toBeInTheDocument();
+        expect(within(progress).getByText("Review").closest("li")).toHaveAttribute("aria-current", "step");
+    });
+
+    it("shows no step done on the gallery", () => {
+        (listSetMedia as Mock).mockReturnValue(new Promise(() => {}));
+        render(<App />);
+        act(() => useScreenStore.getState().show("gallery"));
+
+        expect(screen.queryByRole("listitem", { name: /, done$/ })).not.toBeInTheDocument();
     });
 
     describe("gallery", () => {

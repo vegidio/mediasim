@@ -22,7 +22,7 @@ pub fn run(file1: PathBuf, file2: PathBuf, options: CompareOptions, format: Outp
         println!("{}", output::header(paths.len(), ui.color));
     }
     let stream = Media::from_files(paths.to_vec());
-    let loaded = progress::load(stream, paths.len(), "Loading", Vec::with_capacity(2), false, ui)?.sink;
+    let loaded = progress::load(stream, paths.len(), "Loading", Vec::with_capacity(2), ui)?;
 
     let [a, b] = in_argument_order(loaded, &paths);
     let score = a.similarity_with(&b, options)?;

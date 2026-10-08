@@ -23,6 +23,8 @@ use crate::pool::{image_pool, video_pool};
 use crate::{CancelToken, Icon, MediaError};
 
 #[cfg(feature = "cache")]
+pub(crate) use cache::CachedDecoder;
+#[cfg(feature = "cache")]
 pub use cache::DirCache;
 pub use kind::MediaFormat;
 pub use options::LoadOptions;
@@ -195,11 +197,24 @@ impl Media {
     where
         P: AsRef<Path> + Send + 'static,
     {
-        Self::load_all(paths, |path| Self::from_file(path))
+        Self::load_all(paths, None, |path| Self::from_file(path))
     }
 
-    /// Loads every path with `load`, as [`from_files`](Self::from_files) describes.
-    fn load_all<P, L>(paths: Vec<P>, load: L) -> MediaStream
+    /// Loads every path in parallel as [`from_files`](Self::from_files) does, stopping once `cancel` is cancelled.
+    ///
+    /// Each file loads as [`from_file_cancellable`](Self::from_file_cancellable) does, and a file not started by the
+    /// time `cancel` is cancelled yields [`MediaError::Cancelled`] at once, without being read.
+    pub(crate) fn from_files_cancellable<P>(paths: Vec<P>, cancel: &CancelToken) -> MediaStream
+    where
+        P: AsRef<Path> + Send + 'static,
+    {
+        let token = cancel.clone();
+        Self::load_all(paths, Some(cancel.clone()), move |path| Self::from_file_cancellable(path, &token))
+    }
+
+    /// Loads every path with `load`, as [`from_files`](Self::from_files) describes. Once `cancel`, if given, is
+    /// cancelled, a file not yet started yields [`MediaError::Cancelled`] instead of being loaded.
+    fn load_all<P, L>(paths: Vec<P>, cancel: Option<CancelToken>, load: L) -> MediaStream
     where
         P: AsRef<Path> + Send + 'static,
         L: Fn(&Path) -> Result<Self, MediaError> + Clone + Send + Sync + 'static,
@@ -211,9 +226,9 @@ impl Media {
         // Both pools are driven from a spawned task so neither blocks the caller, which consumes `rx` as results
         // stream in.
         if !videos.is_empty() {
-            spawn_batch(video_pool(), videos, tx.clone(), load.clone());
+            spawn_batch(video_pool(), videos, tx.clone(), cancel.clone(), load.clone());
         }
-        spawn_batch(image_pool(), others, tx, load);
+        spawn_batch(image_pool(), others, tx, cancel, load);
 
         MediaStream(rx.into_iter())
     }
@@ -278,14 +293,23 @@ fn check(path: &Path, cancel: Option<&CancelToken>) -> Result<(), MediaError> {
 }
 
 /// Loads `paths` with `load` on `pool`, from a spawned task, sending each result to `tx`. A failed send means the
-/// caller dropped the stream, which ends the batch.
-fn spawn_batch<P, L>(pool: &ThreadPool, paths: Vec<P>, tx: mpsc::Sender<Result<Media, MediaError>>, load: L)
-where
+/// caller dropped the stream, which ends the batch. Once `cancel`, if given, is cancelled, each file not yet started
+/// sends [`MediaError::Cancelled`] without being loaded.
+fn spawn_batch<P, L>(
+    pool: &ThreadPool,
+    paths: Vec<P>,
+    tx: mpsc::Sender<Result<Media, MediaError>>,
+    cancel: Option<CancelToken>,
+    load: L,
+) where
     P: AsRef<Path> + Send + 'static,
     L: Fn(&Path) -> Result<Media, MediaError> + Send + Sync + 'static,
 {
     pool.spawn(move || {
-        let _ = paths.into_par_iter().try_for_each_with(tx.clone(), |tx, path| tx.send(load(path.as_ref())));
+        let _ = paths.into_par_iter().try_for_each_with(tx.clone(), |tx, path| {
+            let path = path.as_ref();
+            tx.send(check(path, cancel.as_ref()).and_then(|()| load(path)))
+        });
         // `load` goes before the last sender, so whatever it holds (such as a cache handle) is released by the time
         // the stream ends.
         drop(load);
@@ -589,6 +613,32 @@ pub(crate) mod tests {
         let rest: Vec<_> = stream.collect();
         assert_eq!(rest.len(), 1);
         assert!(rest[0].as_ref().is_ok_and(|m| m.media_type == MediaType::Video));
+    }
+
+    #[test]
+    fn from_files_cancellable_with_a_cancelled_token_decodes_nothing() {
+        let paths = vec![fixture("test1.png"), fixture("test3.mp4"), fixture("test2.png")];
+        let token = CancelToken::new();
+        token.cancel();
+
+        let results: Vec<_> = Media::from_files_cancellable(paths, &token).collect();
+
+        assert_eq!(results.len(), 3, "one result per input path");
+        assert!(results.iter().all(|r| matches!(r, Err(MediaError::Cancelled { .. }))), "{results:?}");
+    }
+
+    #[test]
+    fn from_files_cancellable_uncancelled_equals_from_files() {
+        let paths = vec![fixture("test1.png"), fixture("test2.png")];
+        let sorted = |stream: MediaStream| {
+            let mut media: Vec<_> = stream.map(Result::unwrap).collect();
+            media.sort_by(|a, b| a.path.cmp(&b.path));
+            media
+        };
+
+        let cancellable = sorted(Media::from_files_cancellable(paths.clone(), &CancelToken::new()));
+
+        assert_eq!(cancellable, sorted(Media::from_files(paths)));
     }
 
     #[test]
