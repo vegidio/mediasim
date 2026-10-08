@@ -86,6 +86,61 @@ describe("useGalleryStore", () => {
         expect(state().threshold).toBe(90);
     });
 
+    it("starts the frame options from the stored settings", async () => {
+        localStorage.setItem(
+            "settings-storage",
+            JSON.stringify({ state: { frameRotate: true, frameFlip: false }, version: 1 }),
+        );
+        vi.resetModules();
+
+        const { useGalleryStore: fresh } = await import("@/stores/gallery");
+
+        expect(fresh.getState().frameRotate).toBe(true);
+        expect(fresh.getState().frameFlip).toBe(false);
+    });
+
+    it("never writes the settings when the frame options flip", () => {
+        state().setFrameRotate(false);
+        state().setFrameFlip(false);
+
+        expect(state().frameRotate).toBe(false);
+        expect(state().frameFlip).toBe(false);
+        expect(useSettingsStore.getState().frameRotate).toBe(true);
+        expect(useSettingsStore.getState().frameFlip).toBe(true);
+    });
+
+    it("starts a new comparison from the frame settings", () => {
+        useSettingsStore.getState().update({ frameRotate: false });
+        state().setFrameRotate(true);
+        state().setFrameFlip(false);
+
+        state().begin();
+
+        expect(state().frameRotate).toBe(false);
+        expect(state().frameFlip).toBe(true);
+    });
+
+    it("moves only the frame option whose setting changed", () => {
+        state().setFrameRotate(false);
+        state().setFrameFlip(false);
+
+        useSettingsStore.getState().update({ frameFlip: false });
+        useSettingsStore.getState().update({ frameFlip: true });
+
+        expect(state().frameFlip).toBe(true);
+        expect(state().frameRotate).toBe(false);
+    });
+
+    it("keeps unticked frame options when Reset to defaults changes neither setting", () => {
+        state().setFrameRotate(false);
+        state().setFrameFlip(false);
+
+        useSettingsStore.getState().reset();
+
+        expect(state().frameRotate).toBe(false);
+        expect(state().frameFlip).toBe(false);
+    });
+
     it("recounts the set when a new comparison starts, then reads the files again", async () => {
         atRevision(2);
         mockedList.mockResolvedValueOnce(media(2, [file("a.jpg"), file("b.jpg")]));

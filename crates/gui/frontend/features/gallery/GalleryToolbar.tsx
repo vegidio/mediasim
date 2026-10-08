@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { ArrowLeftIcon, ArrowRightIcon, ChevronDownIcon, FolderIcon, ImagesIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, FolderIcon, ImagesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +8,7 @@ import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
 import { MATCH_THRESHOLD_MAX, MATCH_THRESHOLD_MIN } from "@/stores/settings";
+import { ComparisonOptionsMenu } from "./ComparisonOptionsMenu";
 import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "./derive";
 
 /** The filter tabs, in the order the toolbar shows them. */
@@ -116,7 +117,10 @@ const ThresholdControl = () => {
     );
 };
 
-/** Compare and its options chevron, joined. Neither does anything until the comparison exists. */
+/**
+ * Compare and its options chevron, joined. The chevron opens the comparison options, whatever the count; Compare does
+ * nothing until the comparison exists.
+ */
 const CompareButton = ({ count }: { count?: number }) => {
     const { label, enabled } = compareState(count);
 
@@ -129,12 +133,7 @@ const CompareButton = ({ count }: { count?: number }) => {
                 {label}
                 <ArrowRightIcon aria-hidden="true" />
             </Button>
-            <Button
-                aria-label="Comparison options"
-                className="h-[38px] w-9 rounded-l-none border-l-[#65A30D] bg-[#A3E635] p-0 text-[#1A2E05] hover:bg-[#A3E635]/90"
-            >
-                <ChevronDownIcon aria-hidden="true" />
-            </Button>
+            <ComparisonOptionsMenu />
         </div>
     );
 };

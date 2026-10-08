@@ -25,7 +25,16 @@ type GalleryStore = {
     threshold: number;
     setThreshold: (threshold: number) => void;
     /**
-     * Starts a new comparison: the threshold goes back to the "Default match threshold" setting, no file is overridden,
+     * Whether each frame is also compared rotated 90°, 180° and 270°. Like the threshold, each new comparison starts it
+     * from the "Frame rotate" setting, and it follows the setting when that changes, but flipping it never writes it.
+     */
+    frameRotate: boolean;
+    setFrameRotate: (frameRotate: boolean) => void;
+    /** Whether each frame is also compared flipped, kept like {@link GalleryStore.frameRotate} from "Frame flip". */
+    frameFlip: boolean;
+    setFrameFlip: (frameFlip: boolean) => void;
+    /**
+     * Starts a new comparison: the threshold and the frame options go back to their settings, no file is overridden,
      * and every folder is recounted, so files added or deleted on disk since it was counted show up or drop out.
      */
     begin: () => void;
@@ -121,11 +130,18 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     // The settings store rehydrates synchronously at import, so this already reads what the user chose.
     threshold: useSettingsStore.getState().matchThreshold,
     setThreshold: (threshold) => set({ threshold }),
+    frameRotate: useSettingsStore.getState().frameRotate,
+    setFrameRotate: (frameRotate) => set({ frameRotate }),
+    frameFlip: useSettingsStore.getState().frameFlip,
+    setFrameFlip: (frameFlip) => set({ frameFlip }),
     begin: () => {
+        const { matchThreshold, frameRotate, frameFlip } = useSettingsStore.getState();
         set(
             (state) => ({
                 ...withoutSelection(state),
-                threshold: useSettingsStore.getState().matchThreshold,
+                threshold: matchThreshold,
+                frameRotate,
+                frameFlip,
                 overrides: new Set(),
             }),
             true,
@@ -178,9 +194,11 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
         }),
 }));
 
-// Follow the "Default match threshold" setting, whether the user changed it or reset it.
+// Follow the "Default match threshold", "Frame rotate" and "Frame flip" settings, whether the user changed them or reset
+// them. Only a setting that changed moves its value, so a reset that changes nothing keeps the session's choices.
 useSettingsStore.subscribe((settings, previous) => {
-    if (settings.matchThreshold !== previous.matchThreshold) {
-        useGalleryStore.getState().setThreshold(settings.matchThreshold);
-    }
+    const gallery = useGalleryStore.getState();
+    if (settings.matchThreshold !== previous.matchThreshold) gallery.setThreshold(settings.matchThreshold);
+    if (settings.frameRotate !== previous.frameRotate) gallery.setFrameRotate(settings.frameRotate);
+    if (settings.frameFlip !== previous.frameFlip) gallery.setFrameFlip(settings.frameFlip);
 });
