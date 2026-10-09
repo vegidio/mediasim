@@ -23,7 +23,7 @@ curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh
 irm https://vegidio.github.io/mediasim/install.ps1 | iex
 ```
 
-By default both the CLI and the GUI are installed. To install only one of them, pass `--cli` or `--gui` to the script on macOS & Linux (`curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh -s -- --cli`), or set `$env:MEDIASIM_INSTALL='cli'` (or `'gui'`) before running it on Windows.
+By default, both the CLI and the GUI are installed. To install only one of them, pass `--cli` or `--gui` to the script on macOS & Linux (`curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh -s -- --cli`), or set `$env:MEDIASIM_INSTALL='cli'` (or `'gui'`) before running it on Windows.
 
 ## 🖼️ Usage
 
@@ -31,10 +31,21 @@ There are two ways to use MediaSim: using the GUI or the CLI.
 
 The GUI is the easiest way to use the app, with an intuitive interface that allows you compare files with just a few clicks. The CLI is more advanced and allows you to compare files in a more automated way.
 
+### GUI
+
+<p align="center">
+<img src="docs/images/gui-screenshot.avif" width="80%" alt="MediaSim - GUI"/>
+</p>
+
+1. Select the media that you want to compare or drop them in the designed area in the Home screen, then click `Continue`.
+2. Filter the media types that you want to be analysed: `Images`, `Videos` or `Both`, then click `Compare`.
+3. After the files is calculated you'll be presented with the files grouped by similarity. Now you can select the files that you want to delete or you can click on the button `Auto-select` to pick the best options of each group.
+4. Click on the button `Move to Trash` to delete the selected files.
+
 ### CLI
 
 <p align="center">
-<img src="docs/images/cli-screenshot.avif" width="80%" alt="mediasim"/>
+<img src="docs/images/cli-screenshot.avif" width="80%" alt="MediaSim - CLI"/>
 </p>
 
 <details>
