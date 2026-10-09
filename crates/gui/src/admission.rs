@@ -179,7 +179,7 @@ pub(crate) mod tests {
 
     #[test]
     fn an_identity_is_sixteen_lowercase_hex_characters() {
-        let (identity, ..) = admit_one(&fixture("test1.png")).unwrap();
+        let (identity, ..) = admit_one(&fixture("test1.avif")).unwrap();
 
         assert_eq!(identity.len(), 16);
         assert!(identity.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)), "{identity}");
@@ -187,15 +187,15 @@ pub(crate) mod tests {
 
     #[test]
     fn the_same_file_gets_the_same_identity() {
-        let path = fixture("test1.png");
+        let path = fixture("test1.avif");
 
         assert_eq!(admit_one(&path).unwrap().0, admit_one(&path).unwrap().0);
     }
 
     #[test]
     fn two_spellings_of_one_file_share_an_identity() {
-        let direct = fixture("test1.png");
-        let roundabout = direct.parent().unwrap().join("..").join("fixtures").join("test1.png");
+        let direct = fixture("test1.avif");
+        let roundabout = direct.parent().unwrap().join("..").join("fixtures").join("test1.avif");
 
         assert_eq!(admit_one(&direct).unwrap().0, admit_one(&roundabout).unwrap().0);
     }
@@ -255,10 +255,10 @@ pub(crate) mod tests {
         let video = dir.path().join(OsStr::from_bytes(b"clip-\xff.mp4"));
         let image = dir.path().join(OsStr::from_bytes(b"photo-\xff.png"));
         // macOS refuses names that aren't UTF-8; only a filesystem that accepts them can test this.
-        if std::fs::copy(fixture("test3.mp4"), &video).is_err() {
+        if std::fs::copy(fixture("test3.mkv"), &video).is_err() {
             return;
         }
-        std::fs::copy(fixture("test1.png"), &image).unwrap();
+        std::fs::copy(fixture("test1.avif"), &image).unwrap();
 
         assert!(admit_one(&video).is_none());
         assert!(admit_one(&image).is_some());
@@ -267,7 +267,7 @@ pub(crate) mod tests {
     #[test]
     fn re_admitting_keeps_the_first_entry() {
         let registry = Admissions::default();
-        let (identity, entry, _) = admit_one(&fixture("test1.png")).unwrap();
+        let (identity, entry, _) = admit_one(&fixture("test1.avif")).unwrap();
 
         registry.admit([(identity.clone(), entry.clone())]);
         registry.admit([(identity.clone(), Admitted { path: "elsewhere.png".into(), ..entry.clone() })]);
@@ -278,7 +278,7 @@ pub(crate) mod tests {
     #[test]
     fn an_unchanged_admitted_file_is_located() {
         let registry = Admissions::default();
-        let (identity, entry, _) = admit_one(&fixture("test1.png")).unwrap();
+        let (identity, entry, _) = admit_one(&fixture("test1.avif")).unwrap();
         registry.admit([(identity.clone(), entry.clone())]);
 
         assert_eq!(locate(&registry, &identity), Ok(entry));
@@ -295,7 +295,7 @@ pub(crate) mod tests {
         for side in ["first", "second"] {
             std::fs::create_dir(dir.path().join(side)).unwrap();
             let copy = dir.path().join(side).join("a.png");
-            std::fs::copy(fixture("test1.png"), &copy).unwrap();
+            std::fs::copy(fixture("test1.avif"), &copy).unwrap();
             set_modified(&copy, time);
         }
         let link = dir.path().join("link");

@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn a_result_serializes_as_files_and_skipped_files() {
-        let media = Media::from_file(fixture("test1.png")).unwrap();
+        let media = Media::from_file(fixture("test1.avif")).unwrap();
         let result = ScanResult {
             groups: vec![ScanGroup { files: vec![media.clone()] }],
             skipped: vec![SkippedFile { path: "/c.png".into(), message: "boom".into() }],
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn a_bad_threshold_is_rejected_as_a_task_failure() {
         for threshold in [-0.1, 1.5, f64::NAN] {
-            let (result, messages) = collect(&ScanState::default(), request(vec![fixture("test1.png")], threshold));
+            let (result, messages) = collect(&ScanState::default(), request(vec![fixture("test1.avif")], threshold));
 
             assert!(matches!(result, Err(ScanFailure::Task { .. })), "{threshold}: {result:?}");
             assert!(messages.is_empty());
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn a_scan_groups_its_files_skips_the_unreadable_and_ends_with_the_final_progress() {
-        let (a, b, missing) = (fixture("test1.png"), fixture("test1.png"), fixture("missing.png"));
+        let (a, b, missing) = (fixture("test1.avif"), fixture("test1.avif"), fixture("missing.png"));
         let state = ScanState::default();
 
         let (result, messages) = collect(&state, request(vec![a.clone(), b, missing.clone()], 0.9));
@@ -495,8 +495,8 @@ mod tests {
 
     #[test]
     fn a_group_carries_its_files() {
-        // `test2.png` scores about 0.95 against `test1.png`, so it stays out of the group at 0.99.
-        let (a, other) = (fixture("test1.png"), fixture("test2.png"));
+        // `test2.avif` scores about 0.95 against `test1.avif`, so it stays out of the group at 0.99.
+        let (a, other) = (fixture("test1.avif"), fixture("test2.avif"));
 
         let (result, _) = collect(&ScanState::default(), request(vec![a.clone(), a.clone(), other], 0.99));
 
@@ -514,12 +514,12 @@ mod tests {
     #[test]
     fn a_new_scan_cancels_the_one_it_replaces() {
         let state = ScanState::default();
-        let videos: Vec<_> = (0..8).map(|i| fixture(if i % 2 == 0 { "test3.mp4" } else { "test4.mp4" })).collect();
+        let videos: Vec<_> = (0..8).map(|i| fixture(if i % 2 == 0 { "test3.mkv" } else { "test4.mkv" })).collect();
 
         let (first, second) = std::thread::scope(|scope| {
             let first = scope.spawn(|| collect(&state, request(videos, 0.9)).0);
             wait_until_running(&state);
-            let second = collect(&state, request(vec![fixture("test1.png")], 0.9)).0;
+            let second = collect(&state, request(vec![fixture("test1.avif")], 0.9)).0;
             (first.join().unwrap(), second)
         });
 

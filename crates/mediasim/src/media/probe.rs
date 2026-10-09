@@ -163,21 +163,21 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::media::tests::{fixture, zero_media_data};
+    use crate::media::tests::{corrupt_media_data, fixture};
 
     #[test]
     fn probes_an_image() {
-        let path = fixture("test1.png");
+        let path = fixture("test1.avif");
 
         let info = Media::probe(&path).unwrap();
 
         assert_eq!(info.path, path);
         assert_eq!(info.media_type, MediaType::Image);
-        assert_eq!(info.format, Some("PNG"));
+        assert_eq!(info.format, Some("AVIF"));
         assert_eq!(info.size, std::fs::metadata(&path).unwrap().len());
-        assert_eq!((info.width, info.height), (1440, 3098));
+        assert_eq!((info.width, info.height), (427, 640));
         assert_eq!(info.duration, None);
-        assert_eq!(info.color_profile, None);
+        assert_eq!(info.color_profile.as_deref(), Some("sRGB"));
         assert_eq!(info.bit_depth, Some(8));
         assert_eq!(info.frame_rate, None);
         assert!(info.modified.is_some());
@@ -187,12 +187,12 @@ mod tests {
     fn the_format_follows_the_contents_not_the_extension() {
         let dir = mk_temp_dir("mediasim").unwrap();
         let path = dir.path().join("photo.jpg");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
 
         let info = Media::probe(&path).unwrap();
 
-        assert_eq!(info.format, Some("PNG"));
-        assert_eq!((info.width, info.height), (1440, 3098));
+        assert_eq!(info.format, Some("AVIF"));
+        assert_eq!((info.width, info.height), (427, 640));
     }
 
     #[test]
@@ -225,17 +225,17 @@ mod tests {
 
     #[test]
     fn probes_a_video() {
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
 
         let info = Media::probe(&path).unwrap();
 
         assert_eq!(info.path, path);
         assert_eq!(info.media_type, MediaType::Video);
         assert_eq!(info.size, std::fs::metadata(&path).unwrap().len());
-        assert_eq!((info.width, info.height), (1080, 1920));
+        assert_eq!((info.width, info.height), (338, 640));
         assert!(info.duration.is_some_and(|d| d > Duration::ZERO));
-        // `ffprobe -show_entries stream=avg_frame_rate` gives 30/1.
-        assert_eq!(info.frame_rate, Some(30.0));
+        // `ffprobe -show_entries stream=avg_frame_rate` gives 25/1.
+        assert_eq!(info.frame_rate, Some(25.0));
         assert_eq!(info.format, None);
         assert_eq!(info.color_profile, None);
         assert_eq!(info.bit_depth, None);
@@ -271,11 +271,11 @@ mod tests {
     fn a_video_with_corrupt_frames_still_probes() {
         let dir = mk_temp_dir("mediasim").unwrap();
         let path = dir.path().join("corrupt.mp4");
-        zero_media_data(&fixture("test3.mp4"), &path);
+        corrupt_media_data(&fixture("test3.mkv"), &path);
 
         let info = Media::probe(&path).unwrap();
 
-        assert_eq!((info.width, info.height), (1080, 1920));
+        assert_eq!((info.width, info.height), (338, 640));
         assert!(Media::from_file(&path).is_err());
     }
 

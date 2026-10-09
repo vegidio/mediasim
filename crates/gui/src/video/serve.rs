@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn a_fixture_is_served_unchanged() {
         let state = Admissions::default();
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
         let bytes = std::fs::read(&path).unwrap();
         let identity = admit(&state, &path);
 
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn an_admitted_image_is_not_found() {
         let state = Admissions::default();
-        let identity = admit(&state, &fixture("test1.png"));
+        let identity = admit(&state, &fixture("test1.avif"));
 
         assert_eq!(request(&state, &identity, None).status(), StatusCode::NOT_FOUND);
     }

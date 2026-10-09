@@ -489,7 +489,7 @@ mod tests {
     fn temp_image() -> (rust_sak::fs::TempDir, PathBuf) {
         let dir = mk_temp_dir("mediasim-restore-").unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         (dir, path)
     }
 
@@ -511,7 +511,7 @@ mod tests {
         let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-trash-").unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         set_modified(&path, UNIX_EPOCH + Duration::from_secs(1_700_000_000));
         let identities = admit(&state, vec![path.clone()]);
 
@@ -527,7 +527,7 @@ mod tests {
         let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-trash-").unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         let identities = admit(&state, vec![path.clone()]);
 
         std::fs::remove_file(&path).unwrap();
@@ -540,7 +540,7 @@ mod tests {
         let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-trash-").unwrap();
         let removed = dir.path().join("removed.png");
-        std::fs::copy(fixture("test1.png"), &removed).unwrap();
+        std::fs::copy(fixture("test1.avif"), &removed).unwrap();
         let mut identities = admit(&state, vec![removed.clone()]);
         std::fs::remove_file(&removed).unwrap();
         identities.insert(0, "0123456789abcdef".into());
@@ -570,7 +570,7 @@ mod tests {
         let dir = mk_temp_dir("mediasim-trash-").unwrap();
         std::fs::create_dir(dir.path().join("chosen")).unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         let roots = AllowedRoots::default();
         roots.allow([dir.path().join("chosen")]);
         let identities = admit(&state, vec![dir.path().join("chosen/../a.png")]);

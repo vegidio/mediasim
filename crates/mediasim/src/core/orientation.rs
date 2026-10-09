@@ -165,7 +165,7 @@ mod tests {
         use crate::media::tests::fixture;
 
         // A non-square fixture, so the rotations also check that squashing to a square commutes with them.
-        let img = rust_sak::image::decode_file(fixture("test1.png")).unwrap().to_rgba8();
+        let img = rust_sak::image::decode_file(fixture("test1.avif")).unwrap().to_rgba8();
         let icon = Icon::from_image(&img);
 
         let mut worst = 0.0_f64;

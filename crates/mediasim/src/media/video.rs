@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn pre_cancelled_runs_no_callback() {
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
         let token = CancelToken::new();
         token.cancel();
         let (count, seen) = counter();
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn cancel_mid_load_stops_within_a_frame_or_two() {
         const CANCEL_AT: usize = 3;
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
         let token = CancelToken::new();
         let (count, seen) = counter();
         let canceller = token.clone();
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn one_token_stops_two_concurrent_loads() {
-        let (a, b) = (fixture("test3.mp4"), fixture("test4.mp4"));
+        let (a, b) = (fixture("test3.mkv"), fixture("test4.mkv"));
         let token = CancelToken::new();
         // Both loads wait here at their first frame, so the token is cancelled while both are mid-extraction.
         let started = Arc::new(Barrier::new(3));
@@ -164,11 +164,11 @@ mod tests {
 
     #[test]
     fn loads_one_frame_per_second_with_stream_metadata() {
-        let decoded = load(&fixture("test3.mp4"), None).unwrap();
+        let decoded = load(&fixture("test3.mkv"), None).unwrap();
 
         let duration = decoded.duration.expect("video has a duration");
         assert!(duration.as_secs_f64() > 0.0);
-        assert_eq!((decoded.width, decoded.height), (1080, 1920));
+        assert_eq!((decoded.width, decoded.height), (338, 640));
 
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let expected = duration.as_secs_f64().ceil() as usize;

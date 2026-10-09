@@ -124,7 +124,7 @@ mod tests {
     fn temp_image() -> (rust_sak::fs::TempDir, PathBuf) {
         let dir = mk_temp_dir("mediasim-open-").unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         (dir, path)
     }
 

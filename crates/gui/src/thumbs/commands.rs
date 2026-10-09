@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn a_mixed_list_returns_identities_and_nothing_in_input_order() {
         let registry = Admissions::default();
-        let paths = vec![fixture("test1.png"), fixture("missing.jpg"), fixture("test3.mp4"), "notes.txt".into()];
+        let paths = vec![fixture("test1.avif"), fixture("missing.jpg"), fixture("test3.mkv"), "notes.txt".into()];
 
         let identities = tauri::async_runtime::block_on(admit(&registry, paths)).unwrap();
 
@@ -121,7 +121,7 @@ mod tests {
         let notes = dir.path().join("notes.txt");
         std::fs::write(&notes, b"not media").unwrap();
         let registry = Admissions::default();
-        let paths = vec![fixture("test1.png"), fixture("missing.jpg"), fixture("test3.mp4"), dir.path().into(), notes];
+        let paths = vec![fixture("test1.avif"), fixture("missing.jpg"), fixture("test3.mkv"), dir.path().into(), notes];
 
         let files = tauri::async_runtime::block_on(describe(&registry, paths)).unwrap();
 
@@ -130,7 +130,7 @@ mod tests {
         assert_eq!(files[3], None);
         assert_eq!(files[4], None);
         for (file, name, media_type) in
-            [(&files[0], "test1.png", MediaType::Image), (&files[2], "test3.mp4", MediaType::Video)]
+            [(&files[0], "test1.avif", MediaType::Image), (&files[2], "test3.mkv", MediaType::Video)]
         {
             let file = file.as_ref().expect("a media file is described");
             let path = fixture(name);
@@ -167,8 +167,8 @@ mod tests {
     fn admitting_again_returns_the_same_identity() {
         let registry = Admissions::default();
 
-        let first = tauri::async_runtime::block_on(admit(&registry, vec![fixture("test1.png")])).unwrap();
-        let second = tauri::async_runtime::block_on(admit(&registry, vec![fixture("test1.png")])).unwrap();
+        let first = tauri::async_runtime::block_on(admit(&registry, vec![fixture("test1.avif")])).unwrap();
+        let second = tauri::async_runtime::block_on(admit(&registry, vec![fixture("test1.avif")])).unwrap();
 
         assert_eq!(first, second);
     }

@@ -109,17 +109,17 @@ mod tests {
 
     #[test]
     fn an_image_larger_than_the_bound_fits_by_its_longer_edge() {
-        // test1.png is 1440×3098: 1440 * 400 / 3098 = 185.9.
-        let preview = preview(&fixture("test1.png"), bound(400)).unwrap();
+        // test1.avif is 427×640: 427 * 400 / 640 = 266.9.
+        let preview = preview(&fixture("test1.avif"), bound(400)).unwrap();
 
-        assert_eq!(preview.dimensions(), (186, 400));
+        assert_eq!(preview.dimensions(), (267, 400));
     }
 
     #[test]
     fn an_image_within_the_bound_is_never_enlarged() {
-        let preview = preview(&fixture("test1.png"), bound(4000)).unwrap();
+        let preview = preview(&fixture("test1.avif"), bound(4000)).unwrap();
 
-        assert_eq!(preview.dimensions(), (1440, 3098));
+        assert_eq!(preview.dimensions(), (427, 640));
     }
 
     #[test]
@@ -171,18 +171,18 @@ mod tests {
 
     #[test]
     fn a_video_gives_a_frame_fitted_with_the_stream_aspect_ratio() {
-        // test3.mp4's stream is 1080×1920: 1080 * 320 / 1920 = 180.
-        let preview = preview(&fixture("test3.mp4"), bound(320)).unwrap();
+        // test3.mkv's stream is 338×640: 338 * 320 / 640 = 169.
+        let preview = preview(&fixture("test3.mkv"), bound(320)).unwrap();
 
-        assert_eq!(preview.dimensions(), (180, 320));
+        assert_eq!(preview.dimensions(), (169, 320));
         assert!(matches!(preview, DynamicImage::ImageRgb8(_)));
     }
 
     #[test]
     fn a_video_within_the_bound_is_never_enlarged() {
-        let preview = preview(&fixture("test3.mp4"), bound(4000)).unwrap();
+        let preview = preview(&fixture("test3.mkv"), bound(4000)).unwrap();
 
-        assert_eq!(preview.dimensions(), (1080, 1920));
+        assert_eq!(preview.dimensions(), (338, 640));
     }
 
     #[test]

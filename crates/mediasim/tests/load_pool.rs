@@ -32,7 +32,7 @@ fn from_files_completes_while_the_global_pool_is_busy() {
 
     let (done_tx, done_rx) = mpsc::channel();
     thread::spawn(move || {
-        let results: Vec<_> = Media::from_files(vec![fixture("test1.png"), fixture("test3.mp4")]).collect();
+        let results: Vec<_> = Media::from_files(vec![fixture("test1.avif"), fixture("test3.mkv")]).collect();
         done_tx.send(results).unwrap();
     });
 

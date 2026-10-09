@@ -30,7 +30,7 @@ fn directory(files: &[(&str, &str)]) -> TempDir {
 
 /// `a.png` and `b.png`, which match, and `c.png` and `d.png`, which match nothing.
 fn four_images() -> TempDir {
-    let dir = directory(&[("test1.png", "a.png"), ("test1.png", "b.png"), ("test2.png", "c.png")]);
+    let dir = directory(&[("test1.avif", "a.png"), ("test1.avif", "b.png"), ("test2.avif", "c.png")]);
     image::RgbImage::from_pixel(64, 48, image::Rgb([200, 30, 90]))
         .save(dir.path().join("d.png"))
         .unwrap();
@@ -86,7 +86,7 @@ fn groups_equal_those_of_pushing_one_at_a_time() {
 #[test]
 fn every_file_reports_progress_ending_at_the_total_with_no_time_left() {
     let dir = four_images();
-    std::fs::copy(fixture("test2.png"), dir.path().join("e.png")).unwrap();
+    std::fs::copy(fixture("test2.avif"), dir.path().join("e.png")).unwrap();
     let paths = paths(dir.path(), &["a.png", "b.png", "c.png", "d.png", "e.png"]);
 
     let (result, events) = run(Scan::new(paths, THRESHOLD));
@@ -175,7 +175,7 @@ fn stop_ends_the_scan_with_the_unreadable_file() {
 #[test]
 fn cancelled_mid_scan_ends_as_cancelled_with_no_further_progress() {
     let names: Vec<String> = (0..40).map(|i| format!("{i:02}.png")).collect();
-    let dir = directory(&names.iter().map(|name| ("test2.png", name.as_str())).collect::<Vec<_>>());
+    let dir = directory(&names.iter().map(|name| ("test2.avif", name.as_str())).collect::<Vec<_>>());
     let token = CancelToken::new();
 
     let mut events = Vec::new();
@@ -236,10 +236,10 @@ fn cached_groups_equal_uncached_ones() {
 #[test]
 fn groups_follow_the_earliest_of_their_paths_given() {
     let dir = directory(&[
-        ("test1.png", "x1.png"),
-        ("test1.png", "x2.png"),
-        ("test2.png", "a1.png"),
-        ("test2.png", "a2.png"),
+        ("test1.avif", "x1.png"),
+        ("test1.avif", "x2.png"),
+        ("test2.avif", "a1.png"),
+        ("test2.avif", "a2.png"),
     ]);
     let given = paths(dir.path(), &["x1.png", "a1.png", "x2.png", "a2.png"]);
 

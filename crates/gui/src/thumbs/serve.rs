@@ -280,7 +280,7 @@ mod tests {
         let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         let identity = admit(&state.0, &path);
 
         std::fs::remove_file(&path).unwrap();
@@ -293,7 +293,7 @@ mod tests {
         let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
         let identity = admit(&state.0, &path);
         assert!(produce_now(&state, &asking(&identity, 96), render).is_ok());
 
@@ -333,22 +333,22 @@ mod tests {
     }
 
     #[test]
-    fn a_fixture_with_transparent_pixels_is_answered_as_png() {
-        // test1.png is a palette PNG whose transparent entry is used, so its thumbnail has to keep alpha.
+    fn an_opaque_fixture_is_answered_as_jpeg() {
+        // test1.avif has no alpha channel, so its thumbnail has no transparency to keep.
         let state = states();
-        let identity = admit(&state.0, &fixture("test1.png"));
+        let identity = admit(&state.0, &fixture("test1.avif"));
 
         let response = respond(produce_now(&state, &asking(&identity, 384), render));
 
-        assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
-        // 1440×3098: 1440 * 384 / 3098 = 178.5.
-        assert_eq!(image::load_from_memory(response.body()).unwrap().dimensions(), (178, 384));
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "image/jpeg");
+        // 427×640: 427 * 384 / 640 = 256.2.
+        assert_eq!(image::load_from_memory(response.body()).unwrap().dimensions(), (256, 384));
     }
 
     #[test]
     fn the_largest_bound_caps_the_longer_edge() {
         let state = states();
-        let identity = admit(&state.0, &fixture("test1.png"));
+        let identity = admit(&state.0, &fixture("test1.avif"));
 
         let response = respond(produce_now(&state, &asking(&identity, 2048), render));
 
@@ -360,13 +360,14 @@ mod tests {
     #[test]
     fn a_video_answer_is_its_frame_fitted_to_the_bound() {
         let state = states();
-        let identity = admit(&state.0, &fixture("test3.mp4"));
+        let identity = admit(&state.0, &fixture("test3.mkv"));
 
         let response = respond(produce_now(&state, &asking(&identity, 384), render));
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()[header::CONTENT_TYPE], "image/jpeg");
-        assert_eq!(image::load_from_memory(response.body()).unwrap().dimensions(), (216, 384));
+        // 338×640: 338 * 384 / 640 = 202.8.
+        assert_eq!(image::load_from_memory(response.body()).unwrap().dimensions(), (203, 384));
     }
 
     #[test]
@@ -415,7 +416,7 @@ mod tests {
     #[test]
     fn a_second_request_is_served_from_the_cache() {
         let state = states();
-        let identity = admit(&state.0, &fixture("test1.png"));
+        let identity = admit(&state.0, &fixture("test1.avif"));
         let calls = Arc::new(AtomicUsize::new(0));
         let counting = |calls: &Arc<AtomicUsize>| {
             let calls = Arc::clone(calls);
@@ -435,7 +436,7 @@ mod tests {
     #[test]
     fn a_panicking_render_is_answered_with_a_server_error_and_retried_next_time() {
         let state = states();
-        let identity = admit(&state.0, &fixture("test1.png"));
+        let identity = admit(&state.0, &fixture("test1.avif"));
 
         let panicked = produce_now(&state, &asking(&identity, 96), |_: &Path, _| -> Result<Rendition, RenderError> {
             panic!("the decoder panicked")

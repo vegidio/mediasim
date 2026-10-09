@@ -2,6 +2,16 @@
 members = ["crates/mediasim", "crates/cli", "crates/gui"]
 resolver = "2"
 
+[workspace.package]
+# The single source of the version, for the CLI and the GUI alike: crates/gui/tauri.conf.json omits `version` so Tauri
+# inherits it from here. CI stamps the pushed tag into it before building a release.
+version = "26.10.0"
+# Kept in sync with `edition` in rustfmt.toml.
+edition = "2024"
+authors = ["Vinicius Egidio"]
+license = "Apache-2.0"
+repository = "https://github.com/vegidio/mediasim"
+
 [workspace.dependencies]
 clap = { version = "4.6", features = ["derive"] }
 csv = "1.4"

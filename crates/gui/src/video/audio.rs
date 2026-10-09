@@ -279,9 +279,9 @@ mod tests {
     use super::*;
     use crate::admission::tests::fixture;
 
-    /// `test4.mp4`: AV1 with 11.7 s of stereo AAC at 44.1 kHz.
+    /// `test4.mkv`: AV1 with 19.3 s of mono AAC at 44.1 kHz, timed in milliseconds as Matroska is.
     fn source() -> String {
-        fixture("test4.mp4").to_str().unwrap().to_owned()
+        fixture("test4.mkv").to_str().unwrap().to_owned()
     }
 
     fn rate() -> f64 {
@@ -348,12 +348,13 @@ mod tests {
     fn the_whole_sound_encoded_lasts_as_long_as_the_source() {
         let mut reader = MediaReader::open(source()).unwrap();
         let index = reader.best_stream(StreamKind::Audio).unwrap();
-        let source_samples: i64 = reader
-            .packets()
-            .map(Result::unwrap)
-            .filter(|p| p.stream_index() == index)
-            .map(|p| p.duration())
-            .sum();
+        let time_base = reader.stream_time_base(index).unwrap().as_f64();
+        let packets: Vec<Packet> = reader.packets().map(Result::unwrap).filter(|p| p.stream_index() == index).collect();
+        // From the first packet's start to the last one's end rather than the sum of their durations: each of those is
+        // rounded to a whole millisecond, which over the whole sound adds up to far more than a packet.
+        let (first, last) = (&packets[0], packets.last().unwrap());
+        #[expect(clippy::cast_possible_truncation, clippy::cast_precision_loss, reason = "a small timestamp")]
+        let source_samples = ((last.pts() + last.duration() - first.pts()) as f64 * time_base * rate()).round() as i64;
         let mut audio = AudioSource::encode(&source(), 0.0).unwrap().unwrap();
 
         let packets = audio.until(f64::MAX).unwrap();
@@ -395,6 +396,7 @@ mod tests {
     fn copying_yields_the_source_packets_up_to_the_time_asked_and_no_further() {
         let mut reader = MediaReader::open(source()).unwrap();
         let index = reader.best_stream(StreamKind::Audio).unwrap();
+        let time_base = reader.stream_time_base(index).unwrap().as_f64();
         let source: Vec<(i64, Vec<u8>)> = reader
             .packets()
             .map(Result::unwrap)
@@ -402,17 +404,17 @@ mod tests {
             .map(|packet| (packet.pts(), packet.data().to_vec()))
             .collect();
         #[expect(clippy::cast_possible_truncation, reason = "a small timestamp")]
-        let until = (5.0 * rate()) as i64;
+        let until = (5.0 / time_base).round() as i64;
         let mut audio = AudioSource::copy(&super::tests::source(), 0.0).unwrap().unwrap();
 
         let first: Vec<(i64, Vec<u8>)> =
             audio.until(5.0).unwrap().iter().map(|packet| (packet.pts(), packet.data().to_vec())).collect();
         let rest = audio.until(f64::MAX).unwrap();
 
-        // The source opens with its encoder's priming, a packet at -1024 that its edit list hides. Copied, it would
-        // be placed at the session's start and play the sound a packet late, so it is left out like anything else
-        // mostly before the start.
-        assert_eq!(source[0].0, -1024);
+        // The source opens with its encoder's priming, a packet of 1024 samples placed before 0, at -23 ms. Copied, it
+        // would be placed at the session's start and play the sound a packet late, so it is left out like anything
+        // else mostly before the start.
+        assert_eq!(source[0].0, -23);
         let expected: Vec<_> = source[1..].iter().filter(|(pts, _)| *pts < until).cloned().collect();
         assert_eq!(first, expected);
         assert_eq!(1 + first.len() + rest.len(), source.len());
@@ -421,7 +423,7 @@ mod tests {
 
     #[test]
     fn a_video_without_sound_has_no_audio_source() {
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
 
         assert!(AudioSource::copy(path.to_str().unwrap(), 0.0).unwrap().is_none());
         assert!(AudioSource::encode(path.to_str().unwrap(), 0.0).unwrap().is_none());

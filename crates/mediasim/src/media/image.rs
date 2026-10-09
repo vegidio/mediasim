@@ -68,9 +68,9 @@ mod tests {
 
     #[test]
     fn loads_one_frame_with_image_dimensions() {
-        let decoded = load(&fixture("test1.png"), None).unwrap();
+        let decoded = load(&fixture("test1.avif"), None).unwrap();
 
-        assert_eq!((decoded.width, decoded.height), (1440, 3098));
+        assert_eq!((decoded.width, decoded.height), (427, 640));
         assert_eq!(decoded.duration, None);
         assert_eq!(decoded.frames.len(), 1);
     }
@@ -79,11 +79,11 @@ mod tests {
     fn loads_an_image_whose_extension_names_another_format() {
         let dir = rust_sak::fs::mk_temp_dir("mediasim").unwrap();
         let path = dir.path().join("photo.jpg");
-        std::fs::copy(fixture("test1.png"), &path).unwrap();
+        std::fs::copy(fixture("test1.avif"), &path).unwrap();
 
         let decoded = load(&path, None).unwrap();
 
-        assert_eq!((decoded.width, decoded.height), (1440, 3098));
+        assert_eq!((decoded.width, decoded.height), (427, 640));
     }
 
     #[test]
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn streaming_decodes_the_same_pixels_as_decoding_in_memory() {
         let dir = rust_sak::fs::mk_temp_dir("mediasim").unwrap();
-        let png = fixture("test1.png");
+        let png = fixture("test1.avif");
         let source = rust_sak::image::decode_file(&png).unwrap();
         let mut paths = vec![png];
         for (name, format) in [("a.jpg", image::ImageFormat::Jpeg), ("a.bmp", image::ImageFormat::Bmp)] {
@@ -130,7 +130,7 @@ mod tests {
     fn a_truncated_image_is_an_image_error() {
         let dir = rust_sak::fs::mk_temp_dir("mediasim").unwrap();
         let path = dir.path().join("cut.png");
-        let bytes = std::fs::read(fixture("test1.png")).unwrap();
+        let bytes = std::fs::read(fixture("test1.avif")).unwrap();
         std::fs::write(&path, &bytes[..bytes.len() / 2]).unwrap();
 
         assert!(decoded_in_memory(&path).is_err());

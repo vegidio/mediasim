@@ -19,17 +19,17 @@ fn assert_in_range_and_symmetric(a: &Media, b: &Media) -> f64 {
 
 #[test]
 fn images_score_in_range_and_symmetrically() {
-    assert_in_range_and_symmetric(&load("test1.png"), &load("test2.png"));
+    assert_in_range_and_symmetric(&load("test1.avif"), &load("test2.avif"));
 }
 
 #[test]
 fn videos_score_in_range_and_symmetrically() {
-    assert_in_range_and_symmetric(&load("test3.mp4"), &load("test4.mp4"));
+    assert_in_range_and_symmetric(&load("test3.mkv"), &load("test4.mkv"));
 }
 
 #[test]
 fn every_file_scores_one_against_itself() {
-    for name in ["test1.png", "test2.png", "test3.mp4", "test4.mp4"] {
+    for name in ["test1.avif", "test2.avif", "test3.mkv", "test4.mkv"] {
         let media = load(name);
         assert_eq!(media.similarity(&media).unwrap(), 1.0, "{name}");
     }
@@ -37,7 +37,7 @@ fn every_file_scores_one_against_itself() {
 
 #[test]
 fn image_vs_video_is_a_type_mismatch() {
-    let err = load("test1.png").similarity(&load("test3.mp4")).unwrap_err();
+    let err = load("test1.avif").similarity(&load("test3.mkv")).unwrap_err();
 
     assert!(
         matches!(
@@ -46,7 +46,7 @@ fn image_vs_video_is_a_type_mismatch() {
         ),
         "{err:?}"
     );
-    assert!(err.to_string().contains("test1.png") && err.to_string().contains("test3.mp4"), "{err}");
+    assert!(err.to_string().contains("test1.avif") && err.to_string().contains("test3.mkv"), "{err}");
 }
 
 /// Turns an image into an oriented copy of it.
@@ -80,8 +80,8 @@ fn oriented_image_copies_score_close_to_one_with_the_matching_option() {
         ),
     ];
 
-    let decoded = rust_sak::image::decode_file(fixture("test1.png")).unwrap();
-    let original = load("test1.png");
+    let decoded = rust_sak::image::decode_file(fixture("test1.avif")).unwrap();
+    let original = load("test1.avif");
 
     for (name, orient, options) in cases {
         let copy = load_copy(&orient(&decoded));

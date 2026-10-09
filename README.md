@@ -23,6 +23,8 @@ curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh
 irm https://vegidio.github.io/mediasim/install.ps1 | iex
 ```
 
+By default both the CLI and the GUI are installed. To install only one of them, pass `--cli` or `--gui` to the script on macOS & Linux (`curl -fsSL https://vegidio.github.io/mediasim/install.sh | sh -s -- --cli`), or set `$env:MEDIASIM_INSTALL='cli'` (or `'gui'`) before running it on Windows.
+
 ## 🖼️ Usage
 
 You can use **mediasim** in two ways: as a command-line interface (CLI) tool or a Go library.
@@ -72,23 +74,7 @@ Where:
 
 - `directory` (mandatory): the path to the directory where the media files are located.
 - `-r` (optional): recursively search for files in subdirectories to include in the comparison.
-- `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
-</details>
-
-<details>
-<summary>Renaming files based on similarity</summary>
-
-#### Run the command below in the terminal:
-
-```bash
-$ mediasim rename <directory> [-r] [--mt <media-type>]
-```
-
-Where:
-
-- `directory` (mandatory): the path to the directory where the media files are located.
-- `-r` (optional): recursively search for files in subdirectories to include in the comparison.
-- `--mt` (optional): the file types to be included in the comparison. You can choose between `image`, `video`, or `all` (default).
+- `--mt` (optional): the file types to be included in the comparison. You can choose between `images`, `videos`, or `all` (default).
 </details>
 
 ---
@@ -96,40 +82,14 @@ Where:
 Other parameters you can use:
 
 - `-t` (optional): the threshold for the similarity score; a value between 0–1, where 0 is completely different and 1 is identical. The default value is `0.8`, which means only similarities of 80% or higher will be reported.
-- `-o` (optional): the output format; you can choose `report` (default) or, if you prefer a raw output, `json` or `csv`.
+- `-o` (optional): the output format; you can choose `term` (default) or, if you prefer a raw output, `json` or `csv`.
 - `--ie` (optional): ignores errors and continues the comparison even if some files are not valid.
 - `--ff` (optional): flips the frames vertically and horizontally during the comparison.
 - `--fr` (optional): rotates the frames in multiple angles during the comparison.
 
 For the full list of parameters, type `mediasim --help` in the terminal.
 
-## 🎞️ Supported media types
-
-In its default configuration, the **mediasim** library supports media files with the following extensions:
-
-- Images: `.bmp`, `.gif`, `.jpg` (`.jpeg`), `.png`, `.tiff`, `.webp`
-- Videos: `.avi`, `.mp4` (`.m4v`), `.mkv`, `.mov`, `.webm`
-
-The CLI supports two additional image formats: `.avif` and `.heic`.
-
-If you want to work with additional file extensions in the library, like those two above, you can use the functions `AddImageType` or `AddVideoType` before performing any similarity comparisons. This allows **mediasim** to include these file types during calculations.
-
-When adding support for new media formats, it's essential to load a 3rd party library capable of decoding them. For example, to enable AVIF image comparison in **mediasim**, you could use a library like [avif-go](https://github.com/vegidio/avif-go) to do this:
-
-```go
-import _ "github.com/vegidio/avif-go"
-mediasim.AddImageType(".avif")
-```
-
 ## 💣 Troubleshooting
-
-### Video Comparison Doesn't Work
-
-If the comparison of videos is not working, it may be because you don't have [FFmpeg](https://www.ffmpeg.org/download.html) working in your computer, which is required to extract frames from the video files.
-
-When FFmpeg is not found, **mediasim** will try to automatically download and install it for you. Even though this will work in most cases, it may fail for unpredictable reasons.
-
-The best option to have the video comparison working is to install FFmpeg yourself in your computer and make sure it is available in your `PATH`.
 
 ### Video Comparison Is Taking Too Long
 
@@ -154,31 +114,36 @@ To bypass this, open the Terminal and run one of the commands below (depending o
 
 To build this project, you will need the following dependencies installed in your computer:
 
-- [Golang](https://go.dev/doc/install)
-- [Task](https://taskfile.dev/installation/)
+- [Rust](https://rust-lang.org/tools/install)
+- [Just](https://just.systems/man/en/installation.html)
+
+If you want to build the GUI you will also need:
+
+- [Node.js](https://nodejs.org/en/download/)
+- [PNPM](https://pnpm.io/installation)
 
 ### Compiling
 
 With all the dependencies installed, in the project's root folder run the command:
 
 ```bash
-$ task cli os=<operating-system> arch=<architecture>
+just build <interface> <architecture>
 ```
 
 Where:
 
-- `<operating-system>`: can be `windows`, `darwin` (macOS), or `linux`.
-- `<architecture>`: can be `amd64` or `arm64`.
+- `<interface>`: can be `cli` or `gui`.
+- `<architecture>`: can be `x64` or `arm64` (optional).
 
-For example, if I wanted to build the CLI for Windows, on architecture AMD64, I would run the command:
+For example, if I wanted to build a GUI version of the app, on architecture x64, I would run the command:
 
 ```bash
-$ task cli os=windows arch=amd64
+just build gui x64
 ```
 
 ## 📝 License
 
-**mediasim** is released under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
+**MediaSim** is released under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
 
 ## 👨🏾‍💻 Author
 

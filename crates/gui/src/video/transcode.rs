@@ -354,7 +354,7 @@ mod tests {
     use crate::video::encoder::{Encoders, LIBX264};
     use crate::video::fixtures::reencoded;
 
-    /// 10 s of `test3.mp4` at 540×960 with a keyframe every 1.5 s, so most of its keyframes fall inside a segment.
+    /// 10 s of `test3.mkv` at 540×960 with a keyframe every 1.8 s, so most of its keyframes fall inside a segment.
     fn off_grid(dir: &Path) -> String {
         reencoded(dir, "offgrid.mp4", (540, 960), 45, 10.0).to_str().unwrap().to_owned()
     }
@@ -549,7 +549,7 @@ mod tests {
         let result = session.encode(0, &AtomicBool::new(true));
 
         assert!(matches!(result, Err(EncodeError::Cancelled)));
-        // Nothing was left half-done: the next request encodes the segment whole.
-        assert_eq!(encode(&mut session, 0).len(), 60);
+        // Nothing was left half-done: the next request encodes the segment whole, 2 s at 25 fps.
+        assert_eq!(encode(&mut session, 0).len(), 50);
     }
 }

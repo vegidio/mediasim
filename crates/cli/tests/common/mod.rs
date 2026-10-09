@@ -7,6 +7,10 @@ use std::process::Output;
 
 use image::{DynamicImage, imageops};
 
+/// A threshold between the fixtures' two scores: `test1.avif`/`test2.avif` (≈ 0.774) group at it, and
+/// `test3.mkv`/`test4.mkv` (≈ 0.627) don't. Both are below the default of 0.8.
+pub const THRESHOLD: &str = "0.7";
+
 /// The path of a file in the workspace's `fixtures` directory.
 pub fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
@@ -83,7 +87,7 @@ pub struct OrientedCopies {
     pub rotated: PathBuf,
 }
 
-/// Writes `test1.png` into `dir` as it is, mirrored horizontally, and rotated clockwise by 90°.
+/// Writes `test1.avif` into `dir` as it is, mirrored horizontally, and rotated clockwise by 90°.
 ///
 /// The changed copies are BMP, because encoding a large PNG takes most of a debug test run.
 pub fn oriented_copies(dir: &Path) -> OrientedCopies {
@@ -92,9 +96,9 @@ pub fn oriented_copies(dir: &Path) -> OrientedCopies {
         mirrored: dir.join("mirrored.bmp"),
         rotated: dir.join("rotated.bmp"),
     };
-    let image = rust_sak::image::decode_file(fixture("test1.png")).unwrap();
+    let image = rust_sak::image::decode_file(fixture("test1.avif")).unwrap();
 
-    std::fs::copy(fixture("test1.png"), &copies.original).unwrap();
+    std::fs::copy(fixture("test1.avif"), &copies.original).unwrap();
     let mirrored = DynamicImage::from(imageops::flip_horizontal(&image));
     rust_sak::image::encode_file(&mirrored, &copies.mirrored, None).unwrap();
     let rotated = DynamicImage::from(imageops::rotate90(&image));

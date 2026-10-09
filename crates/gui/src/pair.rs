@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn fixtures_probe_with_their_type_and_size() {
-        for (name, media_type) in [("test1.png", MediaType::Image), ("test3.mp4", MediaType::Video)] {
+        for (name, media_type) in [("test1.avif", MediaType::Image), ("test3.mkv", MediaType::Video)] {
             let path = fixture(name);
 
             let info = block_on(probe_media(path.clone())).unwrap();
@@ -231,7 +231,7 @@ mod tests {
     fn a_file_against_itself_is_one() {
         let state = PairState::default();
 
-        let similarity = block_on(compare(&state, fixture("test1.png"), fixture("test1.png"))).unwrap();
+        let similarity = block_on(compare(&state, fixture("test1.avif"), fixture("test1.avif"))).unwrap();
 
         assert!((similarity - 1.0).abs() < f64::EPSILON, "{similarity}");
         assert!(state.lock().is_none(), "a finished comparison is forgotten");
@@ -239,7 +239,8 @@ mod tests {
 
     #[test]
     fn two_different_images_score_within_range() {
-        let similarity = block_on(compare(&PairState::default(), fixture("test1.png"), fixture("test2.png"))).unwrap();
+        let similarity =
+            block_on(compare(&PairState::default(), fixture("test1.avif"), fixture("test2.avif"))).unwrap();
 
         assert!((0.0..=1.0).contains(&similarity), "{similarity}");
     }
@@ -248,7 +249,7 @@ mod tests {
     fn a_missing_b_is_a_load_error_naming_b() {
         let missing = fixture("missing.png");
 
-        let err = block_on(compare(&PairState::default(), fixture("test1.png"), missing.clone())).unwrap_err();
+        let err = block_on(compare(&PairState::default(), fixture("test1.avif"), missing.clone())).unwrap_err();
 
         let PairError::Load { path, .. } = err else { panic!("expected a load error, got {err:?}") };
         assert_eq!(path, missing.to_string_lossy());
@@ -256,7 +257,7 @@ mod tests {
 
     #[test]
     fn an_image_against_a_video_is_a_mismatch() {
-        let err = block_on(compare(&PairState::default(), fixture("test1.png"), fixture("test3.mp4"))).unwrap_err();
+        let err = block_on(compare(&PairState::default(), fixture("test1.avif"), fixture("test3.mkv"))).unwrap_err();
 
         assert!(matches!(err, PairError::Mismatch { .. }), "{err:?}");
     }
@@ -274,7 +275,7 @@ mod tests {
 
     #[test]
     fn cancelling_stops_a_comparison_well_before_it_would_finish() {
-        let (a, b) = (fixture("test3.mp4"), fixture("test3.mp4"));
+        let (a, b) = (fixture("test3.mkv"), fixture("test3.mkv"));
         let started = Instant::now();
         block_on(compare(&PairState::default(), a.clone(), b.clone())).unwrap();
         let uncancelled = started.elapsed();
@@ -300,9 +301,9 @@ mod tests {
         let state = PairState::default();
 
         let (first, second) = std::thread::scope(|scope| {
-            let first = scope.spawn(|| block_on(compare(&state, fixture("test3.mp4"), fixture("test4.mp4"))));
+            let first = scope.spawn(|| block_on(compare(&state, fixture("test3.mkv"), fixture("test4.mkv"))));
             wait_until_running(&state);
-            let second = block_on(compare(&state, fixture("test1.png"), fixture("test1.png")));
+            let second = block_on(compare(&state, fixture("test1.avif"), fixture("test1.avif")));
             (first.join().unwrap(), second)
         });
 

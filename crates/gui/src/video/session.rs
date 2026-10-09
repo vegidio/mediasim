@@ -502,7 +502,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_session_starts_at_the_keyframe_at_or_before_the_time_asked() {
-        // `test3.mp4`, and so the generated file, has a keyframe every 2 s.
+        // The generated file, encoded from `test3.mkv`, has a keyframe every 2 s.
         let dir = mk_temp_dir("mediasim-session-").unwrap();
         let path = mkv(dir.path());
 
@@ -598,7 +598,7 @@ pub(crate) mod tests {
     #[test]
     fn an_encoded_session_opened_mid_file_begins_with_the_frame_at_its_boundary() {
         let dir = mk_temp_dir("mediasim-session-").unwrap();
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
         let mut source = MediaReader::open(path.to_str().unwrap()).unwrap();
         let index = source.best_stream(StreamKind::Video).unwrap();
         let time_base = source.stream_time_base(index).unwrap().as_f64();
@@ -674,7 +674,7 @@ pub(crate) mod tests {
     #[test]
     fn an_encoded_session_encodes_only_what_is_asked_for() {
         let segments = Segments::default();
-        let (mut session, _) = open_as(&fixture("test3.mp4"), 0.0, VideoMode::Encode, AudioMode::None);
+        let (mut session, _) = open_as(&fixture("test3.mkv"), 0.0, VideoMode::Encode, AudioMode::None);
 
         for _ in 0..3 {
             assert!(!next(&mut session, &segments).is_empty());
@@ -687,11 +687,11 @@ pub(crate) mod tests {
     #[test]
     fn a_reopened_session_is_served_from_the_cache() {
         let segments = Segments::default();
-        let (mut first, _) = open_as(&fixture("test3.mp4"), 0.0, VideoMode::Encode, AudioMode::None);
+        let (mut first, _) = open_as(&fixture("test3.mkv"), 0.0, VideoMode::Encode, AudioMode::None);
         let earlier: Vec<Vec<u8>> = (0..4).map(|_| next(&mut first, &segments)).collect();
         assert_eq!(segments.encodes(), 3);
 
-        let (mut reopened, start) = open_as(&fixture("test3.mp4"), 4.0, VideoMode::Encode, AudioMode::None);
+        let (mut reopened, start) = open_as(&fixture("test3.mkv"), 4.0, VideoMode::Encode, AudioMode::None);
         let init = next(&mut reopened, &segments);
         let segment = next(&mut reopened, &segments);
 

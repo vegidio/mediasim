@@ -356,9 +356,9 @@ mod tests {
         let registry = Admissions::default();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
         std::fs::create_dir(dir.path().join("b")).unwrap();
-        std::fs::copy(fixture("test3.mp4"), dir.path().join("b/clip.mp4")).unwrap();
+        std::fs::copy(fixture("test3.mkv"), dir.path().join("b/clip.mp4")).unwrap();
         // `c.png` sorts after the subfolder `b` by name, but a folder's own files come before its subfolders.
-        std::fs::copy(fixture("test1.png"), dir.path().join("c.png")).unwrap();
+        std::fs::copy(fixture("test1.avif"), dir.path().join("c.png")).unwrap();
 
         let added = block_on(add(
             &state,
@@ -375,8 +375,8 @@ mod tests {
         assert_eq!(
             described,
             [
-                ("c.png", MediaType::Image, std::fs::metadata(fixture("test1.png")).unwrap().len()),
-                ("clip.mp4", MediaType::Video, std::fs::metadata(fixture("test3.mp4")).unwrap().len()),
+                ("c.png", MediaType::Image, std::fs::metadata(fixture("test1.avif")).unwrap().len()),
+                ("clip.mp4", MediaType::Video, std::fs::metadata(fixture("test3.mkv")).unwrap().len()),
             ]
         );
         for file in &media.files {
@@ -389,8 +389,8 @@ mod tests {
         let state = SetState::default();
         let registry = Admissions::default();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
-        std::fs::copy(fixture("test1.png"), dir.path().join("a.png")).unwrap();
-        std::fs::copy(fixture("test1.png"), dir.path().join("b.png")).unwrap();
+        std::fs::copy(fixture("test1.avif"), dir.path().join("a.png")).unwrap();
+        std::fs::copy(fixture("test1.avif"), dir.path().join("b.png")).unwrap();
 
         let added =
             block_on(add(&state, &AllowedRoots::default(), vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
@@ -467,7 +467,7 @@ mod tests {
         let registry = Admissions::default();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
         std::fs::create_dir(dir.path().join("album")).unwrap();
-        std::fs::copy(fixture("test1.png"), dir.path().join("album/a.png")).unwrap();
+        std::fs::copy(fixture("test1.avif"), dir.path().join("album/a.png")).unwrap();
         // The same file, reached as the folder's listing and, spelled another way, as a file added on its own.
         let roundabout = dir.path().join("album/../album/a.png");
 

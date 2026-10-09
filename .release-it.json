@@ -1,0 +1,44 @@
+{
+    "plugins": {
+        "@release-it/conventional-changelog": {
+            "header": "",
+            "preset": {
+                "name": "conventionalcommits",
+                "types": [
+                    {
+                        "type": "feat",
+                        "section": "New Features"
+                    },
+                    {
+                        "type": "refactor",
+                        "section": "Improvements"
+                    },
+                    {
+                        "type": "perf",
+                        "section": "Improvements"
+                    },
+                    {
+                        "type": "fix",
+                        "section": "Bug Fixes"
+                    },
+                    {
+                        "type": "docs",
+                        "section": "Documentation"
+                    }
+                ]
+            },
+            "writerOpts": {
+                "headerPartial": ""
+            },
+            "infile": "CHANGELOG.md"
+        }
+    },
+    "git": {
+        "requireCleanWorkingDir": false,
+        "requireUpstream": false,
+        "commit": false,
+        "tag": false,
+        "push": false
+    },
+    "increment": false
+}

@@ -98,7 +98,7 @@ mod tests {
 
     use super::*;
     use crate::admission::tests::fixture;
-    use crate::video::fixtures::{admit, mkv, mkv_undecodable, mkv_video_only};
+    use crate::video::fixtures::{admit, mkv, mkv_undecodable, mkv_video_only, mp4};
 
     fn stream(codec: &str, codec_string: &str) -> StreamProbe {
         StreamProbe {
@@ -116,7 +116,8 @@ mod tests {
     #[test]
     fn an_mp4_reports_its_container_and_codec() {
         let state = Admissions::default();
-        let identity = admit(&state, &fixture("test3.mp4"));
+        let dir = mk_temp_dir("mediasim-probe-").unwrap();
+        let identity = admit(&state, &mp4(dir.path()));
 
         let probe = read(&state, &identity).unwrap();
 
@@ -129,9 +130,9 @@ mod tests {
     }
 
     #[test]
-    fn an_mp4_with_audio_reports_it() {
+    fn a_video_with_audio_reports_it() {
         let state = Admissions::default();
-        let identity = admit(&state, &fixture("test4.mp4"));
+        let identity = admit(&state, &fixture("test4.mkv"));
 
         let probe = read(&state, &identity).unwrap();
 
@@ -142,7 +143,7 @@ mod tests {
     #[test]
     fn only_the_audio_stream_reports_a_sample_rate() {
         let state = Admissions::default();
-        let identity = admit(&state, &fixture("test4.mp4"));
+        let identity = admit(&state, &fixture("test4.mkv"));
 
         let json = serde_json::to_value(read(&state, &identity).unwrap()).unwrap();
 
@@ -154,7 +155,7 @@ mod tests {
     fn an_mkv_reports_matroska_and_the_same_codec_strings() {
         let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
-        let mp4 = read(&state, &admit(&state, &fixture("test3.mp4"))).unwrap();
+        let mp4 = read(&state, &admit(&state, &mp4(dir.path()))).unwrap();
         let identity = admit(&state, &mkv(dir.path()));
 
         let probe = read(&state, &identity).unwrap();
@@ -213,7 +214,7 @@ mod tests {
     #[test]
     fn an_image_and_an_unknown_identity_are_not_found() {
         let state = Admissions::default();
-        let image = admit(&state, &fixture("test1.png"));
+        let image = admit(&state, &fixture("test1.avif"));
 
         assert_eq!(read(&state, &image), Err(VideoError::NotFound));
         assert_eq!(read(&state, "0123456789abcdef"), Err(VideoError::NotFound));

@@ -14,7 +14,7 @@ fn mediasim(args: &[&Path]) -> Output {
 
 #[test]
 fn piped_score_is_a_bare_number() {
-    let output = mediasim(&[&fixture("test1.png"), &fixture("test2.png")]);
+    let output = mediasim(&[&fixture("test1.avif"), &fixture("test2.avif")]);
 
     assert!(output.status.success(), "{}", stderr(&output));
     let stdout = stdout(&output);
@@ -32,7 +32,7 @@ fn piped_score_is_a_bare_number() {
 
 #[test]
 fn a_file_against_itself_scores_one() {
-    let output = mediasim(&[&fixture("test1.png"), &fixture("test1.png")]);
+    let output = mediasim(&[&fixture("test1.avif"), &fixture("test1.avif")]);
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stdout(&output), "1\n");
@@ -40,7 +40,7 @@ fn a_file_against_itself_scores_one() {
 
 #[test]
 fn image_against_video_names_both_files() {
-    let (image, video) = (fixture("test1.png"), fixture("test3.mp4"));
+    let (image, video) = (fixture("test1.avif"), fixture("test3.mkv"));
 
     let stderr = assert_fails(&mediasim(&[&image, &video]));
 
@@ -50,21 +50,21 @@ fn image_against_video_names_both_files() {
 
 #[test]
 fn missing_file_is_named() {
-    let stderr = assert_fails(&mediasim(&[Path::new("definitely-not-a-real-file.png"), &fixture("test1.png")]));
+    let stderr = assert_fails(&mediasim(&[Path::new("definitely-not-a-real-file.png"), &fixture("test1.avif")]));
 
     assert!(stderr.contains("definitely-not-a-real-file.png"), "{stderr}");
 }
 
 #[test]
 fn one_path_is_a_usage_error() {
-    let output = mediasim(&[&fixture("test1.png")]);
+    let output = mediasim(&[&fixture("test1.avif")]);
 
     assert_usage_error(&output);
 }
 
 #[test]
 fn three_paths_is_a_usage_error() {
-    let output = mediasim(&[&fixture("test1.png"), &fixture("test2.png"), &fixture("test1.png")]);
+    let output = mediasim(&[&fixture("test1.avif"), &fixture("test2.avif"), &fixture("test1.avif")]);
 
     assert_usage_error(&output);
 }
@@ -129,8 +129,8 @@ fn frame_rotate_scores_a_rotated_copy_higher() {
 fn an_orientation_flag_with_a_value_is_a_usage_error() {
     let output = Command::new(env!("CARGO_BIN_EXE_mediasim"))
         .args(["score", "--ff=yes"])
-        .arg(fixture("test1.png"))
-        .arg(fixture("test2.png"))
+        .arg(fixture("test1.avif"))
+        .arg(fixture("test2.avif"))
         .output()
         .unwrap();
 
@@ -148,30 +148,30 @@ fn score_as(format: &str, a: &Path, b: &Path) -> Output {
 
 #[test]
 fn csv_is_a_header_and_the_score() {
-    let output = score_as("csv", &fixture("test1.png"), &fixture("test1.png"));
+    let output = score_as("csv", &fixture("test1.avif"), &fixture("test1.avif"));
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stdout(&output), "score\n1\n");
 
-    let (a, b) = (fixture("test1.png"), fixture("test2.png"));
+    let (a, b) = (fixture("test1.avif"), fixture("test2.avif"));
     assert_eq!(stdout(&score_as("csv", &a, &b)), format!("score\n{}", stdout(&mediasim(&[&a, &b]))));
 }
 
 #[test]
 fn json_is_an_object_with_the_score() {
-    let output = score_as("json", &fixture("test1.png"), &fixture("test1.png"));
+    let output = score_as("json", &fixture("test1.avif"), &fixture("test1.avif"));
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stdout(&output), "{\"score\":1.0}\n");
 
-    let (a, b) = (fixture("test1.png"), fixture("test2.png"));
+    let (a, b) = (fixture("test1.avif"), fixture("test2.avif"));
     let bare = stdout(&mediasim(&[&a, &b]));
     assert_eq!(stdout(&score_as("json", &a, &b)), format!("{{\"score\":{}}}\n", bare.trim()));
 }
 
 #[test]
 fn term_given_explicitly_prints_the_bare_score_when_piped() {
-    let (a, b) = (fixture("test1.png"), fixture("test2.png"));
+    let (a, b) = (fixture("test1.avif"), fixture("test2.avif"));
 
     let output = score_as("term", &a, &b);
 
@@ -181,7 +181,7 @@ fn term_given_explicitly_prints_the_bare_score_when_piped() {
 
 #[test]
 fn json_with_a_missing_file_prints_only_the_error() {
-    let output = score_as("json", &fixture("test1.png"), Path::new("definitely-not-a-real-file.png"));
+    let output = score_as("json", &fixture("test1.avif"), Path::new("definitely-not-a-real-file.png"));
 
     let stderr = assert_fails(&output);
     assert!(stderr.contains("definitely-not-a-real-file.png"), "{stderr}");
@@ -189,7 +189,7 @@ fn json_with_a_missing_file_prints_only_the_error() {
 
 #[test]
 fn an_unknown_output_format_is_a_usage_error() {
-    let output = score_as("xml", &fixture("test1.png"), &fixture("test2.png"));
+    let output = score_as("xml", &fixture("test1.avif"), &fixture("test2.avif"));
 
     assert_usage_error(&output);
     assert!(stderr(&output).contains("term, csv, json"), "{}", stderr(&output));

@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn a_ninth_session_closes_the_least_recently_requested() {
         let (state, admissions, segments) = (SessionState::default(), Admissions::default(), Segments::default());
-        let identity = admit(&admissions, &fixture("test3.mp4"));
+        let identity = admit(&admissions, &fixture("test3.mkv"));
         let ids: Vec<_> = (0..LIMIT).map(|_| open(&state, &admissions, &identity)).collect();
         // The first is requested from again, so the second is now the least recent.
         state.next(&admissions, &segments, software(), ids[0]).unwrap();
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn the_limit_counts_both_kinds_of_session() {
         let (state, admissions, segments) = (SessionState::default(), Admissions::default(), Segments::default());
-        let identity = admit(&admissions, &fixture("test3.mp4"));
+        let identity = admit(&admissions, &fixture("test3.mkv"));
         let copies: Vec<_> = (0..5).map(|_| open_as(&state, &admissions, &identity, VideoMode::Copy)).collect();
         let encodes: Vec<_> = (0..3).map(|_| open_as(&state, &admissions, &identity, VideoMode::Encode)).collect();
         // Every session but the first encode is requested from again, so that one is now the least recent.
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn an_image_or_an_unknown_identity_is_not_found() {
         let (state, admissions) = (SessionState::default(), Admissions::default());
-        let image = admit(&admissions, &fixture("test1.png"));
+        let image = admit(&admissions, &fixture("test1.avif"));
 
         for identity in [image.as_str(), "0123456789abcdef"] {
             let opened =
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn a_closed_session_is_not_found_and_closing_again_does_nothing() {
         let (state, admissions, segments) = (SessionState::default(), Admissions::default(), Segments::default());
-        let identity = admit(&admissions, &fixture("test3.mp4"));
+        let identity = admit(&admissions, &fixture("test3.mkv"));
         let id = open(&state, &admissions, &identity);
 
         state.close(id);
@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn two_sessions_advance_independently() {
         let (state, admissions, segments) = (SessionState::default(), Admissions::default(), Segments::default());
-        let identity = admit(&admissions, &fixture("test3.mp4"));
+        let identity = admit(&admissions, &fixture("test3.mkv"));
         let (a, b) = (open(&state, &admissions, &identity), open_as(&state, &admissions, &identity, VideoMode::Encode));
 
         for _ in 0..3 {

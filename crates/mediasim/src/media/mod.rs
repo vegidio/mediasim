@@ -546,14 +546,14 @@ pub(crate) mod tests {
 
     #[test]
     fn from_file_loads_image_with_metadata() {
-        let path = fixture("test1.png");
+        let path = fixture("test1.avif");
 
         let media = Media::from_file(&path).unwrap();
 
         assert_eq!(media.path, path);
         assert_eq!(media.media_type, MediaType::Image);
         assert_eq!(media.size, std::fs::metadata(&path).unwrap().len());
-        assert_eq!((media.width, media.height), (1440, 3098));
+        assert_eq!((media.width, media.height), (427, 640));
         assert_eq!(media.duration, None);
         assert_eq!(media.frames.len(), 1);
         assert!(media.modified.is_some());
@@ -561,21 +561,21 @@ pub(crate) mod tests {
 
     #[test]
     fn from_file_loads_video_with_metadata() {
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
 
         let media = Media::from_file(&path).unwrap();
 
         assert_eq!(media.path, path);
         assert_eq!(media.media_type, MediaType::Video);
         assert_eq!(media.size, std::fs::metadata(&path).unwrap().len());
-        assert_eq!((media.width, media.height), (1080, 1920));
+        assert_eq!((media.width, media.height), (338, 640));
         assert!(media.duration.is_some_and(|d| d > Duration::ZERO));
         assert!(!media.frames.is_empty());
     }
 
     #[test]
     fn from_file_cancellable_uncancelled_image_equals_from_file() {
-        let path = fixture("test1.png");
+        let path = fixture("test1.avif");
 
         let cancellable = Media::from_file_cancellable(&path, &CancelToken::new()).unwrap();
 
@@ -584,7 +584,7 @@ pub(crate) mod tests {
 
     #[test]
     fn from_file_cancellable_pre_cancelled_image_is_cancelled() {
-        let path = fixture("test1.png");
+        let path = fixture("test1.avif");
         let token = CancelToken::new();
         token.clone().cancel();
 
@@ -596,7 +596,7 @@ pub(crate) mod tests {
 
     #[test]
     fn from_file_cancellable_uncancelled_video_equals_from_file() {
-        let path = fixture("test3.mp4");
+        let path = fixture("test3.mkv");
 
         let cancellable = Media::from_file_cancellable(&path, &CancelToken::new()).unwrap();
         let plain = Media::from_file(&path).unwrap();
@@ -633,11 +633,12 @@ pub(crate) mod tests {
         assert_eq!(err.path(), path);
     }
 
-    /// Copies `src` to `dst` with the payload of every top-level `mdat` box zeroed: the container still probes, but
-    /// none of its packets decode.
+    /// Copies the main video stream of `src` into the MP4 at `dst`, then fills the payload of every top-level `mdat`
+    /// box with `0xFF`, which no AV1 packet can start with: the container still probes, but none of its packets decode.
     #[allow(clippy::cast_possible_truncation)]
-    pub(crate) fn zero_media_data(src: &Path, dst: &Path) {
-        let mut data = std::fs::read(src).unwrap();
+    pub(crate) fn corrupt_media_data(src: &Path, dst: &Path) {
+        remux_video(src, dst);
+        let mut data = std::fs::read(dst).unwrap();
         let mut pos = 0;
 
         while pos + 8 <= data.len() {
@@ -647,7 +648,7 @@ pub(crate) mod tests {
                 size => (8, size as usize),
             };
             if &data[pos + 4..pos + 8] == b"mdat" {
-                data[pos + header..pos + size].fill(0);
+                data[pos + header..pos + size].fill(0xFF);
             }
             pos += size;
         }
@@ -655,11 +656,31 @@ pub(crate) mod tests {
         std::fs::write(dst, data).unwrap();
     }
 
+    /// Copies the main video stream of `src`, packet for packet, into a file at `dst` whose extension picks its
+    /// container.
+    fn remux_video(src: &Path, dst: &Path) {
+        use ::media::prelude::{MediaReader, MediaWriter, StreamKind};
+
+        let mut reader = MediaReader::open(src.to_str().unwrap()).unwrap();
+        let index = reader.best_stream(StreamKind::Video).unwrap();
+        let mut writer = MediaWriter::create(dst.to_str().unwrap()).unwrap();
+        let output = writer.add_stream_copy(&reader, index).unwrap();
+        writer.write_header().unwrap();
+        for packet in reader.packets() {
+            let mut packet = packet.unwrap();
+            if packet.stream_index() == index {
+                packet.set_stream_index(output);
+                writer.write_packet(&mut packet).unwrap();
+            }
+        }
+        writer.write_trailer().unwrap();
+    }
+
     #[test]
     fn from_file_corrupt_video_is_video_error() {
         let dir = mk_temp_dir("mediasim").unwrap();
         let path = dir.path().join("corrupt.mp4");
-        zero_media_data(&fixture("test3.mp4"), &path);
+        corrupt_media_data(&fixture("test3.mkv"), &path);
 
         let err = Media::from_file(&path).unwrap_err();
 
@@ -670,7 +691,7 @@ pub(crate) mod tests {
     #[test]
     fn from_files_yields_one_result_per_path() {
         let missing = PathBuf::from("definitely-not-a-real-file.jpg");
-        let paths = vec![fixture("test1.png"), fixture("test3.mp4"), missing.clone()];
+        let paths = vec![fixture("test1.avif"), fixture("test3.mkv"), missing.clone()];
 
         let results: Vec<_> = Media::from_files(paths).collect();
 
@@ -698,7 +719,7 @@ pub(crate) mod tests {
             parked_rx.recv().unwrap();
         }
 
-        let mut stream = Media::from_files(vec![fixture("test3.mp4"), fixture("test1.png")]);
+        let mut stream = Media::from_files(vec![fixture("test3.mkv"), fixture("test1.avif")]);
         let first = stream.next().unwrap().unwrap();
         drop(closed);
 
@@ -710,7 +731,7 @@ pub(crate) mod tests {
 
     #[test]
     fn from_files_cancellable_with_a_cancelled_token_decodes_nothing() {
-        let paths = vec![fixture("test1.png"), fixture("test3.mp4"), fixture("test2.png")];
+        let paths = vec![fixture("test1.avif"), fixture("test3.mkv"), fixture("test2.avif")];
         let token = CancelToken::new();
         token.cancel();
 
@@ -722,7 +743,7 @@ pub(crate) mod tests {
 
     #[test]
     fn from_files_cancellable_uncancelled_equals_from_files() {
-        let paths = vec![fixture("test1.png"), fixture("test2.png")];
+        let paths = vec![fixture("test1.avif"), fixture("test2.avif")];
         let sorted = |stream: MediaStream| {
             let mut media: Vec<_> = stream.map(Result::unwrap).collect();
             media.sort_by(|a, b| a.path.cmp(&b.path));
@@ -736,7 +757,7 @@ pub(crate) mod tests {
 
     #[test]
     fn each_file_reports_its_start_before_its_result() {
-        let paths = vec![fixture("test1.png"), fixture("test3.mp4"), fixture("test2.png")];
+        let paths = vec![fixture("test1.avif"), fixture("test3.mkv"), fixture("test2.avif")];
         let mut stream = Media::from_files(paths.clone());
 
         let mut started = Vec::new();
@@ -761,7 +782,7 @@ pub(crate) mod tests {
     fn a_file_cancelled_before_it_starts_reports_no_start() {
         let token = CancelToken::new();
         token.cancel();
-        let mut stream = Media::from_files_cancellable(vec![fixture("test1.png")], &token);
+        let mut stream = Media::from_files_cancellable(vec![fixture("test1.avif")], &token);
 
         assert!(matches!(stream.next_loading(), Some(Loading::Done(Err(MediaError::Cancelled { .. })))));
         assert!(stream.next_loading().is_none());
@@ -777,7 +798,7 @@ pub(crate) mod tests {
     #[test]
     #[ignore = "benchmark, not a correctness check"]
     fn time_fixtures() {
-        let names = ["test1.png", "test2.png", "test3.mp4", "test4.mp4"];
+        let names = ["test1.avif", "test2.avif", "test3.mkv", "test4.mkv"];
         let started = Instant::now();
 
         for result in Media::from_files(names.iter().map(|n| fixture(n)).collect()) {
@@ -873,7 +894,7 @@ pub(crate) mod tests {
     #[test]
     fn from_dir_loads_media_and_skips_other_files() {
         let dir = mk_temp_dir("mediasim").unwrap();
-        std::fs::copy(fixture("test1.png"), dir.path().join("a.png")).unwrap();
+        std::fs::copy(fixture("test1.avif"), dir.path().join("a.png")).unwrap();
         std::fs::write(dir.path().join("notes.txt"), b"not media").unwrap();
 
         let results: Vec<_> = Media::from_dir(dir.path(), &LoadOptions::new()).unwrap().collect();
@@ -896,7 +917,7 @@ pub(crate) mod tests {
     fn from_dir_regular_file_is_io_error() {
         let dir = mk_temp_dir("mediasim").unwrap();
         let file = dir.path().join("a.png");
-        std::fs::copy(fixture("test1.png"), &file).unwrap();
+        std::fs::copy(fixture("test1.avif"), &file).unwrap();
 
         let Err(err) = Media::from_dir(&file, &LoadOptions::new()) else {
             panic!("expected an error for a regular file");

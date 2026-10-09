@@ -1,9 +1,10 @@
 //! Videos for the probe and session tests, generated in a temp dir rather than kept in the repository.
 //!
-//! `fixtures/test3.mp4` is 1080×1920 H.264 at 30 fps with no audio (10.3 s, a keyframe every 2 s), and
-//! `fixtures/test4.mp4` is AV1 with AAC. A video with H.264 and AAC is made by copying the first's video and the
-//! second's audio into one Matroska file; other sizes and keyframe spacings by encoding the first again; a video that
-//! can't be decoded by renaming that file's video codec; and a rotated one by writing a display matrix into its MP4.
+//! `fixtures/test3.mkv` is 338×640 AV1 at 25 fps with no audio (20.3 s, a keyframe every 6.44 s), and
+//! `fixtures/test4.mkv` is AV1 with mono AAC. The first 10.3 s of the first, encoded again as H.264 with a keyframe
+//! every 2 s, is [`mp4`]; a video with H.264 and AAC is made by copying that file's video and the second's audio into
+//! one Matroska file; other sizes and keyframe spacings by encoding the first again; a video that can't be decoded by
+//! renaming that file's video codec; and a rotated one by writing a display matrix into its MP4.
 
 use std::path::{Path, PathBuf};
 
@@ -23,12 +24,20 @@ pub(crate) fn admit(registry: &Admissions, path: &Path) -> String {
     identity
 }
 
-/// Copies, into the file at `path`, the main video stream of `test3.mp4` and `audio` copies of the main audio stream of
-/// `test4.mp4`, in that order.
+/// How long [`mp4`], and so every video built from it, lasts.
+const SECONDS: f64 = 10.3;
+
+/// `source.mp4` in `dir`: the first 10.3 s of `test3.mkv`'s video as H.264, with a keyframe every 2 s.
+pub(crate) fn mp4(dir: &Path) -> PathBuf {
+    reencoded(dir, "source.mp4", (338, 640), 50, SECONDS)
+}
+
+/// Copies, into the file at `path`, the main video stream of [`mp4`] and `audio` copies of the first 10.3 s of the
+/// main audio stream of `test4.mkv`, in that order, so the sound ends with the video.
 fn build(path: &Path, audio: usize) {
-    let open = |name| MediaReader::open(fixture(name).to_str().unwrap()).unwrap();
-    let mut video = open("test3.mp4");
-    let sound = open("test4.mp4");
+    let open = |path: &Path| MediaReader::open(path.to_str().unwrap()).unwrap();
+    let mut video = open(&mp4(path.parent().unwrap()));
+    let sound = open(&fixture("test4.mkv"));
     let video_index = video.best_stream(StreamKind::Video).unwrap();
     let sound_index = sound.best_stream(StreamKind::Audio).unwrap();
 
@@ -38,18 +47,20 @@ fn build(path: &Path, audio: usize) {
     writer.write_header().unwrap();
 
     // The muxer interleaves by timestamp, so each input can be written whole, one after the other.
-    copy(&mut video, video_index, video_out, &mut writer);
+    copy(&mut video, video_index, video_out, f64::INFINITY, &mut writer);
     for output in sound_out {
-        copy(&mut open("test4.mp4"), sound_index, output, &mut writer);
+        copy(&mut open(&fixture("test4.mkv")), sound_index, output, SECONDS, &mut writer);
     }
     writer.write_trailer().unwrap();
 }
 
-/// Writes every packet of `reader`'s stream `input` to `writer`'s stream `output`.
-fn copy(reader: &mut MediaReader, input: usize, output: usize, writer: &mut MediaWriter) {
+/// Writes every packet of `reader`'s stream `input` before `until` seconds to `writer`'s stream `output`.
+fn copy(reader: &mut MediaReader, input: usize, output: usize, until: f64, writer: &mut MediaWriter) {
+    let time_base = reader.stream_time_base(input).unwrap().as_f64();
     for packet in reader.packets() {
         let mut packet = packet.unwrap();
-        if packet.stream_index() == input {
+        #[expect(clippy::cast_precision_loss, reason = "a test timestamp, small")]
+        if packet.stream_index() == input && (packet.pts() as f64 * time_base) < until {
             packet.set_stream_index(output);
             writer.write_packet(&mut packet).unwrap();
         }
@@ -92,10 +103,10 @@ pub(crate) fn mkv_undecodable(dir: &Path) -> PathBuf {
     path
 }
 
-/// `name` in `dir`: the first `seconds` of `test3.mp4`'s video, scaled to `width`×`height` and encoded again as H.264
+/// `name` in `dir`: the first `seconds` of `test3.mkv`'s video, scaled to `width`×`height` and encoded again as H.264
 /// with a keyframe every `gop` frames, so its keyframes needn't fall on the 2-second grid.
 pub(crate) fn reencoded(dir: &Path, name: &str, (width, height): (u32, u32), gop: u32, seconds: f64) -> PathBuf {
-    let mut reader = MediaReader::open(fixture("test3.mp4").to_str().unwrap()).unwrap();
+    let mut reader = MediaReader::open(fixture("test3.mkv").to_str().unwrap()).unwrap();
     let index = reader.best_stream(StreamKind::Video).unwrap();
     let time_base = reader.stream_time_base(index).unwrap();
     let frame_rate = Framerate(reader.stream_avg_frame_rate(index).unwrap());
@@ -150,7 +161,7 @@ pub(crate) fn reencoded(dir: &Path, name: &str, (width, height): (u32, u32), gop
     path
 }
 
-/// `rotated.mp4` in `dir`: 2 s of `test3.mp4` at 640×360, stored with a display matrix that turns it `clockwise`
+/// `rotated.mp4` in `dir`: 2 s of `test3.mkv` at 640×360, stored with a display matrix that turns it `clockwise`
 /// degrees, the way a phone stores a portrait recording.
 pub(crate) fn rotated(dir: &Path, clockwise: f64) -> PathBuf {
     let path = reencoded(dir, "rotated.mp4", (640, 360), 60, 2.0);

@@ -1,8 +1,9 @@
 //! Runs `mediasim dir` on temporary directories filled with copies of the sample files in `fixtures`, with its output
 //! piped.
 //!
-//! The fixtures score `test1.png`/`test2.png` ≈ 0.945 and `test3.mp4`/`test4.mp4` ≈ 0.507. The two images have the
-//! same resolution and `test1.png` is the larger file, so it is best; `test4.mp4` is the longer video, so it is best.
+//! The fixtures score `test1.avif`/`test2.avif` ≈ 0.774 and `test3.mkv`/`test4.mkv` ≈ 0.627, so the tests that expect
+//! only the images to group pass [`THRESHOLD`], which falls between them. The two images have the same resolution and
+//! `test1.avif` is the larger file, so it is best; `test3.mkv` is the longer video, so it is best.
 
 mod common;
 
@@ -10,8 +11,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 use common::{
-    CSV_HEADER, assert_fails, assert_skipped, assert_usage_error, csv_rows, fixture, groups, json, json_groups,
-    oriented_copies, sorted, stdout,
+    CSV_HEADER, THRESHOLD, assert_fails, assert_skipped, assert_usage_error, csv_rows, fixture, groups, json,
+    json_groups, oriented_copies, sorted, stdout,
 };
 use rust_sak::fs::{TempDir, mk_temp_dir};
 
@@ -31,10 +32,10 @@ fn directory(files: &[(&str, &str)]) -> TempDir {
 /// All four fixtures under their own names.
 fn all_fixtures() -> TempDir {
     directory(&[
-        ("test1.png", "test1.png"),
-        ("test2.png", "test2.png"),
-        ("test3.mp4", "test3.mp4"),
-        ("test4.mp4", "test4.mp4"),
+        ("test1.avif", "test1.avif"),
+        ("test2.avif", "test2.avif"),
+        ("test3.mkv", "test3.mkv"),
+        ("test4.mkv", "test4.mkv"),
     ])
 }
 
@@ -51,23 +52,27 @@ fn paths(dir: &Path, names: &[&str]) -> Vec<PathBuf> {
 }
 
 #[test]
-fn default_threshold_groups_only_the_images_best_first() {
+fn a_threshold_between_the_scores_groups_only_the_images_best_first() {
     let dir = all_fixtures();
 
-    let groups = groups(&mediasim(&[], dir.path()));
+    let groups = groups(&mediasim(&["-t", THRESHOLD], dir.path()));
 
-    assert_eq!(groups, [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(groups, [paths(dir.path(), &["test1.avif", "test2.avif"])]);
 }
 
 #[test]
 fn zero_threshold_lists_groups_in_listing_order() {
     // The videos sort first, so their group comes first even though the images group more strongly.
-    let dir =
-        directory(&[("test3.mp4", "a.mp4"), ("test1.png", "b.png"), ("test4.mp4", "c.mp4"), ("test2.png", "d.png")]);
+    let dir = directory(&[
+        ("test3.mkv", "a.mkv"),
+        ("test1.avif", "b.avif"),
+        ("test4.mkv", "c.mkv"),
+        ("test2.avif", "d.avif"),
+    ]);
 
     let groups = groups(&mediasim(&["-t", "0"], dir.path()));
 
-    assert_eq!(groups, [paths(dir.path(), &["c.mp4", "a.mp4"]), paths(dir.path(), &["b.png", "d.png"])]);
+    assert_eq!(groups, [paths(dir.path(), &["a.mkv", "c.mkv"]), paths(dir.path(), &["b.avif", "d.avif"])]);
 }
 
 #[test]
@@ -75,16 +80,16 @@ fn groups_follow_the_earliest_file_in_the_listing() {
     // The `x` files match each other and the `y` files match each other. The `x` files are the videos, which finish
     // loading after the images, so the `x` group lists first only if groups follow the listing.
     let dir = directory(&[
-        ("test3.mp4", "x1.mp4"),
-        ("test4.mp4", "x2.mp4"),
-        ("test1.png", "y1.png"),
-        ("test2.png", "y2.png"),
+        ("test3.mkv", "x1.mkv"),
+        ("test4.mkv", "x2.mkv"),
+        ("test1.avif", "y1.avif"),
+        ("test2.avif", "y2.avif"),
     ]);
 
     for _ in 0..3 {
         let groups = groups(&mediasim(&["-t", "0.5"], dir.path()));
 
-        assert_eq!(groups, [paths(dir.path(), &["x2.mp4", "x1.mp4"]), paths(dir.path(), &["y1.png", "y2.png"])]);
+        assert_eq!(groups, [paths(dir.path(), &["x1.mkv", "x2.mkv"]), paths(dir.path(), &["y1.avif", "y2.avif"])]);
     }
 }
 
@@ -94,7 +99,7 @@ fn media_type_videos_loads_only_the_videos() {
 
     let groups = groups(&mediasim(&["-t", "0", "-m", "videos"], dir.path()));
 
-    assert_eq!(groups, [paths(dir.path(), &["test4.mp4", "test3.mp4"])]);
+    assert_eq!(groups, [paths(dir.path(), &["test3.mkv", "test4.mkv"])]);
 }
 
 #[test]
@@ -103,19 +108,19 @@ fn media_type_images_loads_only_the_images() {
 
     let groups = groups(&mediasim(&["-t", "0", "--media-type", "images"], dir.path()));
 
-    assert_eq!(groups, [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(groups, [paths(dir.path(), &["test1.avif", "test2.avif"])]);
 }
 
 #[test]
 fn subdirectories_are_scanned_only_when_recursive() {
-    let dir = directory(&[("test1.png", "test1.png"), ("test2.png", "sub/test2.png")]);
+    let dir = directory(&[("test1.avif", "test1.avif"), ("test2.avif", "sub/test2.avif")]);
 
-    let flat = mediasim(&[], dir.path());
-    let recursive = mediasim(&["-r"], dir.path());
+    let flat = mediasim(&["-t", THRESHOLD], dir.path());
+    let recursive = mediasim(&["-r", "-t", THRESHOLD], dir.path());
 
     assert!(groups(&flat).is_empty());
     assert!(flat.stdout.is_empty(), "{:?}", stdout(&flat));
-    assert_eq!(groups(&recursive), [paths(dir.path(), &["test1.png", "sub/test2.png"])]);
+    assert_eq!(groups(&recursive), [paths(dir.path(), &["test1.avif", "sub/test2.avif"])]);
 }
 
 #[test]
@@ -130,7 +135,7 @@ fn an_empty_directory_prints_nothing() {
 
 #[test]
 fn a_filter_that_leaves_one_file_prints_nothing() {
-    let dir = directory(&[("test1.png", "test1.png"), ("test2.png", "test2.png"), ("test3.mp4", "test3.mp4")]);
+    let dir = directory(&[("test1.avif", "test1.avif"), ("test2.avif", "test2.avif"), ("test3.mkv", "test3.mkv")]);
 
     let output = mediasim(&["-t", "0", "-m", "videos"], dir.path());
 
@@ -150,7 +155,7 @@ fn a_missing_directory_is_named() {
 #[test]
 fn a_regular_file_is_named() {
     let dir = all_fixtures();
-    let file = dir.path().join("test1.png");
+    let file = dir.path().join("test1.avif");
 
     let stderr = assert_fails(&mediasim(&[], &file));
     assert!(stderr.contains(&*file.to_string_lossy()), "{stderr}");
@@ -194,10 +199,10 @@ fn ignore_errors_skips_an_undecodable_file_and_groups_the_rest() {
     let bad = dir.path().join("bad.png");
     std::fs::write(&bad, b"not a png").unwrap();
 
-    let output = mediasim(&["--ie"], dir.path());
+    let output = mediasim(&["--ie", "-t", THRESHOLD], dir.path());
 
     assert_skipped(&output, &[&bad]);
-    assert_eq!(groups(&output), [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(groups(&output), [paths(dir.path(), &["test1.avif", "test2.avif"])]);
 }
 
 #[test]
@@ -212,7 +217,7 @@ fn ignore_errors_does_not_ignore_a_missing_directory() {
 #[test]
 fn ignore_errors_combines_with_the_other_options() {
     // The broken image is filtered out by `-m videos`, so only the broken video in the subdirectory is skipped.
-    let dir = directory(&[("test3.mp4", "test3.mp4"), ("test4.mp4", "sub/test4.mp4"), ("test1.png", "test1.png")]);
+    let dir = directory(&[("test3.mkv", "test3.mkv"), ("test4.mkv", "sub/test4.mkv"), ("test1.avif", "test1.avif")]);
     let bad_video = dir.path().join("sub").join("bad.mp4");
     std::fs::write(&bad_video, b"not an mp4").unwrap();
     std::fs::write(dir.path().join("bad.png"), b"not a png").unwrap();
@@ -220,17 +225,17 @@ fn ignore_errors_combines_with_the_other_options() {
     let output = mediasim(&["--ignore-errors", "-r", "-m", "videos", "-t", "0.5"], dir.path());
 
     assert_skipped(&output, &[&bad_video]);
-    assert_eq!(groups(&output), [paths(dir.path(), &["sub/test4.mp4", "test3.mp4"])]);
+    assert_eq!(groups(&output), [paths(dir.path(), &["test3.mkv", "sub/test4.mkv"])]);
 }
 
 #[test]
 fn csv_uses_the_directory_joined_paths() {
-    let dir = directory(&[("test1.png", "a.png"), ("test2.png", "sub/b.png")]);
+    let dir = directory(&[("test1.avif", "a.avif"), ("test2.avif", "sub/b.avif")]);
 
-    let (header, rows) = csv_rows(&mediasim(&["-r", "-o", "csv"], dir.path()));
+    let (header, rows) = csv_rows(&mediasim(&["-r", "-o", "csv", "-t", THRESHOLD], dir.path()));
 
     assert_eq!(header, CSV_HEADER);
-    let expected: Vec<_> = paths(dir.path(), &["a.png", "sub/b.png"]).into_iter().map(|path| (1, path)).collect();
+    let expected: Vec<_> = paths(dir.path(), &["a.avif", "sub/b.avif"]).into_iter().map(|path| (1, path)).collect();
     assert_eq!(rows, expected);
 }
 
@@ -238,23 +243,23 @@ fn csv_uses_the_directory_joined_paths() {
 fn json_uses_the_directory_joined_paths() {
     let dir = all_fixtures();
 
-    let document = json(&mediasim(&["--output", "json"], dir.path()));
+    let document = json(&mediasim(&["--output", "json", "-t", THRESHOLD], dir.path()));
 
-    assert_eq!(json_groups(&document), [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(json_groups(&document), [paths(dir.path(), &["test1.avif", "test2.avif"])]);
     assert_eq!(document["skipped"], serde_json::json!([]));
 }
 
 #[test]
 fn ignore_errors_lists_the_undecodable_file_in_json() {
-    let dir = directory(&[("test1.png", "a.png"), ("test2.png", "a-copy.png")]);
+    let dir = directory(&[("test1.avif", "a.avif"), ("test2.avif", "a-copy.avif")]);
     let broken = dir.path().join("broken.png");
     std::fs::write(&broken, b"not a png").unwrap();
 
-    let output = mediasim(&["-o", "json", "--ie"], dir.path());
+    let output = mediasim(&["-o", "json", "--ie", "-t", THRESHOLD], dir.path());
 
     assert_skipped(&output, &[&broken]);
     let document = json(&output);
-    assert_eq!(json_groups(&document), [paths(dir.path(), &["a.png", "a-copy.png"])]);
+    assert_eq!(json_groups(&document), [paths(dir.path(), &["a.avif", "a-copy.avif"])]);
     let skipped = document["skipped"].as_array().unwrap();
     assert_eq!(skipped.len(), 1, "{skipped:?}");
     assert_eq!(skipped[0]["path"].as_str(), Some(&*broken.to_string_lossy()));
@@ -269,18 +274,18 @@ fn cache_file(dir: &Path) -> PathBuf {
     cache_dir(dir).join("cache.redb")
 }
 
-/// The two images under their own names, which group together.
+/// The two images under their own names, which group together at [`THRESHOLD`].
 fn two_images() -> TempDir {
-    directory(&[("test1.png", "test1.png"), ("test2.png", "test2.png")])
+    directory(&[("test1.avif", "test1.avif"), ("test2.avif", "test2.avif")])
 }
 
 #[test]
 fn a_successful_run_leaves_no_cache() {
     let dir = two_images();
 
-    let groups = groups(&mediasim(&[], dir.path()));
+    let groups = groups(&mediasim(&["-t", THRESHOLD], dir.path()));
 
-    assert_eq!(groups, [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(groups, [paths(dir.path(), &["test1.avif", "test2.avif"])]);
     assert!(!cache_dir(dir.path()).exists());
 }
 
@@ -308,7 +313,7 @@ fn an_aborted_run_keeps_the_cache() {
 
 #[test]
 fn a_recursive_run_keeps_one_cache_at_the_root() {
-    let dir = directory(&[("test1.png", "sub/test1.png"), ("test2.png", "sub/test2.png")]);
+    let dir = directory(&[("test1.avif", "sub/test1.avif"), ("test2.avif", "sub/test2.avif")]);
     std::fs::write(dir.path().join("bad.png"), b"not a png").unwrap();
 
     assert_fails(&mediasim(&["-r"], dir.path()));
@@ -351,7 +356,7 @@ fn a_read_only_directory_runs_without_a_cache() {
 
     // Root ignores permissions, so the scenario can't be reproduced there.
     let denied = std::fs::write(dir.path().join("probe"), b"").is_err();
-    let output = mediasim(&[], dir.path());
+    let output = mediasim(&["-t", THRESHOLD], dir.path());
 
     std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
 
@@ -361,7 +366,7 @@ fn a_read_only_directory_runs_without_a_cache() {
         );
         return;
     }
-    assert_eq!(groups(&output), [paths(dir.path(), &["test1.png", "test2.png"])]);
+    assert_eq!(groups(&output), [paths(dir.path(), &["test1.avif", "test2.avif"])]);
     assert!(output.stderr.is_empty(), "{}", common::stderr(&output));
     assert!(!cache_dir(dir.path()).exists());
 }
@@ -369,7 +374,7 @@ fn a_read_only_directory_runs_without_a_cache() {
 #[test]
 fn a_run_resumes_from_the_cache_unless_told_not_to() {
     let dir = two_images();
-    let names = paths(dir.path(), &["test1.png", "test2.png"]);
+    let names = paths(dir.path(), &["test1.avif", "test2.avif"]);
     let cache = mediasim::DirCache::open(dir.path()).unwrap();
     for result in mediasim::Media::from_files_cached(names.clone(), &cache) {
         result.unwrap();
@@ -401,7 +406,7 @@ fn a_run_resumes_from_the_cache_unless_told_not_to() {
     assert!(before.0 == after.0, "the cache's contents changed");
     assert_eq!(before.1.modified().unwrap(), after.1.modified().unwrap());
 
-    let cached = mediasim(&[], dir.path());
+    let cached = mediasim(&["-t", THRESHOLD], dir.path());
 
     assert_eq!(groups(&cached), [names]);
     assert!(!cache_dir(dir.path()).exists());

@@ -495,7 +495,7 @@ mod tests {
 
     #[test]
     fn a_second_load_is_served_from_the_cache() {
-        let dir = directory(&[("test2.png", "a.png")]);
+        let dir = directory(&[("test2.avif", "a.png")]);
         let path = dir.path().join("a.png");
         let first = sorted(load_cached(dir.path(), vec![path.clone()]));
 
@@ -510,12 +510,12 @@ mod tests {
     #[test]
     fn cached_loads_equal_uncached_ones() {
         let dir = directory(&[
-            ("test1.png", "test1.png"),
-            ("test2.png", "test2.png"),
-            ("test3.mp4", "test3.mp4"),
-            ("test4.mp4", "test4.mp4"),
+            ("test1.avif", "test1.avif"),
+            ("test2.avif", "test2.avif"),
+            ("test3.mkv", "test3.mkv"),
+            ("test4.mkv", "test4.mkv"),
         ]);
-        let paths: Vec<_> = ["test1.png", "test2.png", "test3.mp4", "test4.mp4"]
+        let paths: Vec<_> = ["test1.avif", "test2.avif", "test3.mkv", "test4.mkv"]
             .iter()
             .map(|name| dir.path().join(name))
             .collect();
@@ -546,24 +546,24 @@ mod tests {
 
     #[test]
     fn a_malformed_entry_is_decoded_again() {
-        let image = Media::from_file(fixture("test2.png")).unwrap();
-        let video = Media::from_file(fixture("test4.mp4")).unwrap();
+        let image = Media::from_file(fixture("test2.avif")).unwrap();
+        let video = Media::from_file(fixture("test4.mkv")).unwrap();
         let entry = |frames: Vec<Icon>, duration| Decoded { width: 1, height: 1, duration, frames };
         let second = Some(Duration::from_secs(1));
 
         for (name, fixture_name, planted) in [
-            ("no-frames.png", "test2.png", entry(Vec::new(), None)),
+            ("no-frames.png", "test2.avif", entry(Vec::new(), None)),
             (
                 "two-frames.png",
-                "test2.png",
+                "test2.avif",
                 entry(vec![image.frames[0].clone(), image.frames[0].clone()], None),
             ),
-            ("short-icon.png", "test2.png", entry(vec![icon_of_len(7)], None)),
-            ("long-icon.png", "test2.png", entry(vec![icon_of_len(10_000)], None)),
-            ("timed-image.png", "test2.png", entry(image.frames.clone(), second)),
-            ("no-frames.mp4", "test4.mp4", entry(Vec::new(), second)),
-            ("bad-frame.mp4", "test4.mp4", entry(vec![video.frames[0].clone(), icon_of_len(0)], second)),
-            ("untimed.mp4", "test4.mp4", entry(video.frames.clone(), None)),
+            ("short-icon.png", "test2.avif", entry(vec![icon_of_len(7)], None)),
+            ("long-icon.png", "test2.avif", entry(vec![icon_of_len(10_000)], None)),
+            ("timed-image.png", "test2.avif", entry(image.frames.clone(), second)),
+            ("no-frames.mp4", "test4.mkv", entry(Vec::new(), second)),
+            ("bad-frame.mp4", "test4.mkv", entry(vec![video.frames[0].clone(), icon_of_len(0)], second)),
+            ("untimed.mp4", "test4.mkv", entry(video.frames.clone(), None)),
         ] {
             let dir = directory(&[(fixture_name, name)]);
             let path = dir.path().join(name);
@@ -579,9 +579,9 @@ mod tests {
     #[test]
     fn a_well_formed_planted_entry_is_served() {
         // The counterpart of `a_malformed_entry_is_decoded_again`: the planted entry really is what a load reads.
-        let dir = directory(&[("test2.png", "a.png")]);
+        let dir = directory(&[("test2.avif", "a.png")]);
         let path = dir.path().join("a.png");
-        let other = Media::from_file(fixture("test1.png")).unwrap();
+        let other = Media::from_file(fixture("test1.avif")).unwrap();
         plant(dir.path(), &path, Decoded { width: 7, height: 9, duration: None, frames: other.frames.clone() });
 
         let loaded = sorted(load_cached(dir.path(), vec![path]));
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn a_changed_mtime_forces_a_new_decode() {
-        let dir = directory(&[("test2.png", "a.png")]);
+        let dir = directory(&[("test2.avif", "a.png")]);
         let path = dir.path().join("a.png");
         sorted(load_cached(dir.path(), vec![path.clone()]));
 
@@ -604,7 +604,7 @@ mod tests {
 
     #[test]
     fn a_changed_size_forces_a_new_decode() {
-        let dir = directory(&[("test2.png", "a.png")]);
+        let dir = directory(&[("test2.avif", "a.png")]);
         let path = dir.path().join("a.png");
         sorted(load_cached(dir.path(), vec![path.clone()]));
 
@@ -622,7 +622,7 @@ mod tests {
         let parent = mk_temp_dir("mediasim").unwrap();
         let (old, new) = (parent.path().join("old"), parent.path().join("new"));
         std::fs::create_dir(&old).unwrap();
-        std::fs::copy(fixture("test2.png"), old.join("a.png")).unwrap();
+        std::fs::copy(fixture("test2.avif"), old.join("a.png")).unwrap();
         let first = sorted(load_cached(&old, vec![old.join("a.png")]));
 
         std::fs::rename(&old, &new).unwrap();
@@ -639,7 +639,7 @@ mod tests {
         let sub = dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
         let path = sub.join("a.png");
-        std::fs::copy(fixture("test2.png"), &path).unwrap();
+        std::fs::copy(fixture("test2.avif"), &path).unwrap();
         let first = sorted(load_cached(dir.path(), vec![path.clone()]));
 
         assert!(!sub.join(CACHE_DIR).exists());
@@ -660,14 +660,14 @@ mod tests {
         };
         assert_eq!(err.path(), path);
 
-        std::fs::copy(fixture("test2.png"), &path).unwrap();
+        std::fs::copy(fixture("test2.avif"), &path).unwrap();
         let results = load_cached(dir.path(), vec![path]);
         assert!(matches!(&results[..], [Ok(_)]), "{results:?}");
     }
 
     #[test]
     fn a_cancelled_load_stores_no_entry() {
-        let dir = directory(&[("test2.png", "a.png")]);
+        let dir = directory(&[("test2.avif", "a.png")]);
         let path = dir.path().join("a.png");
         let token = CancelToken::new();
         token.cancel();
@@ -685,7 +685,7 @@ mod tests {
 
     #[test]
     fn an_uncancelled_cached_load_equals_an_uncached_one() {
-        let dir = directory(&[("test1.png", "a.png"), ("test2.png", "b.png")]);
+        let dir = directory(&[("test1.avif", "a.png"), ("test2.avif", "b.png")]);
         let paths = vec![dir.path().join("a.png"), dir.path().join("b.png")];
 
         let cache = DirCache::open(dir.path()).unwrap();
@@ -700,7 +700,7 @@ mod tests {
     #[test]
     fn a_dropped_cache_keeps_the_files_that_finished() {
         let names = ["a.png", "b.png", "c.png", "d.png", "e.png", "f.png"];
-        let dir = directory(&names.map(|name| ("test2.png", name)));
+        let dir = directory(&names.map(|name| ("test2.avif", name)));
         let paths: Vec<_> = names.iter().map(|name| dir.path().join(name)).collect();
 
         let cache = DirCache::open(dir.path()).unwrap();
@@ -717,7 +717,7 @@ mod tests {
 
     #[test]
     fn finish_after_a_complete_load_removes_the_cache_and_its_directory() {
-        let dir = directory(&[("test2.png", "a.png")]);
+        let dir = directory(&[("test2.avif", "a.png")]);
         let cache = DirCache::open(dir.path()).unwrap();
         sorted(Media::from_files_cached(vec![dir.path().join("a.png")], &cache).collect());
 

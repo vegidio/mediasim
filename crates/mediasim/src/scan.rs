@@ -285,8 +285,8 @@ mod tests {
 
         let dir = rust_sak::fs::mk_temp_dir("mediasim").unwrap();
         let videos = [dir.path().join("a.mp4"), dir.path().join("b.mp4")];
-        std::fs::copy(fixture("test3.mp4"), &videos[0]).unwrap();
-        std::fs::copy(fixture("test4.mp4"), &videos[1]).unwrap();
+        std::fs::copy(fixture("test3.mkv"), &videos[0]).unwrap();
+        std::fs::copy(fixture("test4.mkv"), &videos[1]).unwrap();
         let broken = dir.path().join("broken.png");
         std::fs::write(&broken, b"not a png").unwrap();
         let cache = DirCache::open(dir.path()).unwrap();

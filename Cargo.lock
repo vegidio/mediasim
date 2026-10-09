@@ -893,7 +893,7 @@ checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "26.10.0"
 dependencies = [
  "clap",
  "csv",
@@ -2211,7 +2211,7 @@ dependencies = [
 
 [[package]]
 name = "gui"
-version = "0.1.0"
+version = "26.10.0"
 dependencies = [
  "image",
  "media-rs",
@@ -3192,7 +3192,7 @@ dependencies = [
 
 [[package]]
 name = "mediasim"
-version = "0.1.0"
+version = "26.10.0"
 dependencies = [
  "image",
  "jiff",
