@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { focusSettings } from "@/features/shell/Header";
 import { useScreenStore } from "@/stores/screen";
 import { useSettingsStore } from "@/stores/settings";
+import { AutoSelectSection } from "./AutoSelectSection";
 import { ComparisonSection } from "./ComparisonSection";
 import { DeletingFilesSection } from "./DeletingFilesSection";
 
@@ -40,6 +41,7 @@ export const SettingsScreen = () => {
             </div>
 
             <ComparisonSection />
+            <AutoSelectSection />
             <DeletingFilesSection />
         </div>
     );

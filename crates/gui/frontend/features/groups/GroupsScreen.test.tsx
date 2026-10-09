@@ -729,7 +729,7 @@ describe("Choosing the Auto-select rules", () => {
     const openRules = async () => {
         fireEvent.pointerDown(chevron(), { button: 0, ctrlKey: false });
         const menu = await screen.findByRole("menu", { name: "Auto-select options" });
-        fireEvent.click(within(menu).getByRole("menuitem", { name: "Choose rules for this run…" }));
+        fireEvent.click(within(menu).getByRole("menuitem", { name: "Choose rules…" }));
         return screen.findByRole("dialog", { name: "Auto-select" });
     };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
-import { bestIndex, copyMarkers, DEFAULT_RULES, isRules, moveRule, RULE_INFO, type Rule } from "./rules";
+import { bestIndex, copyMarkers, DEFAULT_RULES, isRules, moveRule, RULE_INFO, type Rule, rankedRules } from "./rules";
 
 const image = (path: string, overrides: Partial<GroupFile> = {}): GroupFile => ({
     path,
@@ -93,6 +93,42 @@ describe("moveRule", () => {
         moveRule(rules, 0, 2);
 
         expect(rules.map(({ id }) => id)).toEqual(["duration", "resolution", "size"]);
+    });
+});
+
+describe("rankedRules", () => {
+    /** The chips' text, as "rank label". */
+    const chips = (rules: readonly Rule[]) => rankedRules(rules).map(({ rank, label }) => `${rank} ${label}`);
+
+    it("ranks the defaults' four rules that are on", () => {
+        expect(chips(DEFAULT_RULES)).toEqual([
+            "1 Longest video length",
+            "2 Highest resolution",
+            "3 Largest file size",
+            "4 Cleanest file name",
+        ]);
+    });
+
+    it("leaves out a rule that is off and ranks only the rules shown", () => {
+        const rules: Rule[] = [
+            { id: "created", on: true },
+            { id: "duration", on: true },
+            { id: "resolution", on: true },
+            { id: "size", on: false },
+            { id: "name", on: true },
+        ];
+
+        expect(chips(rules)).toEqual([
+            "1 Oldest creation date",
+            "2 Longest video length",
+            "3 Highest resolution",
+            "4 Cleanest file name",
+        ]);
+        expect(rankedRules(rules).map(({ id }) => id)).toEqual(["created", "duration", "resolution", "name"]);
+    });
+
+    it("gives nothing when every rule is off", () => {
+        expect(rankedRules(DEFAULT_RULES.map(({ id }) => ({ id, on: false })))).toEqual([]);
     });
 });
 

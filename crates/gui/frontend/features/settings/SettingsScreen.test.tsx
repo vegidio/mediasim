@@ -1,5 +1,5 @@
 import { act } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_RULES } from "@/features/groups/rules";
 import { useScreenStore } from "@/stores/screen";
@@ -29,7 +29,7 @@ describe("SettingsScreen", () => {
         vi.restoreAllMocks();
     });
 
-    it("shows Back, the heading, Reset to defaults, then the Comparison and Deleting files sections", () => {
+    it("shows Back, the heading, Reset to defaults, then the Comparison, Auto-select and Deleting files sections", () => {
         render(<SettingsScreen />);
 
         expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
@@ -37,6 +37,7 @@ describe("SettingsScreen", () => {
         expect(screen.getByRole("button", { name: "Reset to defaults" })).toBeInTheDocument();
         expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-labelledby"))).toEqual([
             screen.getByRole("heading", { level: 2, name: "Comparison" }).id,
+            screen.getByRole("heading", { level: 2, name: "Auto-select" }).id,
             screen.getByRole("heading", { level: 2, name: "Deleting files" }).id,
         ]);
     });
@@ -222,7 +223,7 @@ describe("SettingsScreen", () => {
         expect(settings()).toEqual(SETTINGS_DEFAULTS);
     });
 
-    it("resets the Auto-select rules to their defaults, though it doesn't show them", () => {
+    it("resets the Auto-select rules to their defaults, and shows them", () => {
         useSettingsStore.setState({
             autoSelectRules: [
                 { id: "created", on: true },
@@ -237,6 +238,11 @@ describe("SettingsScreen", () => {
         fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
 
         expect(useSettingsStore.getState().autoSelectRules).toEqual(DEFAULT_RULES);
+        expect(
+            within(screen.getByRole("list", { name: "Default rules" }))
+                .getAllByRole("listitem")
+                .map((item) => item.textContent?.replace("›", "").trim()),
+        ).toEqual(["1 Longest video length", "2 Highest resolution", "3 Largest file size", "4 Cleanest file name"]);
     });
 
     it("goes Back to the screen it was opened from", () => {

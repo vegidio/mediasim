@@ -60,8 +60,8 @@ describe("AutoSelectMenu", () => {
 
         expect(chevron()).toHaveAttribute("aria-expanded", "true");
         expect(chevron()).toHaveAttribute("data-state", "open");
-        const item = within(opened).getByRole("menuitem", { name: "Choose rules for this run…" });
-        expect(item).toHaveAccessibleDescription("Review and reorder the rules before files are marked");
+        const item = within(opened).getByRole("menuitem", { name: "Choose rules…" });
+        expect(item).toHaveAccessibleDescription("Review, reorder and save the rules before files are marked");
         expect(item.querySelector(".lucide-sliders-horizontal")).toHaveAttribute("aria-hidden", "true");
         expect(within(opened).getByRole("separator")).toBeInTheDocument();
         expect(opened).toHaveTextContent("Clicking Auto-select directly uses your default rules from Settings.");
@@ -72,7 +72,7 @@ describe("AutoSelectMenu", () => {
         const { onChooseRules, refocus } = renderToolbar();
         await openMenu();
 
-        fireEvent.click(within(menu()).getByRole("menuitem", { name: "Choose rules for this run…" }));
+        fireEvent.click(within(menu()).getByRole("menuitem", { name: "Choose rules…" }));
 
         await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
         expect(onChooseRules).toHaveBeenCalledOnce();

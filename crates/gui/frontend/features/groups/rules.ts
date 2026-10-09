@@ -49,6 +49,13 @@ export const isRules = (value: unknown): value is Rule[] => {
 /** `rules` with the rule at `from` moved to `to`, the others shifting to make room. */
 export const moveRule = (rules: readonly Rule[], from: number, to: number): Rule[] => arrayMove([...rules], from, to);
 
+/** A rule that is on, as 10a's chips show it: its rank among the rules that are on, from 1, and its label. */
+export type RankedRule = { id: RuleId; rank: number; label: string };
+
+/** The rules of `rules` that are on, in order, each ranked among them and labelled from {@link RULE_INFO}. */
+export const rankedRules = (rules: readonly Rule[]): RankedRule[] =>
+    rules.filter(({ on }) => on).map(({ id }, index) => ({ id, rank: index + 1, label: RULE_INFO[id].label }));
+
 /** The copy markers removed from the end of a stem, one at a time; each needs its separator, so "copy" alone isn't one. */
 const MARKERS = [/\s?\(\d+\)$/i, /(\s-\s|[\s_-])copy(\s\d+)?$/i, /[\s_-]edit(ed)?$/i];
 

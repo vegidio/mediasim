@@ -25,10 +25,10 @@ type AutoSelectMenuProps = {
 
 /**
  * The chevron "More auto-select options", the right half of the Auto-select split button, and the menu it opens below
- * it, right-aligned (9a): "Choose rules for this run…", which opens the Auto-select rules dialog, and a note linking
- * to Settings. Like the gallery's comparison options, a menu opened by a click hands keyboard focus back to the
- * selected tile when it closes, so the arrow keys go on moving the selection; one opened from the keyboard returns
- * focus to the chevron.
+ * it, right-aligned (9a): "Choose rules…", which opens the Auto-select rules dialog, whose rules are saved as the
+ * defaults when applied, and a note linking to Settings. Like the gallery's comparison options, a menu opened by a
+ * click hands keyboard focus back to the selected tile when it closes, so the arrow keys go on moving the selection;
+ * one opened from the keyboard returns focus to the chevron.
  */
 export const AutoSelectMenu = ({ onChooseRules, refocus }: AutoSelectMenuProps) => {
     const openSettings = useScreenStore((state) => state.openSettings);
@@ -93,11 +93,11 @@ export const AutoSelectMenu = ({ onChooseRules, refocus }: AutoSelectMenuProps) 
                     <SlidersHorizontalIcon aria-hidden="true" color="#BEF264" className="mt-0.5 size-4" />
                     <span className="flex flex-col gap-0.5">
                         <span id={labelId} className="font-medium text-[#FAFAFA] text-sm">
-                            Choose rules for this run…
+                            Choose rules…
                         </span>
                         {/* Important, so the shared item's focus colour, forced on every descendant, leaves it grey. */}
                         <span id={hintId} className="text-[#A1A1AA]! text-xs leading-[1.4]">
-                            Review and reorder the rules before files are marked
+                            Review, reorder and save the rules before files are marked
                         </span>
                     </span>
                 </DropdownMenuItem>

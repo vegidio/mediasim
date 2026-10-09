@@ -2,13 +2,16 @@ import { act } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { comparePair, probeMedia } from "@/ipc/pair";
+import type { ScanGroup } from "@/ipc/scan";
 import { listSetMedia } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { restoreMedia, trashMedia } from "@/ipc/trash";
 import { useGalleryStore } from "@/stores/gallery";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
+import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import App from "./App";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
@@ -20,7 +23,13 @@ vi.mock("@/ipc/thumbs", () => ({
 }));
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn(), deleteMedia: vi.fn() }));
-vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
+vi.mock("@/ipc/set", () => ({
+    addToSet: vi.fn(),
+    removeFromSet: vi.fn(),
+    rescanSet: vi.fn(),
+    listSetMedia: vi.fn(),
+    displayPath: vi.fn(async (path: string) => path),
+}));
 vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
 
 describe("App", () => {
@@ -217,6 +226,116 @@ describe("App", () => {
             expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
             await waitFor(() => expect(settingsButton()).toHaveFocus());
             expect(screen.getByRole("button", { name: "New comparison" })).not.toHaveFocus();
+        });
+
+        describe("from the groups screen", () => {
+            /** The spec's one group: `DSC_0193.HEIC`, larger and newer, and `DSC_0193.jpg`, both 4032 × 3024. */
+            const DSC: ScanGroup = {
+                files: [
+                    {
+                        path: "/p/DSC_0193.HEIC",
+                        type: "image",
+                        width: 4032,
+                        height: 3024,
+                        size: 4_100_000,
+                        created: "2025-06-02T00:00:00Z",
+                    },
+                    {
+                        path: "/p/DSC_0193.jpg",
+                        type: "image",
+                        width: 4032,
+                        height: 3024,
+                        size: 3_200_000,
+                        created: "2025-06-01T00:00:00Z",
+                    },
+                ],
+                scores: [
+                    [1, 0.95],
+                    [0.95, 1],
+                ],
+            };
+            const tile = (path: string) => document.querySelector(`[data-path="${path}"]`) as HTMLElement;
+            const isBest = (path: string) => within(tile(path)).queryByText("Best") !== null;
+            const box = (path: string) => within(tile(path)).getByRole("checkbox");
+            const dialog = () => screen.getByRole("dialog", { name: "Default auto-select rules" });
+
+            /** Presses `code` on the focused element, then lets dnd-kit's keyboard sensor catch up. */
+            const press = async (code: string) => {
+                const key = code === "Space" ? " " : code;
+                await act(async () => {
+                    fireEvent.keyDown(document.activeElement ?? document.body, { key, code });
+                });
+                await act(() => new Promise((resolve) => setTimeout(resolve)));
+            };
+
+            beforeEach(() => {
+                useSettingsStore.setState(SETTINGS_DEFAULTS);
+                useScanStore.setState(useScanStore.getInitialState(), true);
+                useScanStore.setState({
+                    status: "done",
+                    heading: { count: 2, set: "Holiday 2025", kinds: "images", threshold: 85 },
+                    result: { groups: [DSC], skipped: [] },
+                    files: DSC.files.map(({ path, type, size }) => ({
+                        path,
+                        name: path.split("/").pop() ?? path,
+                        type,
+                        size,
+                        identity: `id-${path}`,
+                    })),
+                    marks: new Set(["/p/DSC_0193.jpg"]),
+                });
+                useScreenStore.setState({ screen: "groups" });
+            });
+
+            it("picks the best files by rules saved as default, keeping the marks", async () => {
+                render(<App />);
+                expect(isBest("/p/DSC_0193.HEIC")).toBe(true);
+
+                fireEvent.click(settingsButton());
+                fireEvent.click(screen.getByRole("button", { name: "Edit rules" }));
+                fireEvent.click(within(dialog()).getByRole("switch", { name: "Oldest creation date" }));
+
+                // jsdom has no layout: each rule row stands 60 px tall, one under the other, by its place in the list.
+                const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+                    this: Element,
+                ) {
+                    const rows = [...dialog().querySelectorAll("li")];
+                    const index = rows.indexOf(this as HTMLLIElement);
+                    const top = Math.max(index, 0) * 60;
+                    const height = index < 0 ? 0 : 60;
+                    return {
+                        top,
+                        bottom: top + height,
+                        left: 0,
+                        right: 560,
+                        x: 0,
+                        y: top,
+                        width: 560,
+                        height,
+                    } as DOMRect;
+                });
+                act(() => within(dialog()).getByRole("button", { name: "Reorder Oldest creation date" }).focus());
+                await press("Space");
+                for (let i = 0; i < 3; i++) await press("ArrowUp");
+                await press("Space");
+                rect.mockRestore();
+
+                fireEvent.click(within(dialog()).getByRole("button", { name: "Save as default" }));
+                await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+                expect(useSettingsStore.getState().autoSelectRules[0]).toEqual({ id: "created", on: true });
+
+                fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+                // The marked best file shows the Delete badge in place of Best, and Recommended keep in its details.
+                expect(isBest("/p/DSC_0193.HEIC")).toBe(false);
+                expect(box("/p/DSC_0193.HEIC")).toHaveAttribute("aria-checked", "false");
+                expect(box("/p/DSC_0193.jpg")).toHaveAttribute("aria-checked", "true");
+                expect(within(tile("/p/DSC_0193.jpg")).getByText("Delete")).toBeInTheDocument();
+
+                fireEvent.doubleClick(document.querySelector('[data-select="/p/DSC_0193.jpg"]') as HTMLElement);
+
+                expect(await within(screen.getByRole("dialog")).findByText("Recommended keep")).toBeInTheDocument();
+            });
         });
 
         it("shows the score of a comparison that finished while in Settings", async () => {
