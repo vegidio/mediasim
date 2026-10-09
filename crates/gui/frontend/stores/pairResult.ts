@@ -3,14 +3,7 @@ import { SLOTS, type Slot } from "@/features/home/routePairDrop";
 import type { Details } from "@/features/pair/details";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import {
-    type DeleteOutcome,
-    deleteMedia,
-    type RestoreOutcome,
-    restoreMedia,
-    type TrashOutcome,
-    trashMedia,
-} from "@/ipc/trash";
+import { removeFiles, restoreFiles } from "@/lib/deletion";
 import { usePairStore } from "@/stores/pair";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
@@ -144,24 +137,17 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
         const slots = SLOTS.filter((slot) => marked[slot]);
         set({ deletion: { status: "removing", mode, confirmed } });
 
-        const identities = slots.map((slot) => files[slot].identity);
-        // A rejection means nothing was attempted, so every file counts as not removed, with the reason.
-        const outcomes =
-            mode === "trash"
-                ? await trashMedia(identities).catch((error: unknown): TrashOutcome[] =>
-                      slots.map(() => ({ status: "failed", reason: "trash", message: String(error) })),
-                  )
-                : await deleteMedia(identities).catch((error: unknown): DeleteOutcome[] =>
-                      slots.map(() => ({ status: "failed", reason: "delete", message: String(error) })),
-                  );
+        const { done, failed } = await removeFiles(
+            mode,
+            slots.map((slot) => ({ key: slot, identity: files[slot].identity })),
+        );
         if (run !== opened) return;
 
-        const notice: Notice = { action: mode, done: [], failed: [] };
-        slots.forEach((slot, index) => {
-            const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
-            if (outcome.status === "failed") notice.failed.push({ slot, message: outcome.message });
-            else notice.done.push(slot);
-        });
+        const notice: Notice = {
+            action: mode,
+            done,
+            failed: failed.map(({ key, message }) => ({ slot: key, message })),
+        };
 
         set((state) => {
             const gone = { ...state.gone };
@@ -254,25 +240,19 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             if (slots.length === 0) return;
             set({ deletion: { status: "restoring" } });
 
-            // A rejection means nothing was attempted, so every file counts as not restored, with the reason.
-            const outcomes = await restoreMedia(slots.map((slot) => files[slot].identity)).catch(
-                (error: unknown): RestoreOutcome[] =>
-                    slots.map(() => ({ status: "failed", reason: "restore", message: String(error) })),
+            const { done, failed, identities } = await restoreFiles(
+                slots.map((slot) => ({ key: slot, identity: files[slot].identity })),
             );
             if (run !== opened) return;
 
-            const notice: Notice = { action: "restore", done: [], failed: [] };
+            const notice: Notice = {
+                action: "restore",
+                done,
+                failed: failed.map(({ key, message }) => ({ slot: key, message })),
+            };
             // A restored file can come back under a new identity, which `thumb://` and a later move need.
             const restored: Partial<Record<Slot, MediaFile>> = {};
-            slots.forEach((slot, index) => {
-                const outcome = outcomes[index] ?? { status: "failed", message: "no result came back" };
-                if (outcome.status === "restored") {
-                    notice.done.push(slot);
-                    restored[slot] = { ...files[slot], identity: outcome.identity };
-                } else {
-                    notice.failed.push({ slot, message: outcome.message });
-                }
-            });
+            for (const [slot, identity] of identities) restored[slot] = { ...files[slot], identity };
 
             set((state) => {
                 if (!state.files) return { deletion: IDLE, notice };
