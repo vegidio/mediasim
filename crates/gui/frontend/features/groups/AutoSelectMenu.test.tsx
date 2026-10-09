@@ -148,7 +148,9 @@ describe("AutoSelectMenu", () => {
 
             expect(useScreenStore.getState().screen).toBe("groups");
             expect(screen.getAllByRole("region", { name: /^Group \d$/ })).toHaveLength(2);
-            expect(screen.getByRole("status")).toHaveTextContent("3 files marked for deletion");
+            expect(within(screen.getByRole("region", { name: "Deletion" })).getByRole("status")).toHaveTextContent(
+                "3 files marked for deletion",
+            );
         });
     });
 });

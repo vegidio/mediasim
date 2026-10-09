@@ -44,4 +44,22 @@ describe("GroupsToolbar", () => {
         expect(screen.queryByRole("button", { name: "Auto-select" })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "More auto-select options" })).not.toBeInTheDocument();
     });
+
+    it("fades Auto-select and disables both its halves when asked, so the chevron opens no menu", () => {
+        const handlers = { ...marking(), autoSelectDisabled: true };
+        render(<GroupsToolbar summary={SUMMARY} marking={handlers} />);
+
+        const auto = screen.getByRole("button", { name: "Auto-select" });
+        const chevron = screen.getByRole("button", { name: "More auto-select options" });
+        expect(auto).toBeDisabled();
+        expect(chevron).toBeDisabled();
+        expect(auto.parentElement).toHaveClass("opacity-40");
+        expect(screen.getByRole("button", { name: "Clear marks" })).toBeEnabled();
+
+        fireEvent.pointerDown(chevron, { button: 0, ctrlKey: false });
+        fireEvent.keyDown(chevron, { key: "Enter" });
+
+        expect(chevron).toHaveAttribute("aria-expanded", "false");
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
 });

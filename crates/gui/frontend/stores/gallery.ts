@@ -75,6 +75,13 @@ type GalleryStore = {
     overrides: ReadonlySet<string>;
     /** Flip whether the file at `path` is in the comparison, against what the selected tab says. */
     toggle: (path: string) => void;
+    /**
+     * Take the files at `paths`, removed from disk, out of the read files, remembering where each stood. Closes the
+     * details dialog and clears the selection when their file leaves, but keeps every override.
+     */
+    withdraw: (paths: Iterable<string>) => void;
+    /** Put `files`, withdrawn and since restored, back where they stood, with the identity each is given. */
+    reinstate: (files: readonly MediaFile[]) => void;
 };
 
 type HomeState = ReturnType<typeof useHomeStore.getState>;
@@ -102,6 +109,13 @@ const withoutDetails = ({ details: _closed, ...rest }: GalleryStore): GallerySto
 /** `state` with no tile selected. */
 const withoutSelection = ({ selected: _cleared, ...rest }: GalleryStore): GalleryStore => rest;
 
+/** `state` with the details dialog closed and the selection cleared when their file isn't one of `paths`. */
+const withinPaths = (state: GalleryStore, paths: ReadonlySet<string>): GalleryStore => {
+    const gone = (path?: string) => !!path && !paths.has(path);
+    const next = gone(state.details) ? withoutDetails(state) : state;
+    return gone(next.selected) ? withoutSelection(next) : next;
+};
+
 /**
  * `state` with `listing`, closing the details dialog and clearing the selection when their file is no longer in it, and
  * forgetting the override of any file no longer in it.
@@ -110,18 +124,21 @@ const withListing = (state: GalleryStore, listing: GalleryListing): GalleryStore
     if (listing.status !== "ready") return { ...state, listing };
 
     const paths = new Set(listing.files.map((file) => file.path));
-    const { details, selected, overrides } = state;
-    const gone = (path?: string) => !!path && !paths.has(path);
+    const { overrides } = state;
     const kept = [...overrides].filter((path) => paths.has(path));
-    let next = gone(details) ? withoutDetails(state) : state;
-    if (gone(selected)) next = withoutSelection(next);
 
     return {
-        ...next,
+        ...withinPaths(state, paths),
         listing,
         ...(kept.length !== overrides.size && { overrides: new Set(kept) }),
     };
 };
+
+/**
+ * Where withdrawn files stood: each path's index in the files as read, before any was withdrawn, and the files the
+ * last withdraw or reinstate left. A listing other than `files` was read since, which places nothing.
+ */
+let withdrawal: { order: Map<string, number>; files: MediaFile[] } | undefined;
 
 export const useGalleryStore = create<GalleryStore>()((set, get) => ({
     filter: "both",
@@ -167,7 +184,9 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
         set({ listing: { status: "loading" } });
         try {
             const { revision, files } = await listSetMedia();
-            if (request === requests) set((state) => withListing(state, { status: "ready", revision, files }), true);
+            if (request !== requests) return;
+            withdrawal = undefined;
+            set((state) => withListing(state, { status: "ready", revision, files }), true);
         } catch (error) {
             console.error("could not list the set's files", error);
             if (request === requests) set({ listing: { status: "failed" } });
@@ -192,6 +211,42 @@ export const useGalleryStore = create<GalleryStore>()((set, get) => ({
             if (!next.delete(path)) next.add(path);
             return { overrides: next };
         }),
+
+    withdraw: (paths) => {
+        const { listing } = get();
+        if (listing.status !== "ready") return;
+
+        const order =
+            withdrawal?.files === listing.files
+                ? withdrawal.order
+                : new Map(listing.files.map((file, index) => [file.path, index]));
+        const out = new Set(paths);
+        const files = listing.files.filter((file) => !out.has(file.path));
+        if (files.length === listing.files.length) return;
+
+        withdrawal = { order, files };
+        set(
+            (state) => ({
+                ...withinPaths(state, new Set(files.map((file) => file.path))),
+                listing: { ...listing, files },
+            }),
+            true,
+        );
+    },
+
+    reinstate: (restored) => {
+        const { listing } = get();
+        if (listing.status !== "ready" || withdrawal?.files !== listing.files) return;
+
+        const { order } = withdrawal;
+        const present = new Set(listing.files.map((file) => file.path));
+        const back = restored.filter((file) => order.has(file.path) && !present.has(file.path));
+        if (back.length === 0) return;
+
+        const files = [...listing.files, ...back].sort((a, b) => (order.get(a.path) ?? 0) - (order.get(b.path) ?? 0));
+        withdrawal = { order, files };
+        set({ listing: { ...listing, files } });
+    },
 }));
 
 // Follow the "Default match threshold", "Frame rotate" and "Frame flip" settings, whether the user changed them or reset

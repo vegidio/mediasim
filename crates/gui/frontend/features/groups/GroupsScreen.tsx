@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type MouseEvent, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MediaFile } from "@/ipc/thumbs";
@@ -6,17 +6,17 @@ import { useScanStore } from "@/stores/scan";
 import { useSettingsStore } from "@/stores/settings";
 import { AutoSelectDialog } from "./AutoSelectDialog";
 import { focusAutoSelectOptions } from "./AutoSelectMenu";
-import { summary, uniqueLine } from "./format";
+import { leftSummary, resolvedLine, summary, uniqueLine } from "./format";
 import { GroupCard, type GroupView } from "./GroupCard";
 import { GroupDetailsDialog } from "./GroupDetailsDialog";
 import { GroupsFooter } from "./GroupsFooter";
 import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
-import { autoSelect, keepBestOnly, markedFiles, pickBest } from "./marks";
+import { autoSelect, keepBestOnly, markedFiles, pickBest, visibleGroups } from "./marks";
 import { stepFlat, stepVertical, type TileBox } from "./navigate";
 import type { Rule } from "./rules";
 
-/** What the groups area shows when the scan found no group: the files compared are unique, and New comparison. */
-const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }) => {
+/** A round check mark, a heading, a line, and New comparison, centred in the groups area. */
+const Resolved = ({ heading, line }: { heading: string; line: string }) => {
     const newComparison = useNewComparison();
 
     return (
@@ -24,8 +24,8 @@ const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }
             <span className="flex size-14 items-center justify-center rounded-full bg-primary/12 text-primary">
                 <CheckIcon aria-hidden="true" className="size-[26px]" strokeWidth={2.4} />
             </span>
-            <h2 className="font-semibold text-[22px] tracking-[-0.02em]">No similar files found</h2>
-            <p className="max-w-[440px] text-[#A1A1AA] text-sm leading-normal">{uniqueLine(read, threshold)}</p>
+            <h2 className="font-semibold text-[22px] tracking-[-0.02em]">{heading}</h2>
+            <p className="max-w-[440px] text-[#A1A1AA] text-sm leading-normal">{line}</p>
             <Button
                 onClick={newComparison}
                 className="mt-1.5 h-10 rounded-lg px-[18px] font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90"
@@ -35,6 +35,16 @@ const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }
         </div>
     );
 };
+
+/** What the groups area shows when the scan found no group: the files compared are unique, and New comparison. */
+const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }) => (
+    <Resolved heading="No similar files found" line={uniqueLine(read, threshold)} />
+);
+
+/** What the groups area shows once removals left no group (8b): every group resolved, and New comparison. */
+const NothingLeft = ({ groups, remaining, threshold }: { groups: number; remaining: number; threshold: number }) => (
+    <Resolved heading="No similar files left" line={resolvedLine(groups, remaining, threshold)} />
+);
 
 /** The group holding the file at `path`, with its number from 1 and its scanned files in the card's order. */
 const findShown = (groups: readonly GroupView[], media: ReadonlyMap<string, MediaFile>, path?: string) => {
@@ -72,23 +82,27 @@ const measure = () =>
 /**
  * The groups screen (6b/6c): the toolbar with Back, New comparison, the summary and the marking buttons, then the
  * groups of similar files, each with its best file, and the footer with what is marked for deletion; or the "No similar
- * files found" state. A click on a file's thumbnail selects it, and the arrow keys move the selection; a double click or
- * Enter opens its details (7), over the screen. The best files follow the saved Auto-select rules, which the Auto-select
- * rules dialog (9b) changes and applies.
+ * files found" state, or, once removals left no group, the "No similar files left" state (8b). Files removed leave
+ * their groups, and a group left with fewer than 2 files leaves the screen. A click on a file's thumbnail selects it,
+ * and the arrow keys move the selection; a double click or Enter opens its details (7), over the screen. The best files
+ * follow the saved Auto-select rules, which the Auto-select rules dialog (9b) changes and applies.
  */
 export const GroupsScreen = () => {
     const result = useScanStore((state) => state.result);
     const heading = useScanStore((state) => state.heading);
     const files = useScanStore((state) => state.files);
     const marks = useScanStore((state) => state.marks);
+    const gone = useScanStore((state) => state.gone);
     const toggleMark = useScanStore((state) => state.toggleMark);
     const setMarks = useScanStore((state) => state.setMarks);
     const clearMarks = useScanStore((state) => state.clearMarks);
     const rules = useSettingsStore((state) => state.autoSelectRules);
 
     const media = useMemo(() => new Map<string, MediaFile>(files.map((file) => [file.path, file])), [files]);
-    // A change to the rules moves the best files, and leaves the marks to the user.
-    const groups = useMemo(() => pickBest(result?.groups ?? [], rules), [result, rules]);
+    // The result's groups less the files removed. A change to the rules moves the best files, and leaves the marks to
+    // the user.
+    const visible = useMemo(() => visibleGroups(result?.groups ?? [], gone), [result, gone]);
+    const groups = useMemo(() => pickBest(visible, rules), [visible, rules]);
     const marked = useMemo(() => markedFiles(groups, marks), [groups, marks]);
     // Every group's files in screen order, which ← and → step through.
     const paths = useMemo(() => groups.flatMap((group) => group.files.map((file) => file.path)), [groups]);
@@ -101,6 +115,11 @@ export const GroupsScreen = () => {
     const details = findShown(groups, media, shown);
     // Whether the Auto-select rules dialog is open.
     const [rulesOpen, setRulesOpen] = useState(false);
+
+    // A selected tile whose file is removed leaves no tile selected.
+    useEffect(() => {
+        if (selected && gone.has(selected)) setSelected(undefined);
+    }, [selected, gone]);
 
     if (!result || !heading) return null;
 
@@ -120,7 +139,7 @@ export const GroupsScreen = () => {
     const applyRules = (rules: Rule[]) => {
         useSettingsStore.getState().update({ autoSelectRules: rules });
         // From the rules themselves, so the marks land in the same render as the badges the memo moves.
-        setMarks(autoSelect(pickBest(result.groups, rules)));
+        setMarks(autoSelect(pickBest(visible, rules)));
         setRulesOpen(false);
     };
 
@@ -161,21 +180,32 @@ export const GroupsScreen = () => {
     const { count: scanned, threshold } = heading;
     const unreadable = result.skipped.length;
     const grouped = groups.reduce((total, group) => total + group.files.length, 0);
+    const found = result.groups.length > 0;
+    // Every group resolved by removals, rather than none found.
+    const nothingLeft = found && groups.length === 0;
+    const remaining = scanned - unreadable - gone.size;
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
             <GroupsToolbar
-                summary={summary({ files: grouped, groups: groups.length, scanned, threshold, unreadable })}
-                {...(groups.length > 0 && {
+                summary={
+                    nothingLeft
+                        ? leftSummary({ remaining, threshold, unreadable })
+                        : summary({ files: grouped, groups: groups.length, scanned, threshold, unreadable })
+                }
+                {...(found && {
                     marking: {
                         onClear: clearMarks,
                         onAutoSelect: () => setMarks(autoSelect(groups)),
                         onChooseRules: () => setRulesOpen(true),
                         refocus,
+                        ...(nothingLeft && { autoSelectDisabled: true }),
                     },
                 })}
             />
-            {groups.length === 0 ? (
+            {nothingLeft ? (
+                <NothingLeft groups={result.groups.length} remaining={remaining} threshold={threshold} />
+            ) : !found ? (
                 <NothingSimilar read={scanned - unreadable} threshold={threshold} />
             ) : (
                 <>
@@ -203,10 +233,9 @@ export const GroupsScreen = () => {
                             />
                         ))}
                     </div>
-                    <GroupsFooter marked={marked} />
                     <AutoSelectDialog
                         open={rulesOpen}
-                        groups={result.groups}
+                        groups={visible}
                         onApply={applyRules}
                         onClose={() => setRulesOpen(false)}
                         onClosed={() => refocus() || focusAutoSelectOptions()}
@@ -225,6 +254,7 @@ export const GroupsScreen = () => {
                     )}
                 </>
             )}
+            {found && <GroupsFooter marked={marked} media={media} />}
         </div>
     );
 };

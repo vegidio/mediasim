@@ -7,6 +7,7 @@ import { listSetMedia } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { restoreMedia, trashMedia } from "@/ipc/trash";
 import { useGalleryStore } from "@/stores/gallery";
+import { useHomeStore } from "@/stores/home";
 import { usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
 import { useScanStore } from "@/stores/scan";
@@ -447,6 +448,100 @@ describe("App", () => {
             expect(within(footer()).getByRole("status")).toHaveTextContent(
                 "Nothing marked yet. Mark the file you don't need.",
             );
+        });
+    });
+
+    describe("groups deletion notice", () => {
+        const files: MediaFile[] = ["IMG_2041.jpg", "IMG_2041 (1).jpg", "DSC_0193.jpg"].map((name) => ({
+            path: `/p/Holiday 2025/${name}`,
+            name,
+            type: "image",
+            size: 4_800_000,
+            identity: `id-${name}`,
+        }));
+        const GROUP: ScanGroup = {
+            files: files.slice(0, 2).map(({ path, size }) => ({ path, type: "image", width: 1, height: 1, size })),
+            scores: [],
+        };
+        const notice = () =>
+            screen
+                .queryAllByRole("status")
+                .find(
+                    (region) =>
+                        !screen.getByRole("main").contains(region) &&
+                        !screen.queryByRole("region", { name: "Deletion" })?.contains(region),
+                );
+
+        /** Shows the groups screen and moves `IMG_2041 (1).jpg` to the Trash, without confirmation. */
+        const moveCopy = async () => {
+            render(<App />);
+            fireEvent.click(
+                within(
+                    document.querySelector('[data-path="/p/Holiday 2025/IMG_2041 (1).jpg"]') as HTMLElement,
+                ).getByRole("checkbox"),
+            );
+            await act(async () => {
+                fireEvent.click(screen.getByRole("button", { name: "Move 1 to Trash" }));
+            });
+        };
+
+        beforeEach(() => {
+            (trashMedia as Mock).mockReset().mockResolvedValue([{ status: "trashed" }]);
+            useSettingsStore.setState({ ...SETTINGS_DEFAULTS, confirmDeletion: false });
+            useHomeStore.setState({ view: { revision: 1, sources: [], total: files.length }, sources: [], rescans: 0 });
+            useGalleryStore.setState(useGalleryStore.getInitialState(), true);
+            useGalleryStore.setState({ listing: { status: "ready", revision: 1, files } });
+            useScanStore.setState(useScanStore.getInitialState(), true);
+            useScanStore.setState({
+                status: "done",
+                heading: { count: 3, set: "Holiday 2025", kinds: "images", threshold: 85 },
+                result: { groups: [GROUP], skipped: [] },
+                files,
+            });
+            useScreenStore.setState({ screen: "groups" });
+        });
+
+        it("floats over the groups screen after a move, 20 px above its footer, outside main", async () => {
+            await moveCopy();
+
+            const region = notice() as HTMLElement;
+            expect(region).toHaveTextContent("1 file moved to Trash · 4.8 MB freed");
+            expect(region.parentElement).toBe(screen.getByRole("main").parentElement);
+            expect(region).toHaveClass("absolute", "bottom-[88px]", "left-1/2", "-translate-x-1/2");
+        });
+
+        it("hides while Settings is open, and is shown again on coming back", async () => {
+            await moveCopy();
+
+            act(() => useScreenStore.getState().openSettings());
+            expect(notice()).toBeUndefined();
+
+            act(() => useScreenStore.getState().closeSettings());
+            expect(notice()).toHaveTextContent("1 file moved to Trash");
+        });
+
+        it("is gone for good after New comparison", async () => {
+            await moveCopy();
+
+            fireEvent.click(screen.getAllByRole("button", { name: "New comparison" })[0] as HTMLElement);
+            act(() => useScreenStore.getState().show("groups"));
+
+            expect(useScanStore.getState().notice).toBeUndefined();
+            expect(notice()?.textContent ?? "").toBe("");
+        });
+
+        it("leaves the moved file out of the gallery on Back", async () => {
+            await moveCopy();
+
+            fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+            expect(useScreenStore.getState().screen).toBe("gallery");
+            expect(screen.getByRole("button", { name: "Compare 2 files" })).toBeInTheDocument();
+            const { listing } = useGalleryStore.getState();
+            expect(listing.status === "ready" && listing.files.map((file) => file.name)).toEqual([
+                "IMG_2041.jpg",
+                "DSC_0193.jpg",
+            ]);
         });
     });
 });

@@ -5,11 +5,13 @@ import App from "@/App";
 import { type GroupFile, type ScanGroup, startScan } from "@/ipc/scan";
 import type { SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
+import { restoreMedia, trashMedia } from "@/ipc/trash";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
+import { GroupsDeletionNotice } from "./GroupsDeletionNotice";
 import { GroupsScreen } from "./GroupsScreen";
 import { DEFAULT_RULES, moveRule, type Rule } from "./rules";
 
@@ -30,8 +32,11 @@ vi.mock("@/ipc/thumbs", () => ({
 }));
 vi.mock("@/ipc/video", () => ({ probeVideo: vi.fn(() => new Promise(() => {})) }));
 vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), deleteMedia: vi.fn(), restoreMedia: vi.fn() }));
 
 const mockedStart = startScan as Mock;
+const mockedTrash = trashMedia as Mock;
+const mockedRestore = restoreMedia as Mock;
 
 const groupFile = (path: string): GroupFile => ({ path, type: "image", width: 4032, height: 3024, size: 4_800_000 });
 
@@ -52,7 +57,7 @@ const finished = (groups: ScanGroup[], { scanned = 48, threshold = 85, unread = 
     });
 
 /** The summary in the groups toolbar. */
-const summaryText = () => screen.getByTitle(/ scanned · threshold /).textContent;
+const summaryText = () => screen.getByTitle(/ · threshold \d+%/).textContent;
 
 beforeEach(() => {
     mockedStart.mockReset();
@@ -307,15 +312,16 @@ describe("Marking", () => {
         expect(checked()).toEqual([]);
     });
 
-    it("keeps the marks when the footer's button is activated", () => {
+    it("opens the confirmation when the footer's button is activated, keeping the marks", () => {
         finished(GROUPS);
+        useScanStore.setState({ files: scannedOf(GROUPS) });
         render(<GroupsScreen />);
         fireEvent.click(box("/p/g2/01.jpg"));
 
         fireEvent.click(screen.getByRole("button", { name: "Move 1 to Trash…" }));
 
+        expect(screen.getByRole("alertdialog")).toHaveAccessibleName("Move 1 file to Trash?");
         expect([...useScanStore.getState().marks]).toEqual(["/p/g2/01.jpg"]);
-        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
     it("shows no footer, Clear marks or Auto-select without a group", () => {
@@ -885,5 +891,128 @@ describe("Choosing the Auto-select rules", () => {
         fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Apply to 2 groups" }));
 
         await waitFor(() => expect(chevron()).toHaveFocus());
+    });
+});
+
+describe("Removing marked files", () => {
+    /** 7 groups holding 18 files of 4,800,000 bytes, each one's first file its best. */
+    const GROUPS = Array.from({ length: 7 }, (_, i) => group(`g${i}`, i < 4 ? 3 : 2));
+    const trashed = (count: number) => Array.from({ length: count }, () => ({ status: "trashed" }));
+    const groupNames = () => screen.getAllByRole("region", { name: /^Group \d$/ }).map((card) => card.ariaLabel);
+    const tilesOf = (name: string) =>
+        [...screen.getByRole("region", { name }).querySelectorAll<HTMLElement>("[data-path]")].map(
+            (tile) => tile.dataset.path,
+        );
+    const footer = () => within(screen.getByRole("region", { name: "Deletion" })).getByRole("status").textContent;
+
+    /** Activates the footer's button, with confirmation off, and lets the removal finish. */
+    const removeMarked = async () => {
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: /^Move \d+ to Trash$/ }));
+        });
+    };
+
+    beforeEach(() => {
+        mockedTrash.mockReset();
+        mockedRestore.mockReset();
+        useSettingsStore.setState({ confirmDeletion: false });
+        useGalleryStore.setState(useGalleryStore.getInitialState(), true);
+    });
+
+    it("drops a group left with one file, and numbers the rest from 1", async () => {
+        show(GROUPS);
+        fireEvent.click(box("/p/g0/01.jpg"));
+        fireEvent.click(box("/p/g0/02.jpg"));
+        mockedTrash.mockResolvedValue(trashed(2));
+
+        await removeMarked();
+
+        expect(groupNames()).toEqual(["Group 1", "Group 2", "Group 3", "Group 4", "Group 5", "Group 6"]);
+        expect(tilesOf("Group 1")).toEqual(["/p/g1/00.jpg", "/p/g1/01.jpg", "/p/g1/02.jpg"]);
+        expect(summaryText()).toBe("15 similar files in 6 groups · 48 scanned · threshold 85%");
+        expect(footer()).toBe("Nothing marked for deletion.");
+    });
+
+    it("keeps a file that couldn't be moved marked in its group", async () => {
+        show(GROUPS);
+        fireEvent.click(box("/p/g0/01.jpg"));
+        fireEvent.click(box("/p/g0/02.jpg"));
+        mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "failed", reason: "changed", message: "x" }]);
+
+        await removeMarked();
+
+        expect(tilesOf("Group 1")).toEqual(["/p/g0/00.jpg", "/p/g0/02.jpg"]);
+        expect(box("/p/g0/02.jpg")).toHaveAttribute("aria-checked", "true");
+        expect(footer()).toBe("1 file marked for deletion · 4.8 MB will be freed");
+    });
+
+    it("leaves no tile selected when the selected file is removed", async () => {
+        show(GROUPS);
+        fireEvent.click(thumb("/p/g0/01.jpg"));
+        fireEvent.click(box("/p/g0/01.jpg"));
+        expect(ringed()).toEqual(["/p/g0/01.jpg"]);
+        mockedTrash.mockResolvedValue(trashed(1));
+
+        await removeMarked();
+
+        expect(ringed()).toEqual([]);
+    });
+
+    it("marks only the files still shown on Auto-select after a removal", async () => {
+        show(GROUPS);
+        fireEvent.click(box("/p/g0/01.jpg"));
+        mockedTrash.mockResolvedValue(trashed(1));
+        await removeMarked();
+
+        fireEvent.click(screen.getByRole("button", { name: "Auto-select" }));
+
+        const marks = useScanStore.getState().marks;
+        expect(marks.size).toBe(10);
+        expect(marks.has("/p/g0/01.jpg")).toBe(false);
+    });
+
+    describe("every extra removed", () => {
+        const removeEveryExtra = async () => {
+            show(GROUPS);
+            render(<GroupsDeletionNotice />);
+            fireEvent.click(screen.getByRole("button", { name: "Auto-select" }));
+            mockedTrash.mockResolvedValue(trashed(11));
+            await removeMarked();
+        };
+
+        it("reads that no similar file is left, with New comparison, and keeps the footer", async () => {
+            await removeEveryExtra();
+
+            expect(screen.getByRole("heading", { level: 2, name: "No similar files left" })).toBeInTheDocument();
+            expect(
+                screen.getByText("All 7 groups are resolved. The 37 remaining files are unique at the 85% threshold."),
+            ).toBeInTheDocument();
+            expect(screen.getAllByRole("button", { name: "New comparison" })).toHaveLength(2);
+            expect(summaryText()).toBe("No similar files left · 37 files remaining · threshold 85%");
+            expect(screen.queryByRole("region", { name: /^Group \d$/ })).not.toBeInTheDocument();
+            expect(footer()).toBe("Nothing marked for deletion.");
+            expect(screen.getByRole("button", { name: "Move 0 to Trash" })).toBeDisabled();
+            expect(screen.getByRole("button", { name: "Clear marks" })).toBeEnabled();
+            expect(screen.getByRole("button", { name: "Auto-select" })).toBeDisabled();
+            expect(screen.getByRole("button", { name: "More auto-select options" })).toBeDisabled();
+        });
+
+        it("brings the 7 groups back with the files marked on Undo", async () => {
+            await removeEveryExtra();
+            mockedRestore.mockImplementation(async (identities: string[]) =>
+                identities.map((identity) => ({ status: "restored", identity })),
+            );
+
+            await act(async () => {
+                fireEvent.click(screen.getByRole("button", { name: "Undo moving 11 files to Trash" }));
+            });
+
+            expect(groupNames()).toHaveLength(7);
+            expect(useScanStore.getState().marks.size).toBe(11);
+            expect(footer()).toBe("11 files marked for deletion · 52.8 MB will be freed");
+            expect(screen.getAllByRole("status").some((status) => status.textContent === "11 files restored")).toBe(
+                true,
+            );
+        });
     });
 });

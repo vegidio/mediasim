@@ -134,7 +134,7 @@ export const DeletionDialog = ({
                     </ul>
                     <p className="mt-3 flex justify-between text-[#A1A1AA] text-[13px]">
                         <span>{counted}</span>
-                        <span>
+                        <span className="inline-flex items-baseline gap-4">
                             Total <span className="font-semibold text-[#FAFAFA]">{formatSize(totalSize(listed))}</span>
                         </span>
                     </p>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { GroupFile } from "@/ipc/scan";
+import type { GroupFile, ScanGroup } from "@/ipc/scan";
 import type { GroupView } from "./GroupCard";
-import { autoSelect, keepBestOnly, markedFiles, pickBest, preview } from "./marks";
+import { autoSelect, keepBestOnly, markedFiles, pickBest, preview, visibleGroups } from "./marks";
 import { DEFAULT_RULES, moveRule, type Rule } from "./rules";
 
 const file = (path: string): GroupFile => ({ path, type: "image", width: 1, height: 1, size: 1 });
@@ -94,5 +94,54 @@ describe("preview", () => {
 
             expect(preview(pickBest(groups, rules))).toEqual({ count: 1, bytes: 4_100_000, total: 2 });
         });
+    });
+});
+
+describe("visibleGroups", () => {
+    /** The result's groups: `g0` to `g2`, of 3, 3 and 2 files. */
+    const RESULT: ScanGroup[] = [3, 3, 2].map((size, i) => ({
+        files: Array.from({ length: size }, (_, j) => file(`/g${i}/${j}`)),
+        scores: [],
+    }));
+    const paths = (groups: readonly ScanGroup[]) => groups.map(({ files }) => files.map((f) => f.path));
+
+    it("returns the groups unchanged when nothing is gone", () => {
+        expect(visibleGroups(RESULT, new Map())).toEqual(RESULT);
+    });
+
+    it("keeps a group of 3 that lost one file, with the other 2 in order", () => {
+        const groups = visibleGroups(RESULT, new Map([["/g0/1", "trash"]]));
+
+        expect(paths(groups)).toEqual([
+            ["/g0/0", "/g0/2"],
+            ["/g1/0", "/g1/1", "/g1/2"],
+            ["/g2/0", "/g2/1"],
+        ]);
+    });
+
+    it("drops a group of 3 that lost 2 files, keeping the later groups' order", () => {
+        const groups = visibleGroups(
+            RESULT,
+            new Map([
+                ["/g0/1", "trash"],
+                ["/g0/2", "permanent"],
+            ]),
+        );
+
+        expect(paths(groups)).toEqual([
+            ["/g1/0", "/g1/1", "/g1/2"],
+            ["/g2/0", "/g2/1"],
+        ]);
+    });
+
+    it("lets pickBest choose among the files left when the best one is gone", () => {
+        const result: ScanGroup[] = [{ files: [file("/a/1"), file("/a/2 (1)"), file("/a/3 copy")], scores: [] }];
+        const [whole] = pickBest(result, DEFAULT_RULES);
+        expect(whole?.files[whole.best]?.path).toBe("/a/1");
+
+        const [left] = pickBest(visibleGroups(result, new Map([["/a/1", "permanent"]])), DEFAULT_RULES);
+
+        expect(left?.files.map((f) => f.path)).toEqual(["/a/2 (1)", "/a/3 copy"]);
+        expect(left?.files[left.best]?.path).toBe("/a/2 (1)");
     });
 });

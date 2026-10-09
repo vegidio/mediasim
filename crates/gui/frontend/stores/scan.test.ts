@@ -3,16 +3,22 @@ import type { MediaType } from "@/ipc/formats";
 import { cancelScan, type ScanMessage, type ScanResult, startScan } from "@/ipc/scan";
 import type { SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
+import { deleteMedia, restoreMedia, trashMedia } from "@/ipc/trash";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 
 vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
 vi.mock("@/ipc/set", () => ({ addToSet: vi.fn(), removeFromSet: vi.fn(), rescanSet: vi.fn(), listSetMedia: vi.fn() }));
+vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), deleteMedia: vi.fn(), restoreMedia: vi.fn() }));
 
 const mockedStart = startScan as Mock;
 const mockedCancel = cancelScan as Mock;
+const mockedTrash = trashMedia as Mock;
+const mockedDelete = deleteMedia as Mock;
+const mockedRestore = restoreMedia as Mock;
 
 /** One scan as the Rust side would run it: the test sends its messages and settles it when it chooses. */
 type Scan = {
@@ -58,6 +64,10 @@ beforeEach(() => {
                 new Promise((resolve, reject) => scans.push({ send: onMessage, resolve, reject })),
         );
     mockedCancel.mockReset().mockResolvedValue(undefined);
+    mockedTrash.mockReset();
+    mockedDelete.mockReset();
+    mockedRestore.mockReset();
+    useSettingsStore.setState(SETTINGS_DEFAULTS);
     useScreenStore.setState(useScreenStore.getInitialState(), true);
     useScreenStore.getState().show("gallery");
     useHomeStore.setState({ view: { revision: 1, sources: [folder], total: FILES.length } });
@@ -385,5 +395,299 @@ describe("marks", () => {
 
         expect(useScreenStore.getState().screen).toBe("groups");
         expect([...state().marks]).toEqual(["/u/Holiday 2025/a.jpg"]);
+    });
+});
+
+describe("removing marked files", () => {
+    const path = (name: string) => `/u/Holiday 2025/${name}`;
+    const groupFile = (name: string) => ({ path: path(name), type: "image" as const, width: 1, height: 1, size: 1 });
+    const id = (name: string) => name.padEnd(16, "0");
+    const listed = () => {
+        const { listing } = useGalleryStore.getState();
+        return listing.status === "ready" ? listing.files : [];
+    };
+
+    /** Runs a scan of every file to groups `a.jpg, b.jpg` and `c.mp4, d.jpg`, and marks `b.jpg` and `d.jpg`. */
+    const finish = async () => {
+        state().start();
+        scans.at(-1)?.resolve({
+            groups: [
+                { files: [groupFile("a.jpg"), groupFile("b.jpg")], scores: [] },
+                { files: [groupFile("c.mp4"), groupFile("d.jpg")], scores: [] },
+            ],
+            skipped: [],
+        });
+        await settle();
+        state().setMarks([path("b.jpg"), path("d.jpg")]);
+    };
+
+    /** A promise the test settles when it chooses. */
+    const deferred = <T>() => {
+        let resolve: (value: T) => void = () => {};
+        const promise = new Promise<T>((r) => {
+            resolve = r;
+        });
+        return { promise, resolve };
+    };
+
+    describe("requestDeletion", () => {
+        it("asks to confirm with confirmation on, in the mode in force, without removing anything", async () => {
+            await finish();
+
+            await state().requestDeletion();
+
+            expect(state().deletion).toEqual({ status: "confirming", mode: "trash" });
+            expect(mockedTrash).not.toHaveBeenCalled();
+        });
+
+        it("removes at once with confirmation off", async () => {
+            useSettingsStore.setState({ confirmDeletion: false });
+            await finish();
+            mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+
+            await state().requestDeletion();
+
+            expect(mockedTrash).toHaveBeenCalledExactlyOnceWith([id("b.jpg"), id("d.jpg")]);
+            expect(state().deletion).toEqual({ status: "idle" });
+        });
+
+        it("reads 'removing' without confirmation while it runs", async () => {
+            useSettingsStore.setState({ confirmDeletion: false, deletionMode: "permanent" });
+            await finish();
+            const pending = deferred<unknown[]>();
+            mockedDelete.mockReturnValue(pending.promise);
+
+            const run = state().requestDeletion();
+
+            expect(state().deletion).toEqual({ status: "removing", mode: "permanent", confirmed: false });
+            pending.resolve([{ status: "deleted" }, { status: "deleted" }]);
+            await run;
+        });
+
+        it("does nothing with nothing marked", async () => {
+            await finish();
+            state().clearMarks();
+
+            await state().requestDeletion();
+
+            expect(state().deletion).toEqual({ status: "idle" });
+        });
+
+        it("keeps the mode it was asked in when Settings changes before confirming", async () => {
+            await finish();
+            await state().requestDeletion();
+            useSettingsStore.setState({ deletionMode: "permanent" });
+            mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+
+            await state().removeMarked();
+
+            expect(mockedTrash).toHaveBeenCalledOnce();
+            expect(mockedDelete).not.toHaveBeenCalled();
+        });
+
+        it("doesn't start another while one runs", async () => {
+            useSettingsStore.setState({ confirmDeletion: false });
+            await finish();
+            const pending = deferred<unknown[]>();
+            mockedTrash.mockReturnValue(pending.promise);
+
+            const run = state().requestDeletion();
+            await state().requestDeletion();
+            pending.resolve([{ status: "trashed" }, { status: "trashed" }]);
+            await run;
+
+            expect(mockedTrash).toHaveBeenCalledOnce();
+        });
+    });
+
+    it("closes the confirmation on cancel, keeping the marks", async () => {
+        await finish();
+        await state().requestDeletion();
+
+        state().cancelDeletion();
+
+        expect(state().deletion).toEqual({ status: "idle" });
+        expect([...state().marks]).toEqual([path("b.jpg"), path("d.jpg")]);
+    });
+
+    it.each([
+        ["trash", mockedTrash, { status: "trashed" }],
+        ["permanent", mockedDelete, { status: "deleted" }],
+    ] as const)("calls the right command in %s mode", async (mode, command, outcome) => {
+        useSettingsStore.setState({ deletionMode: mode });
+        await finish();
+        command.mockResolvedValue([outcome, outcome]);
+
+        await state().requestDeletion();
+        await state().removeMarked();
+
+        expect(command).toHaveBeenCalledExactlyOnceWith([id("b.jpg"), id("d.jpg")]);
+        expect(state().gone).toEqual(
+            new Map([
+                [path("b.jpg"), mode],
+                [path("d.jpg"), mode],
+            ]),
+        );
+    });
+
+    it("sends only the marked files still shown, in group order", async () => {
+        await finish();
+        state().setMarks([path("d.jpg"), path("b.jpg"), "/elsewhere/x.jpg"]);
+        mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+
+        await state().requestDeletion();
+        await state().removeMarked();
+
+        expect(mockedTrash).toHaveBeenCalledExactlyOnceWith([id("b.jpg"), id("d.jpg")]);
+    });
+
+    it("unmarks and records the removed file, keeps a failed one marked, and withdraws the removed one", async () => {
+        await finish();
+        mockedTrash.mockResolvedValue([
+            { status: "trashed" },
+            { status: "failed", reason: "changed", message: "changed" },
+        ]);
+
+        await state().requestDeletion();
+        await state().removeMarked();
+
+        expect(state().gone).toEqual(new Map([[path("b.jpg"), "trash"]]));
+        expect([...state().marks]).toEqual([path("d.jpg")]);
+        expect(state().notice).toEqual({
+            action: "trash",
+            done: [path("b.jpg")],
+            failed: [{ path: path("d.jpg"), message: "changed" }],
+        });
+        expect(listed().map((file) => file.name)).toEqual(["a.jpg", "c.mp4", "d.jpg"]);
+    });
+
+    it("fails every file when the command can't run", async () => {
+        await finish();
+        mockedTrash.mockRejectedValue("command trash_media not found");
+
+        await state().requestDeletion();
+        await state().removeMarked();
+
+        expect(state().gone.size).toBe(0);
+        expect(state().marks.size).toBe(2);
+        expect(state().notice?.failed).toEqual([
+            { path: path("b.jpg"), message: "command trash_media not found" },
+            { path: path("d.jpg"), message: "command trash_media not found" },
+        ]);
+    });
+
+    it("drops a result that arrives after Back", async () => {
+        await finish();
+        const pending = deferred<unknown[]>();
+        mockedTrash.mockReturnValue(pending.promise);
+        await state().requestDeletion();
+        const run = state().removeMarked();
+
+        state().leave();
+        pending.resolve([{ status: "trashed" }, { status: "trashed" }]);
+        await run;
+
+        expect(state().gone.size).toBe(0);
+        expect(state().notice).toBeUndefined();
+        expect(listed()).toHaveLength(4);
+    });
+
+    it.each([
+        ["a new scan", () => state().start()],
+        ["New comparison", () => state().newComparison()],
+    ])("forgets what was removed and the notice on %s", async (_, end) => {
+        await finish();
+        mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+        await state().requestDeletion();
+        await state().removeMarked();
+
+        end();
+
+        expect(state().gone.size).toBe(0);
+        expect(state().notice).toBeUndefined();
+        expect(state().deletion).toEqual({ status: "idle" });
+    });
+
+    it("closes the notice on dismiss", async () => {
+        await finish();
+        mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+        await state().requestDeletion();
+        await state().removeMarked();
+
+        state().dismissNotice();
+
+        expect(state().notice).toBeUndefined();
+        expect(state().gone.size).toBe(2);
+    });
+
+    describe("restore", () => {
+        /** Moves `b.jpg` and `d.jpg` to the Trash. */
+        const trashBoth = async () => {
+            await finish();
+            mockedTrash.mockResolvedValue([{ status: "trashed" }, { status: "trashed" }]);
+            await state().requestDeletion();
+            await state().removeMarked();
+        };
+
+        it("brings the files back marked, with their new identities in the files and the gallery", async () => {
+            await trashBoth();
+            mockedRestore.mockResolvedValue([
+                { status: "restored", identity: "b-new" },
+                { status: "restored", identity: "d-new" },
+            ]);
+
+            await state().restore([path("b.jpg"), path("d.jpg")]);
+
+            expect(mockedRestore).toHaveBeenCalledExactlyOnceWith([id("b.jpg"), id("d.jpg")]);
+            expect(state().gone.size).toBe(0);
+            expect([...state().marks].sort()).toEqual([path("b.jpg"), path("d.jpg")]);
+            expect(state().files.map((file) => file.identity)).toEqual([id("a.jpg"), "b-new", id("c.mp4"), "d-new"]);
+            expect(listed().map((file) => file.identity)).toEqual([id("a.jpg"), "b-new", id("c.mp4"), "d-new"]);
+            expect(state().notice).toEqual({ action: "restore", done: [path("b.jpg"), path("d.jpg")], failed: [] });
+        });
+
+        it("never sends a deleted file", async () => {
+            useSettingsStore.setState({ deletionMode: "permanent" });
+            await finish();
+            mockedDelete.mockResolvedValue([{ status: "deleted" }, { status: "deleted" }]);
+            await state().requestDeletion();
+            await state().removeMarked();
+
+            await state().restore([path("b.jpg"), path("d.jpg")]);
+
+            expect(mockedRestore).not.toHaveBeenCalled();
+            expect(state().gone.size).toBe(2);
+        });
+
+        it("keeps a file that couldn't be restored gone, and names it", async () => {
+            await trashBoth();
+            mockedRestore.mockResolvedValue([
+                { status: "restored", identity: "b-new" },
+                { status: "failed", reason: "occupied", message: "path taken" },
+            ]);
+
+            await state().restore([path("b.jpg"), path("d.jpg")]);
+
+            expect(state().gone).toEqual(new Map([[path("d.jpg"), "trash"]]));
+            expect([...state().marks]).toEqual([path("b.jpg")]);
+            expect(state().notice?.failed).toEqual([{ path: path("d.jpg"), message: "path taken" }]);
+            expect(listed().map((file) => file.name)).toEqual(["a.jpg", "b.jpg", "c.mp4"]);
+        });
+
+        it("starts no removal while restoring", async () => {
+            await trashBoth();
+            state().setMarks([path("a.jpg")]);
+            const pending = deferred<unknown[]>();
+            mockedRestore.mockReturnValue(pending.promise);
+
+            const run = state().restore([path("b.jpg")]);
+            expect(state().deletion).toEqual({ status: "restoring" });
+            await state().requestDeletion();
+
+            expect(state().deletion).toEqual({ status: "restoring" });
+            pending.resolve([{ status: "restored", identity: "b-new" }]);
+            await run;
+            expect(state().deletion).toEqual({ status: "idle" });
+        });
     });
 });

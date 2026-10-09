@@ -1,7 +1,20 @@
-import type { GroupFile } from "@/ipc/scan";
+import type { GroupFile, ScanGroup } from "@/ipc/scan";
 import { totalSize } from "@/lib/format";
 import type { GroupView } from "./GroupCard";
 import { bestIndex, type Rule } from "./rules";
+
+/**
+ * The groups of `groups` still shown once the files in `gone` have left: each one's files minus those, in order, and
+ * only the groups left with 2 files or more. A group that lost a file keeps its full `scores`, which then no longer
+ * line up with its `files`; index them by the result's group instead.
+ */
+export const visibleGroups = (groups: readonly ScanGroup[], gone: ReadonlyMap<string, unknown>): ScanGroup[] =>
+    groups
+        .map((group) => {
+            const files = group.files.filter((file) => !gone.has(file.path));
+            return files.length === group.files.length ? group : { ...group, files };
+        })
+        .filter(({ files }) => files.length >= 2);
 
 /** `groups` with each one's best file picked by `rules`. */
 export const pickBest = (groups: readonly { files: readonly GroupFile[] }[], rules: readonly Rule[]): GroupView[] =>

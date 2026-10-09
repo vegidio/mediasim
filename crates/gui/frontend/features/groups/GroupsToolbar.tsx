@@ -2,6 +2,7 @@ import { ArrowLeftIcon, HouseIcon, SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { focusContinue } from "@/features/home/SetCard";
+import { cn } from "@/lib/utils";
 import { useScanStore } from "@/stores/scan";
 import { AutoSelectMenu } from "./AutoSelectMenu";
 import { keepFocus } from "./navigate";
@@ -26,6 +27,8 @@ export type GroupsMarking = {
     onChooseRules: () => void;
     /** Focuses the selected tile, returning whether there was one. */
     refocus: () => boolean;
+    /** Shows the Auto-select split button faded, with both its halves disabled, as when no group is left. */
+    autoSelectDisabled?: boolean;
 };
 
 type GroupsToolbarProps = {
@@ -77,16 +80,21 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
                     >
                         Clear marks
                     </Button>
-                    <div className="inline-flex shrink-0">
+                    <div className={cn("inline-flex shrink-0", marking.autoSelectDisabled && "opacity-40")}>
                         <Button
+                            disabled={marking.autoSelectDisabled}
                             onClick={marking.onAutoSelect}
                             onMouseDown={keepFocus}
-                            className="h-[38px] gap-2 rounded-lg rounded-r-none px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 [&_svg:not([class*='size-'])]:size-4"
+                            className="h-[38px] gap-2 rounded-lg rounded-r-none px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 disabled:bg-primary disabled:text-[#1A2E05] [&_svg:not([class*='size-'])]:size-4"
                         >
                             <SparklesIcon aria-hidden="true" />
                             Auto-select
                         </Button>
-                        <AutoSelectMenu onChooseRules={marking.onChooseRules} refocus={marking.refocus} />
+                        <AutoSelectMenu
+                            onChooseRules={marking.onChooseRules}
+                            refocus={marking.refocus}
+                            {...(marking.autoSelectDisabled && { disabled: true })}
+                        />
                     </div>
                 </>
             )}

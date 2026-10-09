@@ -1,6 +1,17 @@
 import { type DeleteOutcome, deleteMedia, restoreMedia, type TrashOutcome, trashMedia } from "@/ipc/trash";
 import type { DeletionMode } from "@/stores/settings";
 
+/**
+ * Where the deletion of the marked files stands: not started, awaiting confirmation, removing them, or restoring files
+ * moved. The mode is the one in force when the deletion was asked for, and `confirmed` says whether the confirmation
+ * was shown. A removal and a restore never run at once.
+ */
+export type Deletion =
+    | { status: "idle" }
+    | { status: "confirming"; mode: DeletionMode }
+    | { status: "removing"; mode: DeletionMode; confirmed: boolean }
+    | { status: "restoring" };
+
 /** The deletion button's label for `count` files: "Move N to Trash" or "Delete N permanently", with "…" to confirm. */
 export const deletionLabel = (mode: DeletionMode, confirm: boolean, count: number) =>
     `${mode === "trash" ? `Move ${count} to Trash` : `Delete ${count} permanently`}${confirm ? "…" : ""}`;

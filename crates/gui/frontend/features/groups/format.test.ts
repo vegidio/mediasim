@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
-import { applyLabel, detailsLine, fileName, groupPosition, groupSize, summary, uniqueLine, willMark } from "./format";
+import {
+    applyLabel,
+    detailsLine,
+    fileName,
+    groupPosition,
+    groupSize,
+    leftSummary,
+    resolvedLine,
+    summary,
+    uniqueLine,
+    willMark,
+} from "./format";
 
 describe("summary", () => {
     it("counts several groups", () => {
@@ -89,5 +100,43 @@ describe("willMark", () => {
         const { amount, freed } = willMark({ count: 1, bytes: 3_200_000, total: 2 });
 
         expect(`Will mark ${amount} grouped files${freed}`).toBe("Will mark 1 of 2 grouped files · 3.2 MB freed");
+    });
+});
+
+describe("leftSummary", () => {
+    it("counts the files remaining", () => {
+        expect(leftSummary({ remaining: 37, threshold: 85, unreadable: 0 })).toBe(
+            "No similar files left · 37 files remaining · threshold 85%",
+        );
+    });
+
+    it("goes on with the unreadable files", () => {
+        expect(leftSummary({ remaining: 37, threshold: 85, unreadable: 3 })).toBe(
+            "No similar files left · 37 files remaining · threshold 85% · 3 couldn't be read",
+        );
+    });
+
+    it("reads one file", () => {
+        expect(leftSummary({ remaining: 1, threshold: 90, unreadable: 0 })).toBe(
+            "No similar files left · 1 file remaining · threshold 90%",
+        );
+    });
+});
+
+describe("resolvedLine", () => {
+    it("counts the groups and the files remaining", () => {
+        expect(resolvedLine(7, 37, 85)).toBe(
+            "All 7 groups are resolved. The 37 remaining files are unique at the 85% threshold.",
+        );
+    });
+
+    it("reads one group and one file", () => {
+        expect(resolvedLine(1, 1, 90)).toBe(
+            "The group is resolved. The 1 remaining file is unique at the 90% threshold.",
+        );
+    });
+
+    it("says when no file remains", () => {
+        expect(resolvedLine(1, 0, 90)).toBe("The group is resolved. No files remain.");
     });
 });

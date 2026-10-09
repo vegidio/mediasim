@@ -398,4 +398,89 @@ describe("useGalleryStore", () => {
             expect(state().overrides).toEqual(new Set(["/p/b.jpg"]));
         });
     });
+
+    describe("withdraw and reinstate", () => {
+        const NAMES = ["a.jpg", "b.jpg", "c.jpg", "d.jpg"];
+        const listed = () => {
+            const { listing } = state();
+            return listing.status === "ready" ? listing.files.map((f) => f.name) : [];
+        };
+
+        beforeEach(async () => {
+            atRevision(2);
+            mockedList.mockResolvedValue(media(2, NAMES.map(file)));
+            await state().load();
+        });
+
+        it.each([
+            ["b then d, back together", [["b.jpg"], ["d.jpg"]], ["b.jpg", "d.jpg"]],
+            ["d then b, back together", [["d.jpg"], ["b.jpg"]], ["d.jpg", "b.jpg"]],
+            ["a then c, back together", [["a.jpg"], ["c.jpg"]], ["c.jpg", "a.jpg"]],
+        ])("restores the order after two withdrawals and one reinstate: %s", (_, withdrawals, reinstated) => {
+            for (const names of withdrawals) state().withdraw(names.map((name) => `/p/${name}`));
+            expect(listed()).toHaveLength(2);
+
+            state().reinstate(reinstated.map(file));
+
+            expect(listed()).toEqual(NAMES);
+        });
+
+        it("restores the order when the files come back one at a time, in any order", () => {
+            state().withdraw(["/p/a.jpg", "/p/c.jpg"]);
+
+            state().reinstate([file("c.jpg")]);
+            expect(listed()).toEqual(["b.jpg", "c.jpg", "d.jpg"]);
+            state().reinstate([file("a.jpg")]);
+            expect(listed()).toEqual(NAMES);
+        });
+
+        it("keeps an override across a withdraw and a reinstate", () => {
+            state().toggle("/p/b.jpg");
+
+            state().withdraw(["/p/b.jpg"]);
+            expect(state().overrides).toEqual(new Set(["/p/b.jpg"]));
+
+            state().reinstate([file("b.jpg")]);
+            expect(state().overrides).toEqual(new Set(["/p/b.jpg"]));
+        });
+
+        it("clears a selected tile that is withdrawn, and keeps one that isn't", () => {
+            state().select("/p/b.jpg");
+            state().withdraw(["/p/c.jpg"]);
+            expect(state().selected).toBe("/p/b.jpg");
+
+            state().withdraw(["/p/b.jpg"]);
+
+            expect(state().selected).toBeUndefined();
+        });
+
+        it("closes the details dialog on a withdrawn file", () => {
+            state().openDetails("/p/a.jpg");
+
+            state().withdraw(["/p/a.jpg"]);
+
+            expect(state().details).toBeUndefined();
+        });
+
+        it("gives the reinstated file the identity it is given", () => {
+            state().withdraw(["/p/b.jpg"]);
+
+            state().reinstate([{ ...file("b.jpg"), identity: "ffffffffffffffff" }]);
+
+            const { listing } = state();
+            const back = listing.status === "ready" ? listing.files.find((f) => f.name === "b.jpg") : undefined;
+            expect(back?.identity).toBe("ffffffffffffffff");
+        });
+
+        it("forgets where withdrawn files stood once a new listing is read", async () => {
+            state().withdraw(["/p/b.jpg"]);
+
+            atRevision(3);
+            mockedList.mockResolvedValue(media(3, [file("a.jpg"), file("c.jpg")]));
+            await state().load();
+            state().reinstate([file("b.jpg")]);
+
+            expect(listed()).toEqual(["a.jpg", "c.jpg"]);
+        });
+    });
 });

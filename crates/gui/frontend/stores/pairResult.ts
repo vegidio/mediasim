@@ -3,7 +3,7 @@ import { SLOTS, type Slot } from "@/features/home/routePairDrop";
 import type { Details } from "@/features/pair/details";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { removeFiles, restoreFiles } from "@/lib/deletion";
+import { type Deletion, removeFiles, restoreFiles } from "@/lib/deletion";
 import { usePairStore } from "@/stores/pair";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
@@ -21,16 +21,7 @@ export type Comparison =
  */
 export type GoneKind = DeletionMode;
 
-/**
- * Where the deletion of the marked files stands: not started, awaiting confirmation, removing them, or restoring files
- * moved. The mode is the one in force when the deletion was asked for, and `confirmed` says whether the confirmation
- * was shown. A removal and a restore never run at once.
- */
-export type Deletion =
-    | { status: "idle" }
-    | { status: "confirming"; mode: DeletionMode }
-    | { status: "removing"; mode: DeletionMode; confirmed: boolean }
-    | { status: "restoring" };
+export type { Deletion };
 
 /**
  * The result of the last move to the Trash, permanent deletion or restore: the files it was done to, and each one it

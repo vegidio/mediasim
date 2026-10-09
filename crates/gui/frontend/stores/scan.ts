@@ -1,10 +1,13 @@
 import { create } from "zustand";
 import { identity, includedFiles } from "@/features/gallery/derive";
+import { visibleGroups } from "@/features/groups/marks";
 import { cancelScan, type ScanFailure, type ScanResult, startScan } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
+import { type Deletion, removeFiles, restoreFiles } from "@/lib/deletion";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
+import { type DeletionMode, useSettingsStore } from "@/stores/settings";
 
 /** Where the scan is: none, running, ended without a result, or finished with one. */
 export type ScanStatus = "idle" | "running" | "failed" | "done";
@@ -43,6 +46,16 @@ export type ScanHeading = {
 /** The file the scan last reported it is processing. */
 export type ScanCurrent = { path: string; display: string };
 
+/**
+ * The result of the last move to the Trash, permanent deletion or restore from the groups screen: the paths of the
+ * files it was done to, and each one it wasn't with the reason.
+ */
+export type ScanNotice = {
+    action: DeletionMode | "restore";
+    done: string[];
+    failed: { path: string; message: string }[];
+};
+
 /** State of the comparison of a set's files, from Compare to the groups. */
 type ScanStore = {
     status: ScanStatus;
@@ -59,6 +72,11 @@ type ScanStore = {
     result?: ScanResult;
     /** The paths of the files marked for deletion on the groups screen. */
     marks: ReadonlySet<string>;
+    /** How each file removed from the groups screen, and not restored, left, by path. */
+    gone: ReadonlyMap<string, DeletionMode>;
+    deletion: Deletion;
+    /** The result of the last removal or restore, until it is dismissed or the scan is forgotten. */
+    notice?: ScanNotice;
     /**
      * Scans the files the gallery's Compare button includes, under its threshold and comparison options, and shows the
      * scan screen. Once the scan is done, shows the groups screen in its place, or makes Settings return to it.
@@ -76,6 +94,20 @@ type ScanStore = {
     setMarks: (paths: Iterable<string>) => void;
     /** Unmarks every file. */
     clearMarks: () => void;
+    /**
+     * Start removing the marked files still shown, in the deletion mode in force: ask to confirm first while the
+     * settings say so, or remove them at once. Does nothing while none is marked or another deletion or restore is
+     * under way.
+     */
+    requestDeletion: () => Promise<void>;
+    /** Close the confirmation without removing anything. */
+    cancelDeletion: () => void;
+    /** Remove the marked files in the confirming mode, once confirmed, and record the result. */
+    removeMarked: () => Promise<void>;
+    /** Put the files of `paths` that are in the Trash back where they were, marked, and record the result. */
+    restore: (paths: string[]) => Promise<void>;
+    /** Close the notice. */
+    dismissNotice: () => void;
 };
 
 /** The kinds `files` include. */
@@ -85,16 +117,47 @@ const kindsOf = (files: readonly MediaFile[]): GalleryFilter => {
     return images && videos ? "both" : videos ? "videos" : "images";
 };
 
-const IDLE: Pick<ScanStore, "status" | "files" | "progress" | "marks"> = {
+const IDLE: Pick<ScanStore, "status" | "files" | "progress" | "marks" | "gone" | "deletion"> = {
     status: "idle",
     files: [],
     progress: { done: 0, total: 0, skipped: 0 },
     marks: new Set(),
+    gone: new Map(),
+    deletion: { status: "idle" },
 };
 
-/** `state` without what belongs to one scan: its heading, current file, scoring and result. */
-const withoutRun = ({ heading: _heading, current: _current, scoring: _scoring, result: _result, ...rest }: ScanStore) =>
-    rest;
+/** `state` without what belongs to one scan: its heading, current file, scoring, result and notice. */
+const withoutRun = ({
+    heading: _heading,
+    current: _current,
+    scoring: _scoring,
+    result: _result,
+    notice: _notice,
+    ...rest
+}: ScanStore) => rest;
+
+/** The files of the groups still shown whose paths are marked, in the groups' order and each group's order. */
+const markedShown = ({ result, gone, marks }: ScanStore): string[] =>
+    result
+        ? visibleGroups(result.groups, gone).flatMap(({ files }) =>
+              files.filter((file) => marks.has(file.path)).map((file) => file.path),
+          )
+        : [];
+
+/** `paths` paired with the identity each file is admitted as, leaving out any path not scanned. */
+const removable = (files: readonly MediaFile[], paths: readonly string[]) => {
+    const media = new Map(files.map((file) => [file.path, file]));
+    return paths.flatMap((path) => {
+        const file = media.get(path);
+        return file ? [{ key: path, identity: file.identity }] : [];
+    });
+};
+
+/** A notice of `action` from what was `done` and what `failed`. */
+const noticeOf = (
+    action: ScanNotice["action"],
+    { done, failed }: { done: string[]; failed: { key: string; message: string }[] },
+): ScanNotice => ({ action, done, failed: failed.map(({ key, message }) => ({ path: key, message })) });
 
 export const useScanStore = create<ScanStore>()((set, get) => {
     /** Applies `update` only while scan `run` is still the current one. */
@@ -106,6 +169,29 @@ export const useScanStore = create<ScanStore>()((set, get) => {
     const reset = () => {
         const state = get();
         set({ ...withoutRun(state), ...IDLE, run: state.run + 1 }, true);
+    };
+
+    /** Removes the marked files still shown in `mode`, and records how each went. */
+    const remove = async (mode: DeletionMode, confirmed: boolean) => {
+        const state = get();
+        const { run } = state;
+        const items = removable(state.files, markedShown(state));
+        set({ deletion: { status: "removing", mode, confirmed } });
+
+        const settled = await removeFiles(mode, items);
+        forRun(run, () => {
+            const notice = noticeOf(mode, settled);
+            set((state) => {
+                const gone = new Map(state.gone);
+                const marks = new Set(state.marks);
+                for (const path of notice.done) {
+                    gone.set(path, mode);
+                    marks.delete(path);
+                }
+                return { gone, marks, deletion: IDLE.deletion, notice };
+            });
+            useGalleryStore.getState().withdraw(notice.done);
+        });
     };
 
     return {
@@ -129,12 +215,12 @@ export const useScanStore = create<ScanStore>()((set, get) => {
             set(
                 {
                     ...withoutRun(get()),
+                    ...IDLE,
                     status: "running",
                     run,
                     heading,
                     files,
                     progress: { done: 0, total: files.length, skipped: 0 },
-                    marks: new Set(),
                 },
                 true,
             );
@@ -192,5 +278,59 @@ export const useScanStore = create<ScanStore>()((set, get) => {
         setMarks: (paths) => set({ marks: new Set(paths) }),
 
         clearMarks: () => set({ marks: new Set() }),
+
+        requestDeletion: async () => {
+            const state = get();
+            if (state.deletion.status !== "idle" || markedShown(state).length === 0) return;
+
+            // Read once, so this deletion keeps its mode whatever Settings says by the time it is confirmed.
+            const { deletionMode, confirmDeletion } = useSettingsStore.getState();
+            if (confirmDeletion) set({ deletion: { status: "confirming", mode: deletionMode } });
+            else await remove(deletionMode, false);
+        },
+
+        cancelDeletion: () => {
+            if (get().deletion.status === "confirming") set({ deletion: IDLE.deletion });
+        },
+
+        removeMarked: async () => {
+            const { deletion } = get();
+            if (deletion.status === "confirming") await remove(deletion.mode, true);
+        },
+
+        restore: async (requested) => {
+            const { run, files, gone, deletion } = get();
+            if (deletion.status !== "idle") return;
+
+            // A deleted file is never sent: only the Trash can give a file back.
+            const items = removable(
+                files,
+                requested.filter((path) => gone.get(path) === "trash"),
+            );
+            if (items.length === 0) return;
+            set({ deletion: { status: "restoring" } });
+
+            const { identities, ...settled } = await restoreFiles(items);
+            forRun(run, () => {
+                const notice = noticeOf("restore", settled);
+                const state = get();
+                const gone = new Map(state.gone);
+                const marks = new Set(state.marks);
+                for (const path of notice.done) {
+                    gone.delete(path);
+                    marks.add(path);
+                }
+                // A restored file can come back under a new identity, which `thumb://` and a later removal need.
+                const files = state.files.map((file) => {
+                    const identity = identities.get(file.path);
+                    return identity ? { ...file, identity } : file;
+                });
+
+                set({ files, gone, marks, deletion: IDLE.deletion, notice });
+                useGalleryStore.getState().reinstate(files.filter((file) => identities.has(file.path)));
+            });
+        },
+
+        dismissNotice: () => set(({ notice: _dismissed, ...rest }) => rest, true),
     };
 });

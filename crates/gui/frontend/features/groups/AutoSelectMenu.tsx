@@ -21,6 +21,8 @@ type AutoSelectMenuProps = {
     onChooseRules: () => void;
     /** Focuses the selected tile, returning whether there was one. */
     refocus: () => boolean;
+    /** Disables the chevron, so the menu can't open. */
+    disabled?: boolean;
 };
 
 /**
@@ -30,7 +32,7 @@ type AutoSelectMenuProps = {
  * click hands keyboard focus back to the selected tile when it closes, so the arrow keys go on moving the selection;
  * one opened from the keyboard returns focus to the chevron.
  */
-export const AutoSelectMenu = ({ onChooseRules, refocus }: AutoSelectMenuProps) => {
+export const AutoSelectMenu = ({ onChooseRules, refocus, disabled }: AutoSelectMenuProps) => {
     const openSettings = useScreenStore((state) => state.openSettings);
     const labelId = useId();
     const hintId = useId();
@@ -51,13 +53,14 @@ export const AutoSelectMenu = ({ onChooseRules, refocus }: AutoSelectMenuProps) 
                 <Button
                     id={AUTO_SELECT_OPTIONS_ID}
                     aria-label="More auto-select options"
+                    disabled={disabled}
                     onPointerDown={(event) => {
                         if (opening(event)) byPointer.current = true;
                     }}
                     onKeyDown={(event) => {
                         if (opening(event)) byPointer.current = false;
                     }}
-                    className="h-[38px] w-9 shrink-0 rounded-l-none border-l-[#65A30D] bg-[#A3E635] p-0 text-[#1A2E05] hover:bg-[#A3E635]/90 data-[state=open]:bg-[#84CC16]"
+                    className="h-[38px] w-9 shrink-0 rounded-l-none border-l-[#65A30D] bg-[#A3E635] p-0 text-[#1A2E05] hover:bg-[#A3E635]/90 data-[state=open]:bg-[#84CC16] disabled:bg-[#A3E635] disabled:text-[#1A2E05]"
                 >
                     <ChevronDownIcon aria-hidden="true" />
                 </Button>
