@@ -9,8 +9,9 @@ import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
-import { useSettingsStore } from "@/stores/settings";
+import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { GroupsScreen } from "./GroupsScreen";
+import { DEFAULT_RULES, moveRule, type Rule } from "./rules";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));
@@ -57,6 +58,7 @@ beforeEach(() => {
     mockedStart.mockReset();
     useScanStore.setState(useScanStore.getInitialState(), true);
     useScreenStore.setState(useScreenStore.getInitialState(), true);
+    useSettingsStore.setState(SETTINGS_DEFAULTS);
 });
 
 describe("Groups screen", () => {
@@ -651,5 +653,237 @@ describe("Opening a file's details", () => {
             .map((button) => button.getAttribute("aria-label"));
         expect(strip).toEqual(Array.from({ length: 7 }, (_, i) => `Show ${String(i + 8).padStart(2, "0")}.jpg`));
         expect(within(dialog()).getByRole("button", { name: "Show 11.jpg" })).toHaveAttribute("aria-current", "true");
+    });
+});
+
+/** The default rules with "Oldest creation date" on and first. */
+const CREATED_FIRST: Rule[] = moveRule(
+    DEFAULT_RULES.map((rule) => (rule.id === "created" ? { ...rule, on: true } : rule)),
+    3,
+    0,
+);
+
+/** The spec's one group: `DSC_0193.HEIC`, larger and newer, and `DSC_0193.jpg`, both 4032 × 3024. */
+const DSC: ScanGroup[] = [
+    {
+        files: [
+            { ...groupFile("/p/DSC_0193.HEIC"), size: 4_100_000, created: "2025-06-02T00:00:00Z" },
+            { ...groupFile("/p/DSC_0193.jpg"), size: 3_200_000, created: "2025-06-01T00:00:00Z" },
+        ],
+        scores: [
+            [1, 0.95],
+            [0.95, 1],
+        ],
+    },
+];
+
+/** Whether the tile of the file at `path` shows the Best badge. */
+const isBest = (path: string) =>
+    within(document.querySelector(`[data-path="${path}"]`) as HTMLElement).queryByText("Best") !== null;
+
+describe("Best files from the saved rules", () => {
+    it("picks the older file, and Auto-select marks the other, with the creation date on and first", () => {
+        useSettingsStore.setState({ autoSelectRules: CREATED_FIRST });
+        show(DSC);
+
+        expect(isBest("/p/DSC_0193.jpg")).toBe(true);
+        expect(isBest("/p/DSC_0193.HEIC")).toBe(false);
+
+        fireEvent.click(screen.getByRole("button", { name: "Auto-select" }));
+
+        expect([...useScanStore.getState().marks]).toEqual(["/p/DSC_0193.HEIC"]);
+    });
+
+    it("moves the Best badge when the rules change, leaving the marks as they were", () => {
+        show(DSC);
+        expect(isBest("/p/DSC_0193.HEIC")).toBe(true);
+        fireEvent.click(box("/p/DSC_0193.HEIC"));
+
+        act(() => useSettingsStore.getState().update({ autoSelectRules: CREATED_FIRST }));
+
+        expect(isBest("/p/DSC_0193.jpg")).toBe(true);
+        expect([...useScanStore.getState().marks]).toEqual(["/p/DSC_0193.HEIC"]);
+    });
+
+    it("moves the details dialog's Recommended keep with the best file", () => {
+        show(DSC);
+        fireEvent.doubleClick(thumb("/p/DSC_0193.jpg"));
+        expect(within(dialog()).queryByText("Recommended keep")).not.toBeInTheDocument();
+
+        act(() => useSettingsStore.getState().update({ autoSelectRules: CREATED_FIRST }));
+
+        expect(within(dialog()).getByText("Recommended keep")).toBeInTheDocument();
+    });
+});
+
+describe("Choosing the Auto-select rules", () => {
+    // While the menu or the dialog is open, the rest of the page is hidden from assistive technology.
+    const chevron = () => screen.getByRole("button", { name: "More auto-select options", hidden: true });
+    const rulesDialog = () => screen.getByRole("dialog", { name: "Auto-select" });
+    const order = () =>
+        within(rulesDialog())
+            .getAllByRole("switch")
+            .map((s) => s.getAttribute("aria-label"));
+
+    /** Opens the Auto-select rules dialog from the chevron's menu, as clicks do. */
+    const openRules = async () => {
+        fireEvent.pointerDown(chevron(), { button: 0, ctrlKey: false });
+        const menu = await screen.findByRole("menu", { name: "Auto-select options" });
+        fireEvent.click(within(menu).getByRole("menuitem", { name: "Choose rules for this run…" }));
+        return screen.findByRole("dialog", { name: "Auto-select" });
+    };
+
+    /** Lets dnd-kit's keyboard sensor start listening, which it does a tick after a row is lifted. */
+    const tick = () => act(() => new Promise((resolve) => setTimeout(resolve)));
+    const press = async (code: string) => {
+        await act(async () => {
+            fireEvent.keyDown(document.activeElement ?? document.body, { key: code === "Space" ? " " : code, code });
+        });
+        await tick();
+    };
+
+    /** Turns "Oldest creation date" on and moves it first from the keyboard, as the spec's scenario does. */
+    const createdFirst = async () => {
+        // jsdom has no layout: each rule's row stands 60 px tall, one under the other.
+        const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+            const rows = [...document.querySelectorAll('[role="dialog"] li')];
+            const index = rows.indexOf(this);
+            const top = Math.max(index, 0) * 60;
+            const height = index < 0 ? 0 : 60;
+            return { top, bottom: top + height, left: 0, right: 560, x: 0, y: top, width: 560, height } as DOMRect;
+        });
+        try {
+            fireEvent.click(within(rulesDialog()).getByRole("switch", { name: "Oldest creation date" }));
+            act(() => within(rulesDialog()).getByRole("button", { name: "Reorder Oldest creation date" }).focus());
+            await press("Space");
+            for (let i = 0; i < 3; i++) await press("ArrowUp");
+            await press("Space");
+        } finally {
+            rect.mockRestore();
+        }
+    };
+
+    it("previews, then applies the rules: new best file, marks replaced, and the footer following", async () => {
+        show(DSC);
+        await openRules();
+        const previewText = () => within(rulesDialog()).getByText(/^Will mark/).textContent;
+        expect(previewText()).toBe("Will mark 1 of 2 grouped files · 3.2 MB freed");
+
+        await createdFirst();
+
+        expect(order()[0]).toBe("Oldest creation date");
+        expect(previewText()).toBe("Will mark 1 of 2 grouped files · 4.1 MB freed");
+
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Apply to 1 group" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(isBest("/p/DSC_0193.jpg")).toBe(true);
+        expect(box("/p/DSC_0193.jpg")).not.toBeChecked();
+        expect(box("/p/DSC_0193.HEIC")).toBeChecked();
+        expect(screen.getByRole("status")).toHaveTextContent("1 file marked for deletion · 4.1 MB will be freed");
+    });
+
+    it("saves the applied rules, and opens with them again", async () => {
+        show(DSC);
+        await openRules();
+        await createdFirst();
+
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Apply to 1 group" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+        expect(useSettingsStore.getState().autoSelectRules).toEqual(CREATED_FIRST);
+        await openRules();
+        expect(order()[0]).toBe("Oldest creation date");
+        expect(within(rulesDialog()).getByRole("switch", { name: "Oldest creation date" })).toBeChecked();
+    });
+
+    it("keeps the applied rules for the next scan's result", async () => {
+        show(DSC);
+        await openRules();
+        fireEvent.click(within(rulesDialog()).getByRole("switch", { name: "Largest file size" }));
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Apply to 1 group" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+        // Two files that tie on everything but size: with "Largest file size" off, the path that sorts first wins.
+        act(() => useScanStore.getState().newComparison());
+        act(() =>
+            finished([
+                {
+                    files: [
+                        { ...groupFile("/p/a.jpg"), size: 1_000_000 },
+                        { ...groupFile("/p/b.jpg"), size: 5_000_000 },
+                    ],
+                    scores: [
+                        [1, 0.95],
+                        [0.95, 1],
+                    ],
+                },
+            ]),
+        );
+
+        expect(isBest("/p/a.jpg")).toBe(true);
+        expect(isBest("/p/b.jpg")).toBe(false);
+        await openRules();
+        expect(within(rulesDialog()).getByRole("switch", { name: "Largest file size" })).not.toBeChecked();
+    });
+
+    it("changes no mark, best file or setting on Cancel", async () => {
+        show(DSC);
+        fireEvent.click(box("/p/DSC_0193.jpg"));
+        await openRules();
+        fireEvent.click(within(rulesDialog()).getByRole("switch", { name: "Largest file size" }));
+
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Cancel" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect([...useScanStore.getState().marks]).toEqual(["/p/DSC_0193.jpg"]);
+        expect(isBest("/p/DSC_0193.HEIC")).toBe(true);
+        expect(useSettingsStore.getState().autoSelectRules).toBe(DEFAULT_RULES);
+    });
+
+    it("leaves <body> clickable once the dialog opens from the menu", async () => {
+        show(DSC);
+
+        await openRules();
+
+        // A modal dialog sets `none` on <body> while open, and keeps itself clickable.
+        expect(rulesDialog().closest("[style*='pointer-events: auto']")).not.toBeNull();
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Cancel" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(document.body.style.pointerEvents).not.toBe("none");
+    });
+
+    it("hands focus back to the selected tile after the menu closes on Escape", async () => {
+        show(COPIES);
+        fireEvent.click(thumb("/p/IMG_2041.jpg"));
+        fireEvent.pointerDown(chevron(), { button: 0, ctrlKey: false });
+        const menu = await screen.findByRole("menu", { name: "Auto-select options" });
+
+        fireEvent.keyDown(menu, { key: "Escape" });
+
+        await waitFor(() => expect(thumb("/p/IMG_2041.jpg")).toHaveFocus());
+        fireEvent.keyDown(thumb("/p/IMG_2041.jpg"), { key: "ArrowRight" });
+        expect(ringed()).toEqual(["/p/IMG_2041 (1).jpg"]);
+    });
+
+    it("hands focus back to the selected tile after the dialog's Cancel", async () => {
+        show(COPIES);
+        fireEvent.click(thumb("/p/IMG_2041.jpg"));
+        await openRules();
+
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Cancel" }));
+
+        await waitFor(() => expect(thumb("/p/IMG_2041.jpg")).toHaveFocus());
+        fireEvent.keyDown(thumb("/p/IMG_2041.jpg"), { key: "ArrowRight" });
+        expect(ringed()).toEqual(["/p/IMG_2041 (1).jpg"]);
+    });
+
+    it("puts focus on the chevron after Apply with no tile selected", async () => {
+        show(COPIES);
+        await openRules();
+
+        fireEvent.click(within(rulesDialog()).getByRole("button", { name: "Apply to 2 groups" }));
+
+        await waitFor(() => expect(chevron()).toHaveFocus());
     });
 });

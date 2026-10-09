@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_RULES } from "@/features/groups/rules";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "./settings";
 
 const KEY = "settings-storage";
@@ -10,10 +11,10 @@ const relaunchWith = async (state: unknown) => {
 };
 
 const data = () => {
-    const { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip } =
+    const { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip, autoSelectRules } =
         useSettingsStore.getState();
 
-    return { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip };
+    return { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip, autoSelectRules };
 };
 
 /** A stored record with every setting off its default. */
@@ -24,6 +25,14 @@ const CHANGED = {
     scanSubfolders: true,
     frameRotate: false,
     frameFlip: false,
+    // "Oldest creation date" on and first, "Largest file size" off.
+    autoSelectRules: [
+        { id: "created", on: true },
+        { id: "duration", on: true },
+        { id: "resolution", on: true },
+        { id: "size", on: false },
+        { id: "name", on: true },
+    ],
 } as const;
 
 beforeEach(() => {
@@ -43,6 +52,7 @@ describe("useSettingsStore", () => {
             scanSubfolders: false,
             frameRotate: true,
             frameFlip: true,
+            autoSelectRules: DEFAULT_RULES,
         });
     });
 
@@ -84,6 +94,24 @@ describe("useSettingsStore", () => {
             expect(data()).toEqual({ ...CHANGED, [key]: SETTINGS_DEFAULTS[key] });
         },
     );
+
+    it.each([
+        ["names an unknown rule", [...CHANGED.autoSelectRules.slice(1), { id: "flip", on: true }]],
+        ["misses a rule", CHANGED.autoSelectRules.slice(1)],
+        ["isn't a list", "created,duration"],
+    ])("replaces Auto-select rules that %s with the defaults as a whole, keeping the others", async (_, rules) => {
+        await relaunchWith({ ...CHANGED, autoSelectRules: rules });
+
+        expect(data()).toEqual({ ...CHANGED, autoSelectRules: DEFAULT_RULES });
+        expect(data().frameFlip).toBe(false);
+    });
+
+    it("defaults the Auto-select rules for settings saved without them", async () => {
+        const { autoSelectRules: _, ...earlier } = CHANGED;
+        await relaunchWith(earlier);
+
+        expect(data()).toEqual({ ...CHANGED, autoSelectRules: DEFAULT_RULES });
+    });
 
     it("keeps an earlier version's two settings and defaults the Comparison ones", async () => {
         await relaunchWith({ deletionMode: "permanent", confirmDeletion: false });

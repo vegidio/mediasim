@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { DEFAULT_RULES, isRules, type Rule } from "@/features/groups/rules";
 
 /** How the marked files are removed: moved to the platform's Trash, or deleted from disk. */
 export type DeletionMode = "trash" | "permanent";
@@ -23,6 +24,8 @@ export type SettingsData = {
     frameRotate: boolean;
     /** Whether each frame is also compared flipped vertically and horizontally. */
     frameFlip: boolean;
+    /** The rules each group's best file is picked by, in order, as the Auto-select rules dialog last applied them. */
+    autoSelectRules: readonly Rule[];
 };
 
 type SettingsStore = SettingsData & {
@@ -40,6 +43,7 @@ export const SETTINGS_DEFAULTS: SettingsData = {
     scanSubfolders: false,
     frameRotate: true,
     frameFlip: true,
+    autoSelectRules: DEFAULT_RULES,
 };
 
 /** The lowest and highest default match threshold, in whole percent. */
@@ -82,6 +86,7 @@ export const useSettingsStore = create<SettingsStore>()(
                 scanSubfolders,
                 frameRotate,
                 frameFlip,
+                autoSelectRules,
             }): SettingsData => ({
                 deletionMode,
                 confirmDeletion,
@@ -89,6 +94,7 @@ export const useSettingsStore = create<SettingsStore>()(
                 scanSubfolders,
                 frameRotate,
                 frameFlip,
+                autoSelectRules,
             }),
             merge: (persisted, current): SettingsStore => {
                 // `persist` calls this whether or not anything was stored.
@@ -108,6 +114,10 @@ export const useSettingsStore = create<SettingsStore>()(
                     scanSubfolders: booleanOr(stored.scanSubfolders, SETTINGS_DEFAULTS.scanSubfolders),
                     frameRotate: booleanOr(stored.frameRotate, SETTINGS_DEFAULTS.frameRotate),
                     frameFlip: booleanOr(stored.frameFlip, SETTINGS_DEFAULTS.frameFlip),
+                    // As a whole: a list missing one rule can't be patched into a meaningful order.
+                    autoSelectRules: isRules(stored.autoSelectRules)
+                        ? stored.autoSelectRules
+                        : SETTINGS_DEFAULTS.autoSelectRules,
                 };
             },
         },

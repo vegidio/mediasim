@@ -3,14 +3,17 @@ import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useScanStore } from "@/stores/scan";
+import { useSettingsStore } from "@/stores/settings";
+import { AutoSelectDialog } from "./AutoSelectDialog";
+import { focusAutoSelectOptions } from "./AutoSelectMenu";
 import { summary, uniqueLine } from "./format";
 import { GroupCard, type GroupView } from "./GroupCard";
 import { GroupDetailsDialog } from "./GroupDetailsDialog";
 import { GroupsFooter } from "./GroupsFooter";
 import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
-import { autoSelect, keepBestOnly, markedFiles } from "./marks";
+import { autoSelect, keepBestOnly, markedFiles, pickBest } from "./marks";
 import { stepFlat, stepVertical, type TileBox } from "./navigate";
-import { bestIndex } from "./rules";
+import type { Rule } from "./rules";
 
 /** What the groups area shows when the scan found no group: the files compared are unique, and New comparison. */
 const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }) => {
@@ -70,7 +73,8 @@ const measure = () =>
  * The groups screen (6b/6c): the toolbar with Back, New comparison, the summary and the marking buttons, then the
  * groups of similar files, each with its best file, and the footer with what is marked for deletion; or the "No similar
  * files found" state. A click on a file's thumbnail selects it, and the arrow keys move the selection; a double click or
- * Enter opens its details (7), over the screen.
+ * Enter opens its details (7), over the screen. The best files follow the saved Auto-select rules, which the Auto-select
+ * rules dialog (9b) changes and applies.
  */
 export const GroupsScreen = () => {
     const result = useScanStore((state) => state.result);
@@ -80,12 +84,11 @@ export const GroupsScreen = () => {
     const toggleMark = useScanStore((state) => state.toggleMark);
     const setMarks = useScanStore((state) => state.setMarks);
     const clearMarks = useScanStore((state) => state.clearMarks);
+    const rules = useSettingsStore((state) => state.autoSelectRules);
 
     const media = useMemo(() => new Map<string, MediaFile>(files.map((file) => [file.path, file])), [files]);
-    const groups = useMemo(
-        () => (result?.groups ?? []).map(({ files }): GroupView => ({ files, best: bestIndex(files) })),
-        [result],
-    );
+    // A change to the rules moves the best files, and leaves the marks to the user.
+    const groups = useMemo(() => pickBest(result?.groups ?? [], rules), [result, rules]);
     const marked = useMemo(() => markedFiles(groups, marks), [groups, marks]);
     // Every group's files in screen order, which ← and → step through.
     const paths = useMemo(() => groups.flatMap((group) => group.files.map((file) => file.path)), [groups]);
@@ -96,6 +99,8 @@ export const GroupsScreen = () => {
     const [shown, setShown] = useState<string>();
     const lastShown = useRef<string>(undefined);
     const details = findShown(groups, media, shown);
+    // Whether the Auto-select rules dialog is open.
+    const [rulesOpen, setRulesOpen] = useState(false);
 
     if (!result || !heading) return null;
 
@@ -103,6 +108,20 @@ export const GroupsScreen = () => {
         if (!path) return;
         setSelected(path);
         focusTile(path);
+    };
+
+    /** Focuses the selected tile, returning whether one is selected. */
+    const refocus = () => {
+        if (!selected) return false;
+        focusTile(selected);
+        return true;
+    };
+
+    const applyRules = (rules: Rule[]) => {
+        useSettingsStore.getState().update({ autoSelectRules: rules });
+        // From the rules themselves, so the marks land in the same render as the badges the memo moves.
+        setMarks(autoSelect(pickBest(result.groups, rules)));
+        setRulesOpen(false);
     };
 
     const onKey = (path: string, event: KeyboardEvent) => {
@@ -148,7 +167,12 @@ export const GroupsScreen = () => {
             <GroupsToolbar
                 summary={summary({ files: grouped, groups: groups.length, scanned, threshold, unreadable })}
                 {...(groups.length > 0 && {
-                    marking: { onClear: clearMarks, onAutoSelect: () => setMarks(autoSelect(groups)) },
+                    marking: {
+                        onClear: clearMarks,
+                        onAutoSelect: () => setMarks(autoSelect(groups)),
+                        onChooseRules: () => setRulesOpen(true),
+                        refocus,
+                    },
                 })}
             />
             {groups.length === 0 ? (
@@ -180,6 +204,13 @@ export const GroupsScreen = () => {
                         ))}
                     </div>
                     <GroupsFooter marked={marked} />
+                    <AutoSelectDialog
+                        open={rulesOpen}
+                        groups={result.groups}
+                        onApply={applyRules}
+                        onClose={() => setRulesOpen(false)}
+                        onClosed={() => refocus() || focusAutoSelectOptions()}
+                    />
                     {details && (
                         <GroupDetailsDialog
                             {...details}

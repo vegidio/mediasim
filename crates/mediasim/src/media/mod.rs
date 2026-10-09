@@ -292,23 +292,25 @@ fn check(path: &Path, cancel: Option<&CancelToken>) -> Result<(), MediaError> {
     }
 }
 
-/// Loads `paths` with `load` on `pool`, from a spawned task, sending each result to `tx`. A failed send means the
-/// caller dropped the stream, which ends the batch. Once `cancel`, if given, is cancelled, each file not yet started
-/// sends [`MediaError::Cancelled`] without being loaded.
-fn spawn_batch<P, L>(
-    pool: &ThreadPool,
-    paths: Vec<P>,
-    tx: mpsc::Sender<Result<Media, MediaError>>,
-    cancel: Option<CancelToken>,
-    load: L,
-) where
+/// Loads `paths` with `load` on `pool`, from a spawned task, sending to `tx` that each file has started, then its
+/// result. A failed send means the caller dropped the stream, which ends the batch. Once `cancel`, if given, is
+/// cancelled, each file not yet started sends [`MediaError::Cancelled`] without being loaded.
+fn spawn_batch<P, L>(pool: &ThreadPool, paths: Vec<P>, tx: mpsc::Sender<Loading>, cancel: Option<CancelToken>, load: L)
+where
     P: AsRef<Path> + Send + 'static,
     L: Fn(&Path) -> Result<Media, MediaError> + Send + Sync + 'static,
 {
     pool.spawn(move || {
         let _ = paths.into_par_iter().try_for_each_with(tx.clone(), |tx, path| {
             let path = path.as_ref();
-            tx.send(check(path, cancel.as_ref()).and_then(|()| load(path)))
+            let loaded = match check(path, cancel.as_ref()) {
+                Ok(()) => {
+                    tx.send(Loading::Started(path.to_path_buf()))?;
+                    load(path)
+                }
+                Err(err) => Err(err),
+            };
+            tx.send(Loading::Done(loaded))
         });
         // `load` goes before the last sender, so whatever it holds (such as a cache handle) is released by the time
         // the stream ends.
@@ -317,19 +319,38 @@ fn spawn_batch<P, L>(
     });
 }
 
+/// What a batch load reports for one file: that it has started loading, then its result.
+#[derive(Debug)]
+pub(crate) enum Loading {
+    /// The file has started loading. A file cancelled before it starts never reports this.
+    Started(PathBuf),
+    /// The file has finished loading, or failed to.
+    Done(Result<Media, MediaError>),
+}
+
 /// The results of a batch load, yielded in completion order. Returned by [`Media::from_files`] and
 /// [`Media::from_dir`].
 ///
 /// It owns its channel rather than borrowing the call's arguments, so it can outlive them. Dropping it stops any file
 /// that has not started loading yet.
 #[derive(Debug)]
-pub struct MediaStream(mpsc::IntoIter<Result<Media, MediaError>>);
+pub struct MediaStream(mpsc::IntoIter<Loading>);
+
+impl MediaStream {
+    /// The next file to start loading or to finish, in the order the loading threads report them.
+    pub(crate) fn next_loading(&mut self) -> Option<Loading> {
+        self.0.next()
+    }
+}
 
 impl Iterator for MediaStream {
     type Item = Result<Media, MediaError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        self.0.find_map(|loading| match loading {
+            Loading::Started(_) => None,
+            Loading::Done(result) => Some(result),
+        })
     }
 }
 
@@ -639,6 +660,39 @@ pub(crate) mod tests {
         let cancellable = sorted(Media::from_files_cancellable(paths.clone(), &CancelToken::new()));
 
         assert_eq!(cancellable, sorted(Media::from_files(paths)));
+    }
+
+    #[test]
+    fn each_file_reports_its_start_before_its_result() {
+        let paths = vec![fixture("test1.png"), fixture("test3.mp4"), fixture("test2.png")];
+        let mut stream = Media::from_files(paths.clone());
+
+        let mut started = Vec::new();
+        let mut done = 0;
+        while let Some(loading) = stream.next_loading() {
+            match loading {
+                Loading::Started(path) => started.push(path),
+                Loading::Done(result) => {
+                    assert!(started.contains(&result.unwrap().path), "a result before its start");
+                    done += 1;
+                }
+            }
+        }
+
+        started.sort();
+        let mut expected = paths;
+        expected.sort();
+        assert_eq!((started, done), (expected, 3));
+    }
+
+    #[test]
+    fn a_file_cancelled_before_it_starts_reports_no_start() {
+        let token = CancelToken::new();
+        token.cancel();
+        let mut stream = Media::from_files_cancellable(vec![fixture("test1.png")], &token);
+
+        assert!(matches!(stream.next_loading(), Some(Loading::Done(Err(MediaError::Cancelled { .. })))));
+        assert!(stream.next_loading().is_none());
     }
 
     #[test]

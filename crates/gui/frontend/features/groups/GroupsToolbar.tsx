@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { focusContinue } from "@/features/home/SetCard";
 import { useScanStore } from "@/stores/scan";
+import { AutoSelectMenu } from "./AutoSelectMenu";
 import { keepFocus } from "./navigate";
 
 /** Forget the scan and show the Home screen with the set unchanged, with focus on its Continue button. */
@@ -21,17 +22,21 @@ export type GroupsMarking = {
     onClear: () => void;
     /** Marks every file but its group's best, and unmarks the best files. */
     onAutoSelect: () => void;
+    /** Opens the Auto-select rules dialog. */
+    onChooseRules: () => void;
+    /** Focuses the selected tile, returning whether there was one. */
+    refocus: () => boolean;
 };
 
 type GroupsToolbarProps = {
     summary: string;
-    /** Clear marks and Auto-select, when given. */
+    /** Clear marks and the Auto-select split button, when given. */
     marking?: GroupsMarking;
 };
 
 /**
  * Above the groups: Back to the gallery, New comparison, the summary of what the scan found, then Clear marks and
- * Auto-select while there is something to mark.
+ * the Auto-select split button, with its chevron of other options, while there is something to mark.
  */
 export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
     const leave = useScanStore((state) => state.leave);
@@ -72,15 +77,17 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
                     >
                         Clear marks
                     </Button>
-                    {/* A single button until the chevron with the other auto-select options joins it. */}
-                    <Button
-                        onClick={marking.onAutoSelect}
-                        onMouseDown={keepFocus}
-                        className="h-[38px] shrink-0 gap-2 rounded-lg px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 [&_svg:not([class*='size-'])]:size-4"
-                    >
-                        <SparklesIcon aria-hidden="true" />
-                        Auto-select
-                    </Button>
+                    <div className="inline-flex shrink-0">
+                        <Button
+                            onClick={marking.onAutoSelect}
+                            onMouseDown={keepFocus}
+                            className="h-[38px] gap-2 rounded-lg rounded-r-none px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 [&_svg:not([class*='size-'])]:size-4"
+                        >
+                            <SparklesIcon aria-hidden="true" />
+                            Auto-select
+                        </Button>
+                        <AutoSelectMenu onChooseRules={marking.onChooseRules} refocus={marking.refocus} />
+                    </div>
                 </>
             )}
         </div>

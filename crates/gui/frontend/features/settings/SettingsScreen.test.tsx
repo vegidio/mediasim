@@ -1,6 +1,7 @@
 import { act } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_RULES } from "@/features/groups/rules";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { SettingsScreen } from "./SettingsScreen";
@@ -11,10 +12,10 @@ const confirm = () => screen.getByRole("switch", { name: "Confirm before deletin
 const threshold = () => screen.getByRole("slider", { name: "Default match threshold" });
 const toggle = (name: string) => screen.getByRole("switch", { name });
 const settings = () => {
-    const { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip } =
+    const { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip, autoSelectRules } =
         useSettingsStore.getState();
 
-    return { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip };
+    return { deletionMode, confirmDeletion, matchThreshold, scanSubfolders, frameRotate, frameFlip, autoSelectRules };
 };
 
 describe("SettingsScreen", () => {
@@ -219,6 +220,23 @@ describe("SettingsScreen", () => {
         expect(option("Move to Trash")).toBeChecked();
         expect(confirm()).toBeChecked();
         expect(settings()).toEqual(SETTINGS_DEFAULTS);
+    });
+
+    it("resets the Auto-select rules to their defaults, though it doesn't show them", () => {
+        useSettingsStore.setState({
+            autoSelectRules: [
+                { id: "created", on: true },
+                { id: "duration", on: true },
+                { id: "resolution", on: true },
+                { id: "size", on: true },
+                { id: "name", on: true },
+            ],
+        });
+        render(<SettingsScreen />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
+
+        expect(useSettingsStore.getState().autoSelectRules).toEqual(DEFAULT_RULES);
     });
 
     it("goes Back to the screen it was opened from", () => {

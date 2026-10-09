@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use crate::DirCache;
 #[cfg(feature = "cache")]
 use crate::media::CachedDecoder;
+use crate::media::Loading;
 use crate::{CancelToken, CompareOptions, Eta, Grouper, Media, MediaError, MediaStream};
 
 /// What a [`Scan`] does with a file that can't be loaded.
@@ -24,7 +25,8 @@ pub enum OnError {
 /// What a [`Scan`] reports to its caller while it runs.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ScanEvent<'a> {
-    /// The file whose loaded media is about to be compared with the earlier ones.
+    /// A file has started loading, to be compared with the earlier ones once loaded. Several files load at once, so
+    /// this is the one started most recently. A file cancelled before it starts is never reported.
     Processing(&'a Path),
     /// A file was loaded and compared, or skipped.
     Progress(ScanProgress),
@@ -171,21 +173,29 @@ impl Scan {
             self.paths.iter().enumerate().map(|(i, path)| (path.clone(), i)).collect();
         let mut grouper = Grouper::with_options(self.threshold, self.options);
         let on_error = self.on_error;
-        let stream = self.stream();
+        let mut stream = self.stream();
 
         let started = Instant::now();
         let mut eta = Eta::default();
         let (mut done, mut skipped) = (0, Vec::new());
 
         // Returning drops `stream`, which stops every file not yet started.
-        for result in stream {
+        while let Some(loading) = stream.next_loading() {
             if cancelled() {
                 return Err(ScanError::Cancelled);
             }
 
+            // Loading takes most of a file's time, so the file is reported as it starts, not once it is compared.
+            let result = match loading {
+                Loading::Started(path) => {
+                    on_event(ScanEvent::Processing(&path));
+                    continue;
+                }
+                Loading::Done(result) => result,
+            };
+
             match result {
                 Ok(media) => {
-                    on_event(ScanEvent::Processing(&media.path));
                     if !grouper.push_cancellable(media, &cancel) {
                         return Err(ScanError::Cancelled);
                     }

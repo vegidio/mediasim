@@ -1,3 +1,4 @@
+import { arrayMove } from "@dnd-kit/sortable";
 import type { GroupFile } from "@/ipc/scan";
 import { fileName } from "./format";
 
@@ -15,6 +16,38 @@ export const DEFAULT_RULES: readonly Rule[] = [
     { id: "created", on: false },
     { id: "name", on: true },
 ];
+
+/** How a rule reads in the rule list: its label, its hint, and whether it applies to videos only. */
+export type RuleInfo = { label: string; hint: string; videoOnly?: boolean };
+
+/** Every rule's wording, the one place 9b's and 10b's lists take it from. */
+export const RULE_INFO: Record<RuleId, RuleInfo> = {
+    duration: { label: "Longest video length", hint: "Prefer the file with the longest duration", videoOnly: true },
+    resolution: { label: "Highest resolution", hint: "Pixel count for images, frame size for videos" },
+    size: { label: "Largest file size", hint: "Usually the least compressed copy" },
+    created: { label: "Oldest creation date", hint: "The first copy is usually the original" },
+    name: { label: "Cleanest file name", hint: "Avoids “copy”, “(1)” and “-edit” suffixes" },
+};
+
+const RULE_IDS = Object.keys(RULE_INFO) as RuleId[];
+
+/** Whether `value` is a rule list: each of the five rules exactly once, with a boolean `on`, in any order. */
+export const isRules = (value: unknown): value is Rule[] => {
+    if (!Array.isArray(value) || value.length !== RULE_IDS.length) return false;
+
+    const ids = new Set<unknown>();
+    for (const rule of value) {
+        if (typeof rule !== "object" || !rule) return false;
+        const { id, on } = rule as Record<string, unknown>;
+        if (!RULE_IDS.includes(id as RuleId) || typeof on !== "boolean") return false;
+        ids.add(id);
+    }
+
+    return ids.size === RULE_IDS.length;
+};
+
+/** `rules` with the rule at `from` moved to `to`, the others shifting to make room. */
+export const moveRule = (rules: readonly Rule[], from: number, to: number): Rule[] => arrayMove([...rules], from, to);
 
 /** The copy markers removed from the end of a stem, one at a time; each needs its separator, so "copy" alone isn't one. */
 const MARKERS = [/\s?\(\d+\)$/i, /(\s-\s|[\s_-])copy(\s\d+)?$/i, /[\s_-]edit(ed)?$/i];

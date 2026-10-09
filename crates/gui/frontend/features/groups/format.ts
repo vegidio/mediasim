@@ -1,6 +1,7 @@
 import type { MediaType } from "@/ipc/formats";
 import type { GroupFile } from "@/ipc/scan";
 import { formatSize } from "@/lib/format";
+import type { Preview } from "./marks";
 
 /** The last component of a path, on any platform. */
 export const fileName = (path: string) => path.split(/[\\/]/).pop() || path;
@@ -48,3 +49,15 @@ export const uniqueLine = (read: number, threshold: number) => {
 /** Where the file at `index` of a group of `count` files is, counted from one: "Group 1 · 1 of 3". */
 export const groupPosition = (number: number, index: number, count: number) =>
     `Group ${number} · ${index + 1} of ${count}`;
+
+/** The Auto-select dialog's Apply button: "Apply to 7 groups", or "Apply to 1 group" for one. */
+export const applyLabel = (groups: number) => `Apply to ${groups} ${groups === 1 ? "group" : "groups"}`;
+
+/**
+ * The Auto-select dialog's preview, in the two parts it styles apart: the `amount` in "Will mark 1 of 2 grouped files",
+ * and what follows it, " · 3.2 MB freed", for a preview from `marks`' `preview`.
+ */
+export const willMark = ({ count, bytes, total }: Preview) => ({
+    amount: `${count} of ${total}`,
+    freed: ` · ${formatSize(bytes)} freed`,
+});

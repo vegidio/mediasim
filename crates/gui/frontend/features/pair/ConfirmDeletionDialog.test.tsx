@@ -210,6 +210,9 @@ describe("ConfirmDeletionDialog", () => {
 
     it("adds no npm package", () => {
         expect(Object.keys(packageJson.dependencies).sort()).toEqual([
+            "@dnd-kit/core",
+            "@dnd-kit/sortable",
+            "@dnd-kit/utilities",
             "@fontsource-variable/geist",
             "@fontsource-variable/geist-mono",
             "@tanstack/react-virtual",

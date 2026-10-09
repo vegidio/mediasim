@@ -99,24 +99,31 @@ fn every_file_reports_progress_ending_at_the_total_with_no_time_left() {
 }
 
 #[test]
-fn processing_is_reported_before_the_file_is_done() {
+fn processing_is_reported_as_each_file_starts() {
     let dir = four_images();
     let paths = paths(dir.path(), &["a.png", "c.png", "d.png"]);
 
     let (result, events) = run(Scan::new(paths.clone(), THRESHOLD));
 
     result.unwrap();
-    // Each file's `Processing` comes right before the `Progress` that counts it done.
-    let mut processed = Vec::new();
-    for (i, event) in events.iter().enumerate() {
-        if let Event::Processing(path) = event {
-            assert!(matches!(events.get(i + 1), Some(Event::Progress(_))), "{events:?}");
-            processed.push(path.clone());
+    // Every file is reported once, as it starts loading: before the `Progress` that counts it done.
+    let mut started = 0;
+    for event in &events {
+        match event {
+            Event::Processing(_) => started += 1,
+            Event::Progress(progress) => assert!(progress.done <= started, "{events:?}"),
         }
     }
-    assert_eq!(events.len(), 2 * paths.len(), "{events:?}");
+    let mut processed: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            Event::Processing(path) => Some(path.clone()),
+            Event::Progress(_) => None,
+        })
+        .collect();
     processed.sort();
     assert_eq!(processed, paths);
+    assert_eq!(events.len(), 2 * paths.len(), "{events:?}");
 }
 
 #[test]
@@ -132,7 +139,8 @@ fn skip_counts_an_unreadable_file_and_returns_its_error() {
     assert_eq!(scanned.skipped.len(), 1);
     assert_eq!(scanned.skipped[0].path(), dir.path().join("missing.png"));
     assert_eq!(group_paths(&scanned.groups), [[dir.path().join("a.png"), dir.path().join("b.png")]]);
-    assert!(!events.contains(&Event::Processing(dir.path().join("missing.png"))));
+    // Reported as it was attempted, like any other file.
+    assert!(events.contains(&Event::Processing(dir.path().join("missing.png"))));
 }
 
 #[test]

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
-import { detailsLine, fileName, groupPosition, groupSize, summary, uniqueLine } from "./format";
+import { applyLabel, detailsLine, fileName, groupPosition, groupSize, summary, uniqueLine, willMark } from "./format";
 
 describe("summary", () => {
     it("counts several groups", () => {
@@ -72,5 +72,22 @@ describe("groupPosition", () => {
         [1, 11, 19, "Group 1 · 12 of 19"],
     ])("reads group %i, index %i of %i, as %s", (number, index, count, expected) => {
         expect(groupPosition(number, index, count)).toBe(expected);
+    });
+});
+
+describe("applyLabel", () => {
+    it.each([
+        [1, "Apply to 1 group"],
+        [7, "Apply to 7 groups"],
+    ])("reads %i groups as %s", (groups, label) => {
+        expect(applyLabel(groups)).toBe(label);
+    });
+});
+
+describe("willMark", () => {
+    it("reads the files marked of those grouped, and the space freed in decimal units", () => {
+        const { amount, freed } = willMark({ count: 1, bytes: 3_200_000, total: 2 });
+
+        expect(`Will mark ${amount} grouped files${freed}`).toBe("Will mark 1 of 2 grouped files · 3.2 MB freed");
     });
 });
