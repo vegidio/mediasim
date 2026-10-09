@@ -1,9 +1,11 @@
+import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { GroupFile } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
 import { groupSize } from "./format";
 import { GroupTile } from "./GroupTile";
+import { keepFocus } from "./navigate";
 
 /** The number of files from which a group spans the full width: the fewest whose small tiles overflow a 1280 px window. */
 export const LARGE_GROUP = 7;
@@ -27,6 +29,16 @@ type GroupCardProps = {
     onToggle: (path: string) => void;
     /** Unmarks the group's best file and marks every other file of it. */
     onKeepBestOnly: () => void;
+    /** The path of the screen's selected file, in any group. */
+    selected?: string;
+    /** The path of the file whose thumbnail is the groups area's stop in the tab order, in any group. */
+    tabbable?: string;
+    /** Selects the file at `path`. */
+    onSelect: (path: string) => void;
+    /** Opens the details of the file at `path`. */
+    onOpen: (path: string) => void;
+    /** Handles a key pressed on the thumbnail of the file at `path`. */
+    onKey: (path: string, event: KeyboardEvent) => void;
 };
 
 /**
@@ -40,6 +52,11 @@ export const GroupCard = ({
     marks,
     onToggle,
     onKeepBestOnly,
+    selected,
+    tabbable,
+    onSelect,
+    onOpen,
+    onKey,
 }: GroupCardProps) => {
     const large = files.length >= LARGE_GROUP;
     const type = files[0]?.type ?? "image";
@@ -59,6 +76,7 @@ export const GroupCard = ({
                 <Button
                     variant="outline"
                     onClick={onKeepBestOnly}
+                    onMouseDown={keepFocus}
                     className="h-7 rounded-md border-[#27272A] bg-transparent px-2.5 font-medium text-[#E4E4E7] text-xs dark:border-[#27272A] dark:bg-transparent"
                 >
                     Keep best only
@@ -76,6 +94,11 @@ export const GroupCard = ({
                             large={large}
                             marked={marks.has(file.path)}
                             onToggle={() => onToggle(file.path)}
+                            selected={file.path === selected}
+                            tabbable={file.path === tabbable}
+                            onSelect={() => onSelect(file.path)}
+                            onOpen={() => onOpen(file.path)}
+                            onKey={(event) => onKey(file.path, event)}
                         />
                     );
                 })}

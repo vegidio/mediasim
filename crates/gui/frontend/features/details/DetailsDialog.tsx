@@ -1,14 +1,12 @@
-import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
-import { useGalleryStore } from "@/stores/gallery";
-import { inclusion } from "../gallery/derive";
 import { DetailsSidebar } from "./DetailsSidebar";
 import { DetailsStage } from "./DetailsStage";
 import { Filmstrip } from "./Filmstrip";
-import { indexOfPath, nextOf, position, previousOf } from "./navigate";
+import { indexOfPath, nextOf, previousOf } from "./navigate";
 import { useFileDetails } from "./useFileDetails";
 
 /**
@@ -39,22 +37,40 @@ const ICON_BUTTON =
     "flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#27272A] bg-transparent p-0 text-[#E4E4E7] outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default disabled:opacity-40";
 
 type DetailsDialogProps = {
-    /** Every file of the gallery, in grid order. */
+    /** The files Previous, Next and the strip step through, in order. */
     files: readonly MediaFile[];
     /** The one to show, which is one of `files`. */
     file: MediaFile;
+    /** Where the file is among `files`, after its name in the title bar: "4 of 48" or "Group 1 · 1 of 3". */
+    position: string;
+    /** Shows another of `files`. */
+    onShow: (file: MediaFile) => void;
+    onClose: () => void;
+    /** The sidebar's chips. */
+    chips: ReactNode;
+    /** The sidebar's button below "Open in app" and "Show in folder". */
+    action: ReactNode;
+    /** The paths of the files marked for deletion, which the strip shows as such. */
+    marks?: ReadonlySet<string>;
+    /** Puts focus back where the caller wants it, once the dialog has closed. */
+    onClosed?: () => void;
 };
 
 /**
- * The media details of one of the gallery's files over the dimmed gallery: its picture or player, a strip of its
- * neighbours, and its details. Shaped to the file, and stepping through every file of the gallery, whatever the tab.
+ * The media details of one file over the dimmed screen: its picture or player, a strip of its neighbours among
+ * `files`, and its details. Shaped to the file; what it steps through and what its sidebar adds are the caller's.
  */
-export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
-    const filter = useGalleryStore((state) => state.filter);
-    const showDetails = useGalleryStore((state) => state.showDetails);
-    const closeDetails = useGalleryStore((state) => state.closeDetails);
-    const overridden = useGalleryStore((state) => state.overrides.has(file.path));
-    const toggle = useGalleryStore((state) => state.toggle);
+export const DetailsDialog = ({
+    files,
+    file,
+    position,
+    onShow,
+    onClose,
+    chips,
+    action,
+    marks,
+    onClosed,
+}: DetailsDialogProps) => {
     const details = useFileDetails(file);
     const [ratio, setRatio] = useState(FIRST_RATIO);
     // The shape the picture reported once it loaded, which stands in when the details can't give one. Kept per file,
@@ -78,7 +94,7 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
     const index = indexOfPath(files, file.path);
     const previous = previousOf(files, index);
     const next = nextOf(files, index);
-    const show = (target?: MediaFile) => target && showDetails(target.path);
+    const show = (target?: MediaFile) => target && onShow(target);
 
     const onKeyDown = (event: KeyboardEvent) => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -89,12 +105,16 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
     };
 
     return (
-        <Dialog open onOpenChange={(open) => !open && closeDetails()}>
+        <Dialog open onOpenChange={(open) => !open && onClose()}>
             <DialogContent
                 aria-describedby={undefined}
                 onKeyDown={onKeyDown}
-                // The grid takes focus back itself, selecting the last file's tile, which may have been virtualized away.
-                onCloseAutoFocus={(event) => event.preventDefault()}
+                // The caller puts focus back itself: the file it last showed may not be the one it opened on, and the
+                // gallery's tile may have been virtualized away.
+                onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    onClosed?.();
+                }}
                 // A click on the backdrop closes it, unless it is the second click of a double click on a tile, which
                 // opened it with the first.
                 onPointerDownOutside={(event) => {
@@ -109,9 +129,7 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
                     <span aria-hidden="true" className="truncate font-medium font-mono text-sm">
                         {file.name}
                     </span>
-                    <span className="grow whitespace-nowrap text-[#A1A1AA] text-xs">
-                        {position(index, files.length)}
-                    </span>
+                    <span className="grow whitespace-nowrap text-[#A1A1AA] text-xs">{position}</span>
                     <button
                         type="button"
                         aria-label="Previous file"
@@ -142,16 +160,10 @@ export const DetailsDialog = ({ files, file }: DetailsDialogProps) => {
                             file={file}
                             onRatio={(shape) => shape !== undefined && setPictured({ path: file.path, ratio: shape })}
                         />
-                        <Filmstrip files={files} index={index} onShow={show} />
+                        <Filmstrip files={files} index={index} onShow={show} {...(marks && { marks })} />
                     </div>
                     {/* Keyed by path, so an action's failure message is gone once another file is shown. */}
-                    <DetailsSidebar
-                        key={file.path}
-                        file={file}
-                        details={details}
-                        inclusion={inclusion(file.type, filter, overridden)}
-                        onToggle={() => toggle(file.path)}
-                    />
+                    <DetailsSidebar key={file.path} file={file} details={details} chips={chips} action={action} />
                 </div>
             </DialogContent>
         </Dialog>

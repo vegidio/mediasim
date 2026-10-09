@@ -4,7 +4,7 @@ import { openMedia } from "@/ipc/open";
 import { type MediaInfo, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useGalleryStore } from "@/stores/gallery";
-import { DetailsDialog } from "./DetailsDialog";
+import { GalleryDetailsDialog } from "./GalleryDetailsDialog";
 import { forgetFileDetails } from "./useFileDetails";
 
 vi.mock("@/ipc/open", () => ({ openMedia: vi.fn(), revealMedia: vi.fn() }));
@@ -43,7 +43,7 @@ const nth = (n: number) => FILES[n - 1] as MediaFile;
 const Harness = () => {
     const path = useGalleryStore((state) => state.details);
     const file = FILES.find((candidate) => candidate.path === path);
-    return file ? <DetailsDialog files={FILES} file={file} /> : null;
+    return file ? <GalleryDetailsDialog files={FILES} file={file} /> : null;
 };
 
 const openOn = (n: number) => {
@@ -69,7 +69,7 @@ beforeEach(() => {
     );
 });
 
-describe("DetailsDialog", () => {
+describe("GalleryDetailsDialog", () => {
     it("is named after the file, and reads its position among every file", () => {
         useGalleryStore.getState().setFilter("videos");
         openOn(4);

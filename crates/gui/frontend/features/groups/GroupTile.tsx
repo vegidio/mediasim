@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import { PlayIcon, StarIcon, Trash2Icon } from "lucide-react";
 import { Thumbnail, TILE_BOUND } from "@/components/Thumbnail";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +11,7 @@ type GroupTileProps = {
     file: GroupFile;
     /** The file's identity, which names its thumbnail; without one, the icon of its kind is shown. */
     identity?: string;
-    /** Whether the file is its group's best file, which shows the lime ring, the Keep badge and "best". */
+    /** Whether the file is its group's best file, which shows the Best badge. */
     best: boolean;
     /** Whether the tile fills a column of a large group's grid, rather than being 160 px wide. */
     large: boolean;
@@ -18,13 +19,35 @@ type GroupTileProps = {
     marked: boolean;
     /** Marks the file, or unmarks it when it is marked. */
     onToggle: () => void;
+    /** Whether the tile is the screen's selected one, which shows the lime ring. */
+    selected: boolean;
+    /** Whether the thumbnail is the groups area's stop in the tab order. */
+    tabbable: boolean;
+    /** Selects the tile. */
+    onSelect: () => void;
+    /** Opens the file's details. */
+    onOpen: () => void;
+    /** Handles a key pressed on the thumbnail. */
+    onKey: (event: KeyboardEvent) => void;
 };
 
 /**
- * One file of a group: its picture, with its mark checkbox, the Keep or Delete badge and the duration on a video, then
- * its name, with "best" on the best file, and its resolution and size.
+ * One file of a group: its picture, which selects the tile on a click and opens its details on a double click, with
+ * its mark checkbox, the Best or Delete badge and the duration on a video, then its name and its resolution and size.
  */
-export const GroupTile = ({ file, identity, best, large, marked, onToggle }: GroupTileProps) => {
+export const GroupTile = ({
+    file,
+    identity,
+    best,
+    large,
+    marked,
+    onToggle,
+    selected,
+    tabbable,
+    onSelect,
+    onOpen,
+    onKey,
+}: GroupTileProps) => {
     const name = fileName(file.path);
 
     return (
@@ -33,31 +56,49 @@ export const GroupTile = ({ file, identity, best, large, marked, onToggle }: Gro
                 className={cn(
                     "relative block overflow-hidden rounded-[10px] bg-[#18181B]",
                     large ? "aspect-4/3 w-full" : "h-[120px] w-40",
-                    marked ? "ring-2 ring-[#EF4444]" : best && "ring-2 ring-primary",
+                    selected ? "ring-2 ring-primary" : marked && "ring-2 ring-[#EF4444]",
                 )}
             >
-                <Thumbnail key={identity} type={file.type} {...(identity && { identity })} bound={TILE_BOUND} />
+                {/* Its focus ring is the selection ring, since focus follows the selection. */}
+                <button
+                    type="button"
+                    aria-label={name}
+                    aria-current={selected || undefined}
+                    data-select={file.path}
+                    tabIndex={tabbable ? 0 : -1}
+                    onFocus={onSelect}
+                    onClick={(event) => {
+                        onSelect();
+                        // WebKit, the macOS webview, doesn't focus a button on click.
+                        event.currentTarget.focus();
+                    }}
+                    onDoubleClick={onOpen}
+                    onKeyDown={onKey}
+                    className="absolute inset-0 block cursor-pointer p-0 outline-none"
+                >
+                    <Thumbnail key={identity} type={file.type} {...(identity && { identity })} bound={TILE_BOUND} />
+                </button>
                 {marked && <span className="pointer-events-none absolute inset-0 bg-[rgba(69,10,10,0.62)]" />}
                 {/* Over the picture, which would otherwise hide an inset border. */}
-                {!best && !marked && (
+                {!selected && !marked && (
                     <span className="pointer-events-none absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]" />
                 )}
                 {marked ? (
-                    <span className="absolute top-2 right-2 flex h-[22px] items-center gap-1 rounded-full bg-[#DC2626] px-2 font-semibold text-[11px] text-white">
+                    <span className="pointer-events-none absolute top-2 right-2 flex h-[22px] items-center gap-1 rounded-full bg-[#DC2626] px-2 font-semibold text-[11px] text-white">
                         <Trash2Icon aria-hidden="true" className="size-[11px]" />
                         Delete
                     </span>
                 ) : (
                     best && (
-                        <span className="absolute top-2 right-2 flex h-[22px] items-center gap-1 rounded-full bg-primary px-2 font-semibold text-[#1A2E05] text-[11px]">
+                        <span className="pointer-events-none absolute top-2 right-2 flex h-[22px] items-center gap-1 rounded-full bg-primary px-2 font-semibold text-[#1A2E05] text-[11px]">
                             <StarIcon aria-hidden="true" className="size-[11px] fill-current stroke-none" />
-                            Keep
+                            Best
                         </span>
                     )
                 )}
                 {/* Explicit, since a video under a second lasts 0 and still shows "0:00". */}
                 {file.type === "video" && file.duration !== undefined && (
-                    <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-[rgba(9,9,11,0.8)] px-1.5 py-0.5 font-mono text-[#FAFAFA] text-[11px]">
+                    <span className="pointer-events-none absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-[rgba(9,9,11,0.8)] px-1.5 py-0.5 font-mono text-[#FAFAFA] text-[11px]">
                         <PlayIcon aria-hidden="true" className="size-2.5 fill-[#FAFAFA] stroke-none" />
                         {formatDuration(file.duration)}
                     </span>
@@ -65,22 +106,20 @@ export const GroupTile = ({ file, identity, best, large, marked, onToggle }: Gro
                 <Checkbox
                     checked={marked}
                     onCheckedChange={onToggle}
+                    tabIndex={-1}
                     aria-label={`Mark ${name} for deletion`}
                     className="absolute top-2 left-2 size-6 rounded-md border-[1.5px] border-[rgba(250,250,250,0.7)] bg-[rgba(9,9,11,0.55)] dark:bg-[rgba(9,9,11,0.55)] data-checked:border data-checked:border-[#DC2626] data-checked:bg-[#DC2626] data-checked:text-white dark:data-checked:bg-[#DC2626] [&_svg]:stroke-3"
                 />
             </span>
             <span className="flex flex-col gap-[3px]">
-                <span className="flex items-baseline justify-between gap-1.5">
-                    <span
-                        title={file.path}
-                        className={cn(
-                            "truncate font-mono text-xs",
-                            marked ? "text-[#A1A1AA] line-through" : "text-[#E4E4E7]",
-                        )}
-                    >
-                        {name}
-                    </span>
-                    {best && <span className="shrink-0 font-mono text-[11px] text-primary">best</span>}
+                <span
+                    title={file.path}
+                    className={cn(
+                        "truncate font-mono text-xs",
+                        marked ? "text-[#A1A1AA] line-through" : "text-[#E4E4E7]",
+                    )}
+                >
+                    {name}
                 </span>
                 <span className="whitespace-nowrap text-[#A1A1AA] text-[11px]">{detailsLine(file)}</span>
             </span>

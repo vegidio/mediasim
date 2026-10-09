@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
-import { detailsLine, fileName, groupSize, summary, uniqueLine } from "./format";
+import { detailsLine, fileName, groupPosition, groupSize, summary, uniqueLine } from "./format";
 
 describe("summary", () => {
     it("counts several groups", () => {
@@ -62,5 +62,15 @@ describe("fileName", () => {
     it("takes the last component on any platform", () => {
         expect(fileName("/a/b/IMG_2041.jpg")).toBe("IMG_2041.jpg");
         expect(fileName("C:\\Users\\ana\\cat.png")).toBe("cat.png");
+    });
+});
+
+describe("groupPosition", () => {
+    it.each([
+        [1, 0, 3, "Group 1 · 1 of 3"],
+        [3, 1, 2, "Group 3 · 2 of 2"],
+        [1, 11, 19, "Group 1 · 12 of 19"],
+    ])("reads group %i, index %i of %i, as %s", (number, index, count, expected) => {
+        expect(groupPosition(number, index, count)).toBe(expected);
     });
 });

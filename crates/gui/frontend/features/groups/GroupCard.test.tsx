@@ -48,6 +48,9 @@ const renderCard = (
             marks={marks}
             onToggle={onToggle}
             onKeepBestOnly={onKeepBestOnly}
+            onSelect={() => {}}
+            onOpen={() => {}}
+            onKey={() => {}}
         />,
     );
 
@@ -87,18 +90,20 @@ describe("GroupCard", () => {
         expect(within(tile("/v/VID_0714_small.mp4")).getByText("0:42")).toBeInTheDocument();
     });
 
-    it("shows the Keep badge and best on the best file, and no score on the others", () => {
+    it("shows the Best badge on the best file, with no lime ring, and nothing beside any name", () => {
         const files = [image("IMG_2041.jpg"), image("IMG_2041 (1).jpg"), image("IMG_2041-edit.jpg")];
         renderCard({ files, best: 0 });
 
         const best = tile("/p/IMG_2041.jpg");
-        expect(within(best).getByText("Keep")).toBeInTheDocument();
-        expect(within(best).getByText("best")).toHaveClass("text-primary");
-        expect(best.querySelector(".ring-primary")).not.toBeNull();
+        expect(within(best).getByText("Best")).toBeInTheDocument();
+        // The name and the details line are all the tile's text column holds.
+        const name = within(best).getByText("IMG_2041.jpg");
+        expect(name).toHaveTextContent(/^IMG_2041\.jpg$/);
+        expect(name.parentElement?.children).toHaveLength(2);
+        expect(best.querySelector(".ring-primary")).toBeNull();
         const edit = tile("/p/IMG_2041-edit.jpg");
-        expect(edit).not.toHaveTextContent(/%|best/);
-        expect(tile("/p/IMG_2041 (1).jpg")).not.toHaveTextContent(/%|best/);
-        expect(within(edit).queryByText("Keep")).not.toBeInTheDocument();
+        expect(edit).not.toHaveTextContent(/%|best/i);
+        expect(tile("/p/IMG_2041 (1).jpg")).not.toHaveTextContent(/%|best/i);
         expect(edit.querySelector(".ring-primary")).toBeNull();
     });
 
@@ -132,6 +137,9 @@ describe("GroupCard", () => {
                 marks={new Set()}
                 onToggle={() => {}}
                 onKeepBestOnly={() => {}}
+                onSelect={() => {}}
+                onOpen={() => {}}
+                onKey={() => {}}
             />,
         );
 

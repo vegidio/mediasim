@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PlayIcon } from "lucide-react";
+import { PlayIcon, Trash2Icon } from "lucide-react";
 import { MediaKindIcon } from "@/components/MediaKindIcon";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
@@ -11,22 +11,24 @@ export const STRIP_BOUND = 256;
 type StripThumbProps = {
     file: MediaFile;
     current: boolean;
+    /** Whether the file is marked for deletion, which shows the wash and the trash icon, and a red ring unless current. */
+    marked: boolean;
     onShow: () => void;
 };
 
 /** One file of the strip: its picture, or its kind icon until it loads or when it can't be produced. */
-const StripThumb = ({ file, current, onShow }: StripThumbProps) => {
+const StripThumb = ({ file, current, marked, onShow }: StripThumbProps) => {
     const [loaded, setLoaded] = useState(false);
 
     return (
         <button
             type="button"
-            aria-label={`Show ${file.name}`}
+            aria-label={`Show ${file.name}${marked ? ", marked for deletion" : ""}`}
             {...(current && { "aria-current": "true" })}
             onClick={onShow}
             className={cn(
                 "relative h-[72px] w-24 shrink-0 overflow-hidden rounded-lg bg-[#18181B] outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                current ? "shadow-[0_0_0_2px_#BEF264]" : "opacity-70",
+                current ? "shadow-[0_0_0_2px_#BEF264]" : marked ? "shadow-[0_0_0_2px_#EF4444]" : "opacity-70",
             )}
         >
             {!loaded && (
@@ -43,8 +45,16 @@ const StripThumb = ({ file, current, onShow }: StripThumbProps) => {
                 onError={() => setLoaded(false)}
                 className={cn("absolute inset-0 size-full object-cover", !loaded && "invisible")}
             />
-            {!current && (
+            {!current && !marked && (
                 <span className="pointer-events-none absolute inset-0 rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]" />
+            )}
+            {marked && (
+                <span
+                    data-testid="strip-marked"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[rgba(69,10,10,0.6)]"
+                >
+                    <Trash2Icon aria-hidden="true" className="size-4 text-white" strokeWidth={2} />
+                </span>
             )}
             {file.type === "video" && (
                 <span className="absolute right-1 bottom-1 flex size-[18px] items-center justify-center rounded-full bg-[rgba(9,9,11,0.75)]">
@@ -60,10 +70,12 @@ type FilmstripProps = {
     /** The index of the file the dialog shows. */
     index: number;
     onShow: (file: MediaFile) => void;
+    /** The paths of the files marked for deletion. */
+    marks?: ReadonlySet<string>;
 };
 
-/** Up to 7 of the gallery's files around the one shown, which is ringed in lime. */
-export const Filmstrip = ({ files, index, onShow }: FilmstripProps) => {
+/** Up to 7 of `files` around the one shown, which is ringed in lime, with the marked ones washed in red. */
+export const Filmstrip = ({ files, index, onShow, marks }: FilmstripProps) => {
     const { start, end } = stripWindow(files.length, index);
 
     return (
@@ -73,6 +85,7 @@ export const Filmstrip = ({ files, index, onShow }: FilmstripProps) => {
                     key={file.path}
                     file={file}
                     current={start + offset === index}
+                    marked={marks?.has(file.path) ?? false}
                     onShow={() => onShow(file)}
                 />
             ))}

@@ -44,3 +44,7 @@ export const uniqueLine = (read: number, threshold: number) => {
 
     return `The ${read} files compared are unique at the ${threshold}% threshold.`;
 };
+
+/** Where the file at `index` of a group of `count` files is, counted from one: "Group 1 · 1 of 3". */
+export const groupPosition = (number: number, index: number, count: number) =>
+    `Group ${number} · ${index + 1} of ${count}`;

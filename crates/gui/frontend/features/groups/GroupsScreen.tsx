@@ -1,13 +1,15 @@
-import { useMemo } from "react";
+import { type KeyboardEvent, type MouseEvent, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MediaFile } from "@/ipc/thumbs";
 import { useScanStore } from "@/stores/scan";
 import { summary, uniqueLine } from "./format";
 import { GroupCard, type GroupView } from "./GroupCard";
+import { GroupDetailsDialog } from "./GroupDetailsDialog";
 import { GroupsFooter } from "./GroupsFooter";
 import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
 import { autoSelect, keepBestOnly, markedFiles } from "./marks";
+import { stepFlat, stepVertical, type TileBox } from "./navigate";
 import { bestIndex } from "./rules";
 
 /** What the groups area shows when the scan found no group: the files compared are unique, and New comparison. */
@@ -31,10 +33,44 @@ const NothingSimilar = ({ read, threshold }: { read: number; threshold: number }
     );
 };
 
+/** The group holding the file at `path`, with its number from 1 and its scanned files in the card's order. */
+const findShown = (groups: readonly GroupView[], media: ReadonlyMap<string, MediaFile>, path?: string) => {
+    if (!path) return;
+
+    const index = groups.findIndex((group) => group.files.some((file) => file.path === path));
+    const group = groups[index];
+    const file = media.get(path);
+    if (!group || !file) return;
+
+    const files = group.files.flatMap((grouped) => media.get(grouped.path) ?? []);
+    return { number: index + 1, group, files, file };
+};
+
+/** Every tile's thumbnail button, in screen order. */
+const thumbnails = () => [...document.querySelectorAll<HTMLElement>("[data-select]")];
+
+/**
+ * Focuses the thumbnail of the file at `path`, which selects its tile, and scrolls the groups area to show the whole
+ * tile: focusing alone would stop at the thumbnail, leaving its name and details line past the edge.
+ */
+const focusTile = (path?: string) => {
+    const button = thumbnails().find((thumbnail) => thumbnail.dataset.select === path);
+    button?.focus({ preventScroll: true });
+    button?.closest("[data-path]")?.scrollIntoView({ block: "nearest" });
+};
+
+/** Where every tile's thumbnail is on screen now, at the window's current width. */
+const measure = () =>
+    thumbnails().map((button): TileBox => {
+        const { top, bottom, left, right } = button.getBoundingClientRect();
+        return { path: button.dataset.select ?? "", top, bottom, left, right };
+    });
+
 /**
  * The groups screen (6b/6c): the toolbar with Back, New comparison, the summary and the marking buttons, then the
  * groups of similar files, each with its best file, and the footer with what is marked for deletion; or the "No similar
- * files found" state.
+ * files found" state. A click on a file's thumbnail selects it, and the arrow keys move the selection; a double click or
+ * Enter opens its details (7), over the screen.
  */
 export const GroupsScreen = () => {
     const result = useScanStore((state) => state.result);
@@ -51,8 +87,57 @@ export const GroupsScreen = () => {
         [result],
     );
     const marked = useMemo(() => markedFiles(groups, marks), [groups, marks]);
+    // Every group's files in screen order, which ← and → step through.
+    const paths = useMemo(() => groups.flatMap((group) => group.files.map((file) => file.path)), [groups]);
+    // The selected file's path, whose thumbnail, or else Group 1's first, is the groups area's stop in the tab order.
+    const [selected, setSelected] = useState<string>();
+    const tabbable = selected ?? paths[0];
+    // The path of the file the details show, while they are open, and of the one they last showed, to focus its tile.
+    const [shown, setShown] = useState<string>();
+    const lastShown = useRef<string>(undefined);
+    const details = findShown(groups, media, shown);
 
     if (!result || !heading) return null;
+
+    const select = (path?: string) => {
+        if (!path) return;
+        setSelected(path);
+        focusTile(path);
+    };
+
+    const onKey = (path: string, event: KeyboardEvent) => {
+        switch (event.key) {
+            case "ArrowLeft":
+            case "ArrowRight":
+                select(stepFlat(paths, path, event.key === "ArrowLeft" ? -1 : 1));
+                break;
+            case "ArrowUp":
+            case "ArrowDown":
+                select(stepVertical(measure(), path, event.key === "ArrowUp" ? "up" : "down"));
+                break;
+            case "Enter":
+                setShown(path);
+                break;
+            case " ":
+                toggleMark(path);
+                break;
+            case "Escape":
+                setSelected(undefined);
+                break;
+            default:
+                return;
+        }
+        // Keeps the native button from clicking on Enter and Space, and the groups area from scrolling.
+        event.preventDefault();
+    };
+
+    const onClick = (event: MouseEvent<HTMLDivElement>) => {
+        const { target, currentTarget, nativeEvent } = event;
+        // A press on the scrollbar is not a click on the empty space.
+        if (target === currentTarget && nativeEvent.offsetX >= currentTarget.clientWidth) return;
+        if (target instanceof Element && target.closest("[data-path], button")) return;
+        setSelected(undefined);
+    };
 
     const { count: scanned, threshold } = heading;
     const unreadable = result.skipped.length;
@@ -70,7 +155,13 @@ export const GroupsScreen = () => {
                 <NothingSimilar read={scanned - unreadable} threshold={threshold} />
             ) : (
                 <>
-                    <div className="flex min-h-0 flex-1 flex-wrap content-start gap-4 overflow-y-auto p-6">
+                    {/* Each tile's thumbnail takes the keys; a click outside every tile clears the selection. */}
+                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above. */}
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: see above. */}
+                    <div
+                        onClick={onClick}
+                        className="flex min-h-0 flex-1 flex-wrap content-start gap-4 overflow-y-auto p-6"
+                    >
                         {groups.map((group, index) => (
                             <GroupCard
                                 key={group.files[0]?.path}
@@ -80,10 +171,27 @@ export const GroupsScreen = () => {
                                 marks={marks}
                                 onToggle={toggleMark}
                                 onKeepBestOnly={() => setMarks(keepBestOnly(marks, group))}
+                                {...(selected && { selected })}
+                                {...(tabbable && { tabbable })}
+                                onSelect={setSelected}
+                                onOpen={setShown}
+                                onKey={onKey}
                             />
                         ))}
                     </div>
                     <GroupsFooter marked={marked} />
+                    {details && (
+                        <GroupDetailsDialog
+                            {...details}
+                            onShow={setShown}
+                            onClose={() => {
+                                lastShown.current = shown;
+                                setSelected(shown);
+                                setShown(undefined);
+                            }}
+                            onClosed={() => focusTile(lastShown.current)}
+                        />
+                    )}
                 </>
             )}
         </div>

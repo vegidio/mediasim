@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { focusContinue } from "@/features/home/SetCard";
 import { useScanStore } from "@/stores/scan";
+import { keepFocus } from "./navigate";
 
 /** Forget the scan and show the Home screen with the set unchanged, with focus on its Continue button. */
 export const useNewComparison = () => {
@@ -66,6 +67,7 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
                     <Button
                         variant="ghost"
                         onClick={marking.onClear}
+                        onMouseDown={keepFocus}
                         className="h-[38px] shrink-0 rounded-lg px-3.5 font-medium text-[#A1A1AA] text-sm"
                     >
                         Clear marks
@@ -73,6 +75,7 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
                     {/* A single button until the chevron with the other auto-select options joins it. */}
                     <Button
                         onClick={marking.onAutoSelect}
+                        onMouseDown={keepFocus}
                         className="h-[38px] shrink-0 gap-2 rounded-lg px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 [&_svg:not([class*='size-'])]:size-4"
                     >
                         <SparklesIcon aria-hidden="true" />

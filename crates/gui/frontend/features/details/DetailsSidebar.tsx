@@ -1,16 +1,25 @@
 import { type ReactNode, useState } from "react";
-import { CircleMinusIcon, CirclePlusIcon, ExternalLinkIcon, FolderIcon } from "lucide-react";
+import { ExternalLinkIcon, FolderIcon } from "lucide-react";
+import type { MediaType } from "@/ipc/formats";
 import { openMedia, revealMedia } from "@/ipc/open";
 import type { MediaFile } from "@/ipc/thumbs";
 import { cn } from "@/lib/utils";
-import type { Inclusion } from "../gallery/derive";
 import { type DetailsRow, detailsSections, type FileDetails } from "./rows";
 
-const Chip = ({ children }: { children: ReactNode }) => (
-    <span className="flex h-[22px] items-center rounded-full border border-[#3F3F46] px-2 font-medium text-[#E4E4E7] text-[11px]">
+/** One of the chips above the sections: outlined, unless `className` styles it otherwise. */
+export const Chip = ({ children, className }: { children: ReactNode; className?: string }) => (
+    <span
+        className={cn(
+            "flex h-[22px] items-center rounded-full border border-[#3F3F46] px-2 font-medium text-[#E4E4E7] text-[11px]",
+            className,
+        )}
+    >
         {children}
     </span>
 );
+
+/** What the kind chip reads for a file of kind `type`. */
+export const kindLabel = (type: MediaType) => (type === "video" ? "Video" : "Image");
 
 /** One row's value, cut short with the whole of it in a tooltip, or a placeholder while it is read. */
 const Value = ({ value, mono }: Omit<DetailsRow, "key">) =>
@@ -27,7 +36,7 @@ const Value = ({ value, mono }: Omit<DetailsRow, "key">) =>
         </span>
     );
 
-const ACTION =
+export const ACTION =
     "flex cursor-pointer items-center justify-center rounded-lg border border-[#3F3F46] bg-transparent font-medium text-[#FAFAFA] outline-none hover:bg-[#18181B] focus-visible:ring-2 focus-visible:ring-primary";
 
 /** Which of the system actions last failed. */
@@ -38,43 +47,33 @@ const FAILURE_MESSAGES: Record<Failure, string> = {
     reveal: "Couldn't show this file in its folder.",
 };
 
-/** The chip saying why a file is not in the comparison, and what the button that flips it reads. */
-const INCLUSION_UI: Record<Inclusion, { chip?: string; action: string }> = {
-    included: { action: "Remove from comparison" },
-    removed: { chip: "Removed", action: "Add back to comparison" },
-    "left-out": { chip: "Not included", action: "Add to comparison" },
-};
-
 type DetailsSidebarProps = {
     file: MediaFile;
     details: FileDetails;
-    /** Whether the file is in the comparison. */
-    inclusion: Inclusion;
-    /** Flip whether the file is in the comparison. */
-    onToggle: () => void;
+    /** The chips above the sections, starting with the kind chip. */
+    chips: ReactNode;
+    /** The button below "Open in app" and "Show in folder". */
+    action: ReactNode;
 };
 
 /**
- * The file's kind, its details by section, and the actions on it. A failed action's message stays until an action is
- * tried again; the dialog keys this by path, so it is also gone once another file is shown.
+ * The caller's chips, the file's details by section, and the actions on it, with the caller's button last. A failed
+ * action's message stays until an action is tried again; the dialog keys this by path, so it is also gone once another
+ * file is shown.
  */
-export const DetailsSidebar = ({ file, details, inclusion, onToggle }: DetailsSidebarProps) => {
+export const DetailsSidebar = ({ file, details, chips, action }: DetailsSidebarProps) => {
     const { type } = file;
-    const { chip, action: toggleLabel } = INCLUSION_UI[inclusion];
     const [failure, setFailure] = useState<Failure>();
 
-    const attempt = (action: Failure) => {
+    const attempt = (which: Failure) => {
         setFailure(undefined);
-        const run = action === "open" ? openMedia : revealMedia;
-        run(file.identity).catch(() => setFailure(action));
+        const run = which === "open" ? openMedia : revealMedia;
+        run(file.identity).catch(() => setFailure(which));
     };
 
     return (
         <aside aria-label="File details" className="flex min-h-0 w-[340px] shrink-0 flex-col border-[#27272A] border-l">
-            <div className="flex flex-wrap gap-1.5 border-[#1F1F23] border-b px-5 pt-4 pb-3">
-                <Chip>{type === "video" ? "Video" : "Image"}</Chip>
-                {chip && <Chip>{chip}</Chip>}
-            </div>
+            <div className="flex flex-wrap gap-1.5 border-[#1F1F23] border-b px-5 pt-4 pb-3">{chips}</div>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2">
                 {detailsSections(type, details).map(({ title, rows }) => (
@@ -120,14 +119,7 @@ export const DetailsSidebar = ({ file, details, inclusion, onToggle }: DetailsSi
                         Show in folder
                     </button>
                 </div>
-                <button type="button" onClick={onToggle} className={cn(ACTION, "h-[38px] gap-2 text-sm")}>
-                    {inclusion === "included" ? (
-                        <CircleMinusIcon aria-hidden="true" className="size-[15px]" />
-                    ) : (
-                        <CirclePlusIcon aria-hidden="true" className="size-[15px]" />
-                    )}
-                    {toggleLabel}
-                </button>
+                {action}
             </div>
         </aside>
     );

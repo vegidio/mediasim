@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
-import { DetailsDialog } from "../details/DetailsDialog";
+import { GalleryDetailsDialog } from "../details/GalleryDetailsDialog";
 import { GalleryGrid } from "./GalleryGrid";
 import { GalleryToolbar } from "./GalleryToolbar";
 
@@ -37,7 +37,7 @@ export const GalleryScreen = () => {
             <TabsContent value={filter} className="flex min-h-0 flex-col">
                 <GalleryGrid />
             </TabsContent>
-            {files && shown && <DetailsDialog files={files} file={shown} />}
+            {files && shown && <GalleryDetailsDialog files={files} file={shown} />}
         </Tabs>
     );
 };

@@ -7,6 +7,7 @@ import type { MediaFile } from "@/ipc/thumbs";
 import type { VideoProbe } from "@/ipc/video";
 import type { Inclusion } from "../gallery/derive";
 import { DetailsSidebar } from "./DetailsSidebar";
+import { InclusionButton, InclusionChips } from "./GalleryDetailsDialog";
 import type { FileDetails } from "./rows";
 
 vi.mock("@/ipc/open", () => ({ openMedia: vi.fn(), revealMedia: vi.fn() }));
@@ -29,9 +30,14 @@ type SidebarProps = {
     onToggle?: () => void;
 };
 
-/** The sidebar for a file of kind `type`, included unless said otherwise. */
+/** The sidebar for a file of kind `type` as the gallery shows it, included unless said otherwise. */
 const Sidebar = ({ type, details, inclusion = "included", onToggle = () => {} }: SidebarProps) => (
-    <DetailsSidebar file={mediaFile(type)} details={details} inclusion={inclusion} onToggle={onToggle} />
+    <DetailsSidebar
+        file={mediaFile(type)}
+        details={details}
+        chips={<InclusionChips type={type} inclusion={inclusion} />}
+        action={<InclusionButton inclusion={inclusion} onToggle={onToggle} />}
+    />
 );
 
 const IMAGE: MediaInfo = {
@@ -127,6 +133,23 @@ describe("DetailsSidebar", () => {
             "Bitrate: 59.4 Mb/s",
             "Audio: AAC · 48 kHz",
         ]);
+    });
+
+    it("shows the caller's chips and button in place of the gallery's", () => {
+        render(
+            <DetailsSidebar
+                file={mediaFile("image")}
+                details={{ status: "loading" }}
+                chips={<span>Custom chip</span>}
+                action={<button type="button">Custom action</button>}
+            />,
+        );
+
+        expect(within(sidebar()).getByText("Custom chip")).toBeInTheDocument();
+        expect(within(sidebar()).getByRole("button", { name: "Custom action" })).toBeInTheDocument();
+        expect(within(sidebar()).queryByRole("button", { name: /comparison/ })).not.toBeInTheDocument();
+        expect(within(sidebar()).getByRole("button", { name: "Open in app" })).toBeInTheDocument();
+        expect(within(sidebar()).getByRole("button", { name: "Show in folder" })).toBeInTheDocument();
     });
 
     it("shows the whole path in a tooltip", () => {

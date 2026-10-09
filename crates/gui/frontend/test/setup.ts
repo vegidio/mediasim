@@ -17,6 +17,9 @@ globalThis.ResizeObserver ??= class {
     disconnect() {}
 };
 
+// jsdom has no layout, so it leaves out `scrollIntoView`; nothing scrolls here, so it does nothing.
+Element.prototype.scrollIntoView ??= () => {};
+
 /** What the media element stub below keeps for each element, as a browser would after loading its metadata. */
 type MediaState = { currentTime: number; duration: number; muted: boolean; paused: boolean; ended: boolean };
 
