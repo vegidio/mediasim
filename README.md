@@ -32,7 +32,7 @@ The CLI tool is a standalone application that can be used to compare the similar
 ### CLI
 
 <p align="center">
-<img src="docs/images/screenshot.avif" width="80%" alt="mediasim"/>
+<img src="docs/images/cli-screenshot.avif" width="80%" alt="mediasim"/>
 </p>
 
 <details>

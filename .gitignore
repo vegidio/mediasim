@@ -1,4 +1,5 @@
 *.iml
+CLAUDE.md
 assets/
 build/
 !cmd/gui/build
