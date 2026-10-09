@@ -1,6 +1,6 @@
 import { arrayMove } from "@dnd-kit/sortable";
 import type { GroupFile } from "@/ipc/scan";
-import { fileName } from "./format";
+import { fileName } from "@/lib/format";
 
 /** A rule that picks a group's best file. */
 export type RuleId = "duration" | "resolution" | "size" | "created" | "name";

@@ -156,24 +156,6 @@ describe("progress", () => {
 
         expect(state().progress.done).toBe(0);
     });
-
-    it("follows the scoring", () => {
-        state().start();
-
-        scans[0]?.send({ kind: "scoring", done: 2, total: 9 });
-
-        expect(state().scoring).toEqual({ done: 2, total: 9 });
-    });
-
-    it("drops the scoring of an earlier scan", () => {
-        state().start();
-        state().cancel();
-        state().start();
-
-        scans[0]?.send({ kind: "scoring", done: 2, total: 9 });
-
-        expect(state().scoring).toBeUndefined();
-    });
 });
 
 describe("scan finishes", () => {
@@ -190,10 +172,6 @@ describe("scan finishes", () => {
             groups: [
                 {
                     files: [groupFile("a.jpg"), groupFile("b.jpg")],
-                    scores: [
-                        [1, 0.9],
-                        [0.9, 1],
-                    ],
                 },
             ],
             skipped: [],
@@ -269,10 +247,9 @@ describe("cancelling a scan", () => {
         expect(useScreenStore.getState().screen).toBe("gallery");
     });
 
-    it("stops while the groups are scored, and never shows the groups screen", async () => {
+    it("stops once every file is grouped, and never shows the groups screen", async () => {
         state().start();
         scans[0]?.send({ kind: "progress", done: 4, total: 4, skipped: 0 });
-        scans[0]?.send({ kind: "scoring", done: 2, total: 9 });
 
         state().cancel();
         scans[0]?.reject({ kind: "cancelled" });
@@ -281,7 +258,6 @@ describe("cancelling a scan", () => {
         expect(mockedCancel).toHaveBeenCalledOnce();
         expect(useScreenStore.getState().screen).toBe("gallery");
         expect(state().status).toBe("idle");
-        expect(state().scoring).toBeUndefined();
         expect(state().result).toBeUndefined();
     });
 
@@ -303,30 +279,27 @@ describe("leaving the groups", () => {
     /** Runs a scan to the groups screen. */
     const finish = async () => {
         state().start();
-        scans[0]?.send({ kind: "scoring", done: 0, total: 0 });
         scans[0]?.resolve({ groups: [], skipped: [] });
         await settle();
     };
 
-    it("shows the gallery on Back, forgetting the result and the scoring", async () => {
+    it("shows the gallery on Back, forgetting the result", async () => {
         await finish();
 
         state().leave();
 
         expect(useScreenStore.getState().screen).toBe("gallery");
         expect(state().result).toBeUndefined();
-        expect(state().scoring).toBeUndefined();
         expect(state().status).toBe("idle");
     });
 
-    it("shows Home on New comparison, forgetting the result and the scoring", async () => {
+    it("shows Home on New comparison, forgetting the result", async () => {
         await finish();
 
         state().newComparison();
 
         expect(useScreenStore.getState().screen).toBe("home");
         expect(state().result).toBeUndefined();
-        expect(state().scoring).toBeUndefined();
         expect(state().status).toBe("idle");
         expect(useHomeStore.getState().view.sources).toEqual([folder]);
     });
@@ -412,8 +385,8 @@ describe("removing marked files", () => {
         state().start();
         scans.at(-1)?.resolve({
             groups: [
-                { files: [groupFile("a.jpg"), groupFile("b.jpg")], scores: [] },
-                { files: [groupFile("c.mp4"), groupFile("d.jpg")], scores: [] },
+                { files: [groupFile("a.jpg"), groupFile("b.jpg")] },
+                { files: [groupFile("c.mp4"), groupFile("d.jpg")] },
             ],
             skipped: [],
         });
@@ -556,7 +529,7 @@ describe("removing marked files", () => {
         expect(state().notice).toEqual({
             action: "trash",
             done: [path("b.jpg")],
-            failed: [{ path: path("d.jpg"), message: "changed" }],
+            failed: [{ key: path("d.jpg"), message: "changed" }],
         });
         expect(listed().map((file) => file.name)).toEqual(["a.jpg", "c.mp4", "d.jpg"]);
     });
@@ -571,8 +544,8 @@ describe("removing marked files", () => {
         expect(state().gone.size).toBe(0);
         expect(state().marks.size).toBe(2);
         expect(state().notice?.failed).toEqual([
-            { path: path("b.jpg"), message: "command trash_media not found" },
-            { path: path("d.jpg"), message: "command trash_media not found" },
+            { key: path("b.jpg"), message: "command trash_media not found" },
+            { key: path("d.jpg"), message: "command trash_media not found" },
         ]);
     });
 
@@ -670,7 +643,7 @@ describe("removing marked files", () => {
 
             expect(state().gone).toEqual(new Map([[path("d.jpg"), "trash"]]));
             expect([...state().marks]).toEqual([path("b.jpg")]);
-            expect(state().notice?.failed).toEqual([{ path: path("d.jpg"), message: "path taken" }]);
+            expect(state().notice?.failed).toEqual([{ key: path("d.jpg"), message: "path taken" }]);
             expect(listed().map((file) => file.name)).toEqual(["a.jpg", "b.jpg", "c.mp4"]);
         });
 

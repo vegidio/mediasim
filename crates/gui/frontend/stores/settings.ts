@@ -46,6 +46,15 @@ export const SETTINGS_DEFAULTS: SettingsData = {
     autoSelectRules: DEFAULT_RULES,
 };
 
+/**
+ * The frame orientations a comparison can also try, as Settings and the gallery's options menu name and explain them.
+ * Settings ends each hint with a full stop, which the menu leaves out.
+ */
+export const FRAME_OPTIONS = {
+    frameRotate: { name: "Frame rotate", hint: "Also compare each frame rotated 90°, 180° and 270°" },
+    frameFlip: { name: "Frame flip", hint: "Also compare each frame flipped vertically and horizontally" },
+} as const;
+
 /** The lowest and highest default match threshold, in whole percent. */
 export const MATCH_THRESHOLD_MIN = 50;
 export const MATCH_THRESHOLD_MAX = 100;
@@ -79,23 +88,7 @@ export const useSettingsStore = create<SettingsStore>()(
             // Earlier shapes are subsets of this one, and `merge` defaults whatever they lack, so nothing migrates.
             version: 1,
             // Data only: the actions are rebuilt on every launch.
-            partialize: ({
-                deletionMode,
-                confirmDeletion,
-                matchThreshold,
-                scanSubfolders,
-                frameRotate,
-                frameFlip,
-                autoSelectRules,
-            }): SettingsData => ({
-                deletionMode,
-                confirmDeletion,
-                matchThreshold,
-                scanSubfolders,
-                frameRotate,
-                frameFlip,
-                autoSelectRules,
-            }),
+            partialize: ({ update: _update, reset: _reset, ...data }): SettingsData => data,
             merge: (persisted, current): SettingsStore => {
                 // `persist` calls this whether or not anything was stored.
                 if (typeof persisted !== "object" || persisted === null) return current;

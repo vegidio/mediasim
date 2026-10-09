@@ -172,10 +172,7 @@ impl Media {
     where
         P: AsRef<Path> + Send + 'static,
     {
-        let decoder = cache.decoder();
-        Self::load_all(paths, None, move |path| {
-            Self::load(path, |path, media_type, info| decoder.decode(path, media_type, info, None))
-        })
+        Self::from_files_cached_cancellable(paths, cache.decoder(), &CancelToken::new())
     }
 
     /// Loads every path in parallel through `decoder`, as [`from_files_cached`](Self::from_files_cached) does,
@@ -189,7 +186,7 @@ impl Media {
         P: AsRef<Path> + Send + 'static,
     {
         let token = cancel.clone();
-        Self::load_all(paths, Some(cancel.clone()), move |path| {
+        Self::load_all(paths, cancel.clone(), move |path| {
             Self::load(path, |path, media_type, info| decoder.decode(path, media_type, info, Some(&token)))
         })
     }

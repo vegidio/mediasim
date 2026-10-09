@@ -3,9 +3,9 @@ import { PlayIcon, StarIcon, Trash2Icon } from "lucide-react";
 import { Thumbnail, TILE_BOUND } from "@/components/Thumbnail";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { GroupFile } from "@/ipc/scan";
-import { formatDuration } from "@/lib/format";
+import { fileName, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { detailsLine, fileName } from "./format";
+import { detailsLine } from "./format";
 
 type GroupTileProps = {
     file: GroupFile;
@@ -17,22 +17,22 @@ type GroupTileProps = {
     large: boolean;
     /** Whether the file is marked for deletion, which shows the red ring, the wash, the Delete badge and a struck name. */
     marked: boolean;
-    /** Marks the file, or unmarks it when it is marked. */
-    onToggle: () => void;
+    /** Marks the file at `path`, or unmarks it when it is marked. */
+    onToggle: (path: string) => void;
     /** Whether the tile is the screen's selected one, which shows the lime ring. */
     selected: boolean;
     /** Whether the thumbnail is the groups area's stop in the tab order. */
     tabbable: boolean;
-    /** Selects the tile. */
-    onSelect: () => void;
-    /** Opens the file's details. */
-    onOpen: () => void;
-    /** Handles a key pressed on the thumbnail. */
-    onKey: (event: KeyboardEvent) => void;
+    /** Selects the tile of the file at `path`. */
+    onSelect: (path: string) => void;
+    /** Opens the details of the file at `path`. */
+    onOpen: (path: string) => void;
+    /** Handles a key pressed on the thumbnail of the file at `path`. */
+    onKey: (path: string, event: KeyboardEvent) => void;
 };
 
 /**
- * One file of a group: its picture, which selects the tile on a click and opens its details on a double click, with
+ * One file of a group, taking callbacks by path so an unchanged tile skips re-rendering: its picture, which selects the tile on a click and opens its details on a double click, with
  * its mark checkbox, the Best or Delete badge and the duration on a video, then its name and its resolution and size.
  */
 export const GroupTile = ({
@@ -66,14 +66,14 @@ export const GroupTile = ({
                     aria-current={selected || undefined}
                     data-select={file.path}
                     tabIndex={tabbable ? 0 : -1}
-                    onFocus={onSelect}
+                    onFocus={() => onSelect(file.path)}
                     onClick={(event) => {
-                        onSelect();
+                        onSelect(file.path);
                         // WebKit, the macOS webview, doesn't focus a button on click.
                         event.currentTarget.focus();
                     }}
-                    onDoubleClick={onOpen}
-                    onKeyDown={onKey}
+                    onDoubleClick={() => onOpen(file.path)}
+                    onKeyDown={(event) => onKey(file.path, event)}
                     className="absolute inset-0 block cursor-pointer p-0 outline-none"
                 >
                     <Thumbnail key={identity} type={file.type} {...(identity && { identity })} bound={TILE_BOUND} />
@@ -105,7 +105,7 @@ export const GroupTile = ({
                 )}
                 <Checkbox
                     checked={marked}
-                    onCheckedChange={onToggle}
+                    onCheckedChange={() => onToggle(file.path)}
                     tabIndex={-1}
                     aria-label={`Mark ${name} for deletion`}
                     className="absolute top-2 left-2 size-6 rounded-md border-[1.5px] border-[rgba(250,250,250,0.7)] bg-[rgba(9,9,11,0.55)] dark:bg-[rgba(9,9,11,0.55)] data-checked:border data-checked:border-[#DC2626] data-checked:bg-[#DC2626] data-checked:text-white dark:data-checked:bg-[#DC2626] [&_svg]:stroke-3"

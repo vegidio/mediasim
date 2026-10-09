@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { HIDE_AFTER } from "@/components/deletion/DeletionNotice";
 import type { MediaFile } from "@/ipc/thumbs";
 import { type RestoreOutcome, restoreMedia } from "@/ipc/trash";
 import { type Notice, usePairResultStore } from "@/stores/pairResult";
-import { DeletionNotice, HIDE_AFTER } from "./DeletionNotice";
+import { DeletionNotice } from "./DeletionNotice";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
@@ -58,7 +59,7 @@ describe("DeletionNotice", () => {
     it("reports a mixed result on two lines", () => {
         render(<DeletionNotice />);
 
-        show({ action: "trash", done: ["b"], failed: [{ slot: "a", message: "the folder is read-only" }] });
+        show({ action: "trash", done: ["b"], failed: [{ key: "a", message: "the folder is read-only" }] });
 
         const lines = [...status().querySelectorAll("p")].map((line) => line.textContent);
         expect(lines).toEqual([
@@ -70,7 +71,7 @@ describe("DeletionNotice", () => {
     it("shows the error icon and no moved line when nothing moved", () => {
         const { container } = render(<DeletionNotice />);
 
-        show({ action: "trash", done: [], failed: [{ slot: "b", message: "it has changed since it was opened" }] });
+        show({ action: "trash", done: [], failed: [{ key: "b", message: "it has changed since it was opened" }] });
 
         expect(status()).toHaveTextContent(/^Couldn't move IMG_2041-edit\.jpg: it has changed since it was opened$/);
         expect(status()).not.toHaveTextContent("moved to Trash");
@@ -153,7 +154,7 @@ describe("DeletionNotice", () => {
         it("offers no Undo for a move where nothing moved", () => {
             usePairResultStore.setState({ gone: {} });
             render(<DeletionNotice />);
-            show({ action: "trash", done: [], failed: [{ slot: "b", message: "no Trash" }] });
+            show({ action: "trash", done: [], failed: [{ key: "b", message: "no Trash" }] });
 
             expect(undo()).not.toBeInTheDocument();
         });
@@ -179,7 +180,7 @@ describe("DeletionNotice", () => {
             show({
                 action: "permanent",
                 done: [],
-                failed: [{ slot: "b", message: "Permission denied (os error 13)" }],
+                failed: [{ key: "b", message: "Permission denied (os error 13)" }],
             });
 
             expect(status()).toHaveTextContent(
@@ -218,7 +219,7 @@ describe("DeletionNotice", () => {
             show({
                 action: "restore",
                 done: ["b"],
-                failed: [{ slot: "a", message: "a file with its name is already in its folder" }],
+                failed: [{ key: "a", message: "a file with its name is already in its folder" }],
             });
 
             const lines = [...status().querySelectorAll("p")].map((line) => line.textContent);
@@ -231,7 +232,7 @@ describe("DeletionNotice", () => {
         it("shows the error icon and no restored line when nothing was restored", () => {
             const { container } = render(<DeletionNotice />);
 
-            show({ action: "restore", done: [], failed: [{ slot: "b", message: "it is no longer in the Trash" }] });
+            show({ action: "restore", done: [], failed: [{ key: "b", message: "it is no longer in the Trash" }] });
 
             expect(status()).toHaveTextContent(/^Couldn't restore IMG_2041-edit\.jpg: it is no longer in the Trash$/);
             expect(container.querySelector(".lucide-triangle-alert")).toBeInTheDocument();
@@ -264,16 +265,13 @@ describe("DeletionNotice", () => {
         });
 
         it.each([
-            [
-                "a failure",
-                { action: "trash" as const, done: [], failed: [{ slot: "b" as const, message: "no Trash" }] },
-            ],
+            ["a failure", { action: "trash" as const, done: [], failed: [{ key: "b" as const, message: "no Trash" }] }],
             [
                 "a mixed result",
                 {
                     action: "trash" as const,
                     done: ["b" as const],
-                    failed: [{ slot: "a" as const, message: "no Trash" }],
+                    failed: [{ key: "a" as const, message: "no Trash" }],
                 },
             ],
         ])("keeps %s until dismissed", (_, notice) => {
@@ -298,7 +296,7 @@ describe("DeletionNotice", () => {
 
         it("keeps a failed restore until dismissed", () => {
             render(<DeletionNotice />);
-            show({ action: "restore", done: [], failed: [{ slot: "b", message: "it is no longer in the Trash" }] });
+            show({ action: "restore", done: [], failed: [{ key: "b", message: "it is no longer in the Trash" }] });
 
             wait(60_000);
 

@@ -30,14 +30,6 @@ export type ScanMessage =
           skipped: number;
           /** The estimated time left, in seconds, once there is one. */
           etaSeconds?: number;
-      }
-    | {
-          /** How far the scoring of the groups has got, once every file is grouped. */
-          kind: "scoring";
-          /** The pairs scored. */
-          done: number;
-          /** The pairs inside the groups. */
-          total: number;
       };
 
 /** A file the scan skipped because it couldn't be read. */
@@ -59,17 +51,15 @@ export type GroupFile = {
     modified?: string;
 };
 
-/** A group of similar files and how alike each pair of them is. */
+/** A group of similar files. */
 export type ScanGroup = {
     /** In path order. */
     files: GroupFile[];
-    /** `scores[i][j]` is the similarity of `files[i]` and `files[j]`, from 0 to 1, with 1 on the diagonal. */
-    scores: number[][];
 };
 
 /** What a finished scan resolves to. */
 export type ScanResult = {
-    /** The groups of similar files, ordered by the path of their first file. */
+    /** The groups of similar files, in the order of the paths given. */
     groups: ScanGroup[];
     /** In the order the paths were given. */
     skipped: SkippedFile[];
@@ -77,13 +67,6 @@ export type ScanResult = {
 
 /** Why a scan ended without a result, as `ScanFailure` in `crates/gui/src/scan.rs` serializes it. */
 export type ScanFailure = { kind: "cancelled" } | { kind: "task"; message: string };
-
-type ProgressMessage = Extract<ScanMessage, { kind: "progress" }>;
-
-/** {@link ScanMessage} as it arrives, with an absent estimate as JSON `null`. */
-type WireScanMessage =
-    | Exclude<ScanMessage, ProgressMessage>
-    | (Omit<ProgressMessage, "etaSeconds"> & { etaSeconds: number | null });
 
 type OptionalKey = "duration" | "created" | "modified";
 
@@ -95,14 +78,6 @@ type WireScanResult = Omit<ScanResult, "groups"> & {
     groups: (Omit<ScanGroup, "files"> & { files: WireGroupFile[] })[];
 };
 
-/** `message` with Rust's `None` spelled as an absent property, as this project does. */
-const fromWire = (message: WireScanMessage): ScanMessage => {
-    if (message.kind !== "progress") return message;
-
-    const { etaSeconds, ...always } = message;
-    return { ...always, ...(etaSeconds !== null && { etaSeconds }) };
-};
-
 /** `file` with Rust's `None` spelled as an absent property. */
 const fileFromWire = ({ duration, created, modified, ...always }: WireGroupFile): GroupFile => ({
     ...always,
@@ -112,7 +87,7 @@ const fileFromWire = ({ duration, created, modified, ...always }: WireGroupFile)
 });
 
 const resultFromWire = ({ groups, skipped }: WireScanResult): ScanResult => ({
-    groups: groups.map(({ files, scores }) => ({ files: files.map(fileFromWire), scores })),
+    groups: groups.map(({ files }) => ({ files: files.map(fileFromWire) })),
     skipped,
 });
 
@@ -124,7 +99,7 @@ export const startScan = async (
     request: ScanRequest,
     onMessage: (message: ScanMessage) => void,
 ): Promise<ScanResult> => {
-    const onEvent = new Channel<WireScanMessage>((message) => onMessage(fromWire(message)));
+    const onEvent = new Channel<ScanMessage>(onMessage);
 
     return resultFromWire(await call<WireScanResult>("start_scan", { ...request, onEvent }));
 };

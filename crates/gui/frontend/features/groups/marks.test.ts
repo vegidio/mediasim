@@ -101,7 +101,6 @@ describe("visibleGroups", () => {
     /** The result's groups: `g0` to `g2`, of 3, 3 and 2 files. */
     const RESULT: ScanGroup[] = [3, 3, 2].map((size, i) => ({
         files: Array.from({ length: size }, (_, j) => file(`/g${i}/${j}`)),
-        scores: [],
     }));
     const paths = (groups: readonly ScanGroup[]) => groups.map(({ files }) => files.map((f) => f.path));
 
@@ -135,7 +134,7 @@ describe("visibleGroups", () => {
     });
 
     it("lets pickBest choose among the files left when the best one is gone", () => {
-        const result: ScanGroup[] = [{ files: [file("/a/1"), file("/a/2 (1)"), file("/a/3 copy")], scores: [] }];
+        const result: ScanGroup[] = [{ files: [file("/a/1"), file("/a/2 (1)"), file("/a/3 copy")] }];
         const [whole] = pickBest(result, DEFAULT_RULES);
         expect(whole?.files[whole.best]?.path).toBe("/a/1");
 

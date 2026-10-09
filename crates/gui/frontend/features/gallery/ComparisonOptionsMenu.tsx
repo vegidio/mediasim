@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useGalleryStore } from "@/stores/gallery";
 import { useScreenStore } from "@/stores/screen";
+import { FRAME_OPTIONS } from "@/stores/settings";
 
 type OptionItemProps = {
     label: string;
@@ -115,14 +116,14 @@ export const ComparisonOptionsMenu = () => {
                     Also compare each frame
                 </DropdownMenuLabel>
                 <OptionItem
-                    label="Frame rotate"
-                    hint="Also compare each frame rotated 90°, 180° and 270°"
+                    label={FRAME_OPTIONS.frameRotate.name}
+                    hint={FRAME_OPTIONS.frameRotate.hint}
                     checked={frameRotate}
                     onCheckedChange={setFrameRotate}
                 />
                 <OptionItem
-                    label="Frame flip"
-                    hint="Also compare each frame flipped vertically and horizontally"
+                    label={FRAME_OPTIONS.frameFlip.name}
+                    hint={FRAME_OPTIONS.frameFlip.hint}
                     checked={frameFlip}
                     onCheckedChange={setFrameFlip}
                 />

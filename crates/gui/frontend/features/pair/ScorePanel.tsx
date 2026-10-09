@@ -1,12 +1,13 @@
 import { TriangleAlertIcon } from "lucide-react";
+import { SHIMMER } from "@/components/Thumbnail";
 import { Button } from "@/components/ui/button";
 import type { PairFailure } from "@/ipc/pair";
+import { fileName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Comparison } from "@/stores/pairResult";
 import { BANDS, type Band, band, percent, scoreName } from "./score";
 
 /** The last component of a path, on any platform. */
-const fileName = (path: string) => path.split(/[\\/]/).pop() || path;
 
 /**
  * The bar's band labels, each spanning its band's share, with `current` emphasized and the rest `dimmed` or muted. A
@@ -36,7 +37,7 @@ const Comparing = () => (
     <>
         {/* The score's own text box, so the panel keeps its height and the "%" its place once the score arrives. */}
         <div aria-hidden="true" className="shrink-0 font-semibold text-[64px] leading-none">
-            <span className="mr-1 inline-block h-16 w-[84px] animate-shimmer rounded-[10px] bg-[linear-gradient(90deg,#1F1F23_0%,#2E2E33_50%,#1F1F23_100%)] bg-size-[200%_100%] align-bottom motion-reduce:animate-none" />
+            <span className={cn("mr-1 inline-block h-16 w-[84px] rounded-[10px] align-bottom", SHIMMER)} />
             <span className="font-medium text-[28px] text-border-strong">%</span>
         </div>
         <div

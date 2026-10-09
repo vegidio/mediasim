@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { ArrowLeftIcon } from "lucide-react";
+import { focusDismiss } from "@/components/deletion/DeletionNotice";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Slot } from "@/features/home/routePairDrop";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
-import { focusDismiss } from "./DeletionNotice";
 import { MediaPane } from "./MediaPane";
 import { ScorePanel } from "./ScorePanel";
 import { SliderPane } from "./SliderPane";

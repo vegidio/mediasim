@@ -371,7 +371,7 @@ describe("usePairResultStore", () => {
             expect(state().notice).toEqual({
                 action: "trash",
                 done: ["b"],
-                failed: [{ slot: "a", message: "the folder is read-only" }],
+                failed: [{ key: "a", message: "the folder is read-only" }],
             });
             expect(usePairStore.getState().a).toEqual(A);
             expect(usePairStore.getState().b).toBeUndefined();
@@ -400,8 +400,8 @@ describe("usePairResultStore", () => {
                 action: "trash",
                 done: [],
                 failed: [
-                    { slot: "a", message: "command trash_media not found" },
-                    { slot: "b", message: "command trash_media not found" },
+                    { key: "a", message: "command trash_media not found" },
+                    { key: "b", message: "command trash_media not found" },
                 ],
             });
             expect(usePairStore.getState()).toMatchObject({ a: A, b: B });
@@ -489,8 +489,8 @@ describe("usePairResultStore", () => {
                     action: "permanent",
                     done: [],
                     failed: [
-                        { slot: "a", message: "command delete_media not found" },
-                        { slot: "b", message: "command delete_media not found" },
+                        { key: "a", message: "command delete_media not found" },
+                        { key: "b", message: "command delete_media not found" },
                     ],
                 });
             });
@@ -615,7 +615,7 @@ describe("usePairResultStore", () => {
                 expect(state().notice).toEqual({
                     action: "restore",
                     done: ["b"],
-                    failed: [{ slot: "a", message: occupied.message }],
+                    failed: [{ key: "a", message: occupied.message }],
                 });
                 expect(usePairStore.getState().a).toBeUndefined();
                 expect(usePairStore.getState().b).toEqual(B);
@@ -643,8 +643,8 @@ describe("usePairResultStore", () => {
                     action: "restore",
                     done: [],
                     failed: [
-                        { slot: "a", message: "command restore_media not found" },
-                        { slot: "b", message: "command restore_media not found" },
+                        { key: "a", message: "command restore_media not found" },
+                        { key: "b", message: "command restore_media not found" },
                     ],
                 });
             });

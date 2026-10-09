@@ -1,5 +1,11 @@
+/** `count` of `noun`, which takes an `s` unless there is one: `1 group`, `7 groups`. */
+export const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+
 /** A media file count: `1 file`, `48 files`. */
-export const formatCount = (count: number) => (count === 1 ? "1 file" : `${count} files`);
+export const formatCount = (count: number) => plural(count, "file");
+
+/** The last component of a path, on any platform, ignoring a trailing separator. */
+export const fileName = (path: string) => path.split(/[\\/]/).findLast((part) => part !== "") ?? path;
 
 /** The combined size of `files`, in bytes. */
 export const totalSize = (files: readonly { size: number }[]) => files.reduce((total, file) => total + file.size, 0);

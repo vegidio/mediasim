@@ -37,10 +37,10 @@ const mediaOf = ({ path, type, size }: GroupFile): MediaFile => ({
 const renderFooter = (marked: GroupFile[]) => {
     useScanStore.setState({
         files: marked.map(mediaOf),
-        result: { groups: [{ files: marked, scores: [] }], skipped: [] },
+        result: { groups: [{ files: marked }], skipped: [] },
         marks: new Set(marked.map((file) => file.path)),
     });
-    render(<GroupsFooter marked={marked} media={new Map(marked.map((file) => [file.path, mediaOf(file)]))} />);
+    render(<GroupsFooter marked={marked} />);
 };
 
 /** A promise the test settles when it chooses. */
@@ -135,7 +135,7 @@ describe("GroupsFooter", () => {
 
     it("says nothing is marked for deletion once a file has been removed", () => {
         useScanStore.setState({ gone: new Map([["/p/x.jpg", "trash"]]) });
-        render(<GroupsFooter marked={[]} media={new Map()} />);
+        render(<GroupsFooter marked={[]} />);
 
         expect(status()).toHaveTextContent(/^Nothing marked for deletion\.$/);
         expect(screen.getByRole("button", { name: "Move 0 to Trash…" })).toBeDisabled();

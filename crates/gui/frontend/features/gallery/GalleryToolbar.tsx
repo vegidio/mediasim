@@ -1,14 +1,13 @@
 import { useId } from "react";
 import { ArrowLeftIcon, ArrowRightIcon, FolderIcon, ImagesIcon } from "lucide-react";
+import { ThresholdSlider } from "@/components/ThresholdSlider";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { focusContinue } from "@/features/home/SetCard";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
-import { MATCH_THRESHOLD_MAX, MATCH_THRESHOLD_MIN } from "@/stores/settings";
 import { ComparisonOptionsMenu } from "./ComparisonOptionsMenu";
 import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "./derive";
 
@@ -109,17 +108,11 @@ const ThresholdControl = () => {
             <span id={labelId} className="whitespace-nowrap text-[#A1A1AA] text-[13px]">
                 Match threshold
             </span>
-            <Slider
+            <ThresholdSlider
                 aria-labelledby={labelId}
-                min={MATCH_THRESHOLD_MIN}
-                max={MATCH_THRESHOLD_MAX}
-                step={1}
-                value={[threshold]}
-                onValueChange={([value]) => value !== undefined && setThreshold(value)}
-                className="w-[120px] cursor-pointer"
-                trackClassName="bg-[#3F3F46] data-horizontal:h-1"
-                rangeClassName="bg-[#BEF264]"
-                thumbClassName="size-3.5 border-0 bg-[#BEF264] ring-[#BEF264]/40"
+                value={threshold}
+                onChange={setThreshold}
+                className="w-[120px]"
             />
             <span className="w-9 font-mono text-[13px]">{threshold}%</span>
         </div>

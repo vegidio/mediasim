@@ -2,10 +2,9 @@ import { ArrowLeftIcon, HouseIcon, SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { focusContinue } from "@/features/home/SetCard";
-import { cn } from "@/lib/utils";
+import { cn, keepFocus } from "@/lib/utils";
 import { useScanStore } from "@/stores/scan";
 import { AutoSelectMenu } from "./AutoSelectMenu";
-import { keepFocus } from "./navigate";
 
 /** Forget the scan and show the Home screen with the set unchanged, with focus on its Continue button. */
 export const useNewComparison = () => {

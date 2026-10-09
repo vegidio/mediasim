@@ -4,9 +4,8 @@ import {
     type NoticeView,
     DeletionNotice as SharedDeletionNotice,
 } from "@/components/deletion/DeletionNotice";
+import { undoable as undoableOf } from "@/lib/deletion";
 import { usePairResultStore } from "@/stores/pairResult";
-
-export { DISMISS_ID, focusDismiss, HIDE_AFTER } from "@/components/deletion/DeletionNotice";
 
 type DeletionNoticeProps = {
     className?: string;
@@ -31,18 +30,13 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
                 ? {
                       action: notice.action,
                       done: notice.done.map((slot) => files[slot]),
-                      failed: notice.failed.map(({ slot, message }) => ({
-                          key: slot,
-                          name: files[slot].name,
-                          message,
-                      })),
+                      failed: notice.failed.map(({ key, message }) => ({ key, name: files[key].name, message })),
                   }
                 : undefined,
         [files, notice],
     );
 
-    // What Undo puts back: the files this move moved that are still in the Trash.
-    const undoable = notice?.action === "trash" ? notice.done.filter((slot) => gone[slot] === "trash") : [];
+    const undoable = undoableOf(notice, (slot) => gone[slot] === "trash");
 
     return (
         <SharedDeletionNotice

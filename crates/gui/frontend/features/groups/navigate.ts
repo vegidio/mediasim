@@ -1,11 +1,3 @@
-import type { MouseEvent } from "react";
-
-/**
- * Keeps keyboard focus where it is when a button is clicked, so the selected tile keeps it and the arrow keys go on
- * moving the selection. Clicks still activate the button, and Tab still reaches it.
- */
-export const keepFocus = (event: MouseEvent) => event.preventDefault();
-
 /** A tile's place on screen, as `getBoundingClientRect()` measures its thumbnail. */
 export type TileBox = {
     path: string;

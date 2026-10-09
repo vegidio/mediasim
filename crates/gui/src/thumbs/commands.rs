@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use mediasim::MediaType;
+use rayon::prelude::*;
 use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
@@ -75,8 +76,8 @@ async fn admit_all(
     state: &ThumbState,
     paths: Vec<PathBuf>,
 ) -> Result<Vec<Option<(String, Admitted, MediaType)>>, TaskError> {
-    // Stats run off the lock and off the async runtime; the registry is locked only to record the results.
-    let admitted: Vec<_> = spawn_blocking(move || paths.iter().map(|path| admit_one(path)).collect()).await?;
+    // Stats run in parallel, off the lock and off the async runtime; the registry is locked only to record the results.
+    let admitted: Vec<_> = spawn_blocking(move || paths.par_iter().map(|path| admit_one(path)).collect()).await?;
 
     state.admit(admitted.iter().flatten().map(|(identity, entry, _)| (identity.clone(), entry.clone())));
 

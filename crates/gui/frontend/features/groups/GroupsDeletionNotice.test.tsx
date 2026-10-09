@@ -56,7 +56,7 @@ describe("GroupsDeletionNotice", () => {
     it("names a file that failed, with the reason", () => {
         render(<GroupsDeletionNotice />);
 
-        show({ action: "trash", done: [], failed: [{ path: PATHS[3] ?? "", message: "it changed" }] });
+        show({ action: "trash", done: [], failed: [{ key: PATHS[3] ?? "", message: "it changed" }] });
 
         expect(status()).toHaveTextContent("copy-3.jpg");
         expect(status()).toHaveTextContent("it changed");

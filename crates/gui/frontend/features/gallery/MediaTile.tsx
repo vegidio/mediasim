@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { ExternalLinkIcon, PlayIcon } from "lucide-react";
 import { SHIMMER, Thumbnail, TILE_BOUND } from "@/components/Thumbnail";
 import type { MediaFile } from "@/ipc/thumbs";
 import { probeVideo } from "@/ipc/video";
 import { formatDuration, formatSize } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, keepFocus } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
 import type { Inclusion } from "./derive";
 
@@ -43,8 +43,8 @@ type MediaTileProps = {
     file: MediaFile;
     /** Whether the tile is the grid's selected one, which shows the lime ring and the Open chip. */
     selected: boolean;
-    /** Select the tile, as a click anywhere on it does. */
-    onSelect: () => void;
+    /** Select the tile of the file at `path`, as a click anywhere on it does. */
+    onSelect: (path: string) => void;
     /** Whether the file is in the comparison; a left-out or removed file stays in place, dimmed. */
     inclusion: Inclusion;
 };
@@ -59,8 +59,9 @@ const TOOLTIPS: Record<Inclusion, string | undefined> = {
  * One file of the gallery, a cell of its grid: its picture, with a play mark and duration for a video, then its name
  * and size. A click selects it. Its one button is the "Open" chip, which opens the file's media details, as does a
  * double click anywhere on the tile; the keyboard reaches it through the grid, which opens the selected tile on Enter.
+ * Memoized, since the virtualized grid re-renders every shown tile on each scroll frame.
  */
-export const MediaTile = ({ id, file, selected, onSelect, inclusion }: MediaTileProps) => {
+export const MediaTile = memo(({ id, file, selected, onSelect, inclusion }: MediaTileProps) => {
     const duration = useDuration(file);
     const tooltip = TOOLTIPS[inclusion];
     // The ring stays bright on a dimmed tile, so only the picture's contents and the text below it are dimmed.
@@ -79,7 +80,7 @@ export const MediaTile = ({ id, file, selected, onSelect, inclusion }: MediaTile
             role="gridcell"
             aria-selected={selected}
             data-path={file.path}
-            onClick={onSelect}
+            onClick={() => onSelect(file.path)}
             onDoubleClick={open}
             {...(tooltip && { title: tooltip })}
             className="group flex w-40 flex-col gap-2 text-left"
@@ -115,7 +116,7 @@ export const MediaTile = ({ id, file, selected, onSelect, inclusion }: MediaTile
                     type="button"
                     tabIndex={-1}
                     aria-label={`Open ${file.name}`}
-                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseDown={keepFocus}
                     onClick={open}
                     className={cn(
                         "absolute top-2 right-2 flex h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-[#FAFAFA] text-xs opacity-0 outline-none group-hover:opacity-100",
@@ -132,7 +133,7 @@ export const MediaTile = ({ id, file, selected, onSelect, inclusion }: MediaTile
             </span>
         </div>
     );
-};
+});
 
 /** A tile's place while the files are read: a shimmering picture and two shimmering bars. */
 export const PlaceholderTile = () => (

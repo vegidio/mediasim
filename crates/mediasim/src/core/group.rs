@@ -71,15 +71,14 @@ impl Grouper {
     ///
     /// Since grouping is transitive, the comparisons against an existing group stop at its first match.
     pub fn push(&mut self, media: Media) {
-        let matched = self.matched_groups(&media, None);
-        self.add(media, matched);
+        self.push_cancellable(media, &CancelToken::new());
     }
 
     /// Adds `media` as [`push`](Self::push) does, unless `cancel` is cancelled first. Once it is, no new comparison
     /// starts, and if it is cancelled by the time the comparisons end, `media` is not added. Returns whether `media`
     /// was added.
     pub(crate) fn push_cancellable(&mut self, media: Media, cancel: &CancelToken) -> bool {
-        let matched = self.matched_groups(&media, Some(cancel));
+        let matched = self.matched_groups(&media, cancel);
         if cancel.is_cancelled() {
             return false;
         }
@@ -89,8 +88,8 @@ impl Grouper {
     }
 
     /// The roots of the groups `media` matches, comparing it in parallel with the earlier media of its type. Once
-    /// `cancel`, if given, is cancelled, the comparisons not yet started count as no match.
-    fn matched_groups(&mut self, media: &Media, cancel: Option<&CancelToken>) -> Vec<usize> {
+    /// `cancel` is cancelled, the comparisons not yet started count as no match.
+    fn matched_groups(&mut self, media: &Media, cancel: &CancelToken) -> Vec<usize> {
         let mut groups: HashMap<usize, Vec<&Media>> = HashMap::new();
         for (i, earlier) in self.media.iter().enumerate() {
             if earlier.media_type == media.media_type {
@@ -99,9 +98,7 @@ impl Grouper {
         }
 
         let (threshold, options) = (self.threshold, self.options);
-        let is_match = |earlier: &&Media| {
-            !cancel.is_some_and(CancelToken::is_cancelled) && earlier.matches(media, options, threshold)
-        };
+        let is_match = |earlier: &&Media| !cancel.is_cancelled() && earlier.matches(media, options, threshold);
         groups
             .into_par_iter()
             .filter(|(_, members)| members.par_iter().any(is_match))

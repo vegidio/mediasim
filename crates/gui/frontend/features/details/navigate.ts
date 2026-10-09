@@ -1,5 +1,5 @@
 /** How many files the dialog's filmstrip shows at most. */
-export const STRIP_SIZE = 7;
+const STRIP_SIZE = 7;
 
 /** The index of the file at `path` among `files`, or `-1` when it isn't one of them. */
 export const indexOfPath = (files: readonly { path: string }[], path: string) =>

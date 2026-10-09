@@ -126,7 +126,7 @@ describe("GroupDetailsDialog", () => {
 
     it("shows Recommended keep on the best file only", () => {
         openOn(1);
-        expect(chips()).toEqual(["Recommended keep", "Image"]);
+        expect(chips()).toEqual(["Image", "Recommended keep"]);
 
         fireEvent.click(button("Next file"));
         expect(chips()).toEqual(["Image"]);
@@ -193,7 +193,7 @@ describe("GroupDetailsDialog", () => {
         fireEvent.click(button("Mark for deletion"));
 
         expect(useScanStore.getState().marks).toEqual(new Set([nth(1).path]));
-        expect(chips()).toEqual(["Recommended keep", "Image", "Marked for deletion"]);
+        expect(chips()).toEqual(["Image", "Recommended keep", "Marked for deletion"]);
     });
 
     it("shows the strip's marks made elsewhere", () => {

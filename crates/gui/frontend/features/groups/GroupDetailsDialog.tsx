@@ -56,13 +56,13 @@ export const GroupDetailsDialog = ({
             marks={marks}
             chips={
                 <>
+                    <Chip>{kindLabel(file.type)}</Chip>
                     {best && (
                         <Chip className="gap-1 border-transparent bg-primary font-semibold text-[#1A2E05]">
                             <StarIcon aria-hidden="true" className="size-[11px] fill-current stroke-none" />
                             Recommended keep
                         </Chip>
                     )}
-                    <Chip>{kindLabel(file.type)}</Chip>
                     {marked && (
                         <Chip className="border-transparent bg-[#DC2626] font-semibold text-white">
                             Marked for deletion

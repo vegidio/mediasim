@@ -42,10 +42,6 @@ describe("startScan", () => {
             groups: [
                 {
                     files: [file("/a.png"), file("/b.png")],
-                    scores: [
-                        [1, 0.97],
-                        [0.97, 1],
-                    ],
                 },
             ],
             skipped: [{ path: "/c.png", message: "boom" }],
@@ -57,10 +53,6 @@ describe("startScan", () => {
             groups: [
                 {
                     files: [read, { ...read, path: "/b.png" }],
-                    scores: [
-                        [1, 0.97],
-                        [0.97, 1],
-                    ],
                 },
             ],
             skipped: [{ path: "/c.png", message: "boom" }],
@@ -81,7 +73,6 @@ describe("startScan", () => {
                         { ...file, duration: nothing, created: nothing, modified: nothing },
                         { ...file, duration: 42.5, created: nothing, modified: nothing },
                     ],
-                    scores: [],
                 },
             ],
             skipped: [],
@@ -92,21 +83,19 @@ describe("startScan", () => {
         expect(result.groups[0]?.files).toStrictEqual([file, { ...file, duration: 42.5 }]);
     });
 
-    it("delivers each message to the callback, leaving out a null estimate", async () => {
+    it("delivers each message to the callback", async () => {
         mockedInvoke.mockResolvedValue({ groups: [], skipped: [] });
         const messages: ScanMessage[] = [];
 
         await startScan(request, (message) => messages.push(message));
         sent().onmessage({ kind: "processing", path: "/u/a.png", display: "~/a.png" });
-        sent().onmessage({ kind: "progress", done: 0, total: 2, skipped: 0, etaSeconds: JSON.parse("null") });
+        sent().onmessage({ kind: "progress", done: 0, total: 2, skipped: 0 });
         sent().onmessage({ kind: "progress", done: 1, total: 2, skipped: 1, etaSeconds: 4.5 });
-        sent().onmessage({ kind: "scoring", done: 2, total: 9 });
 
         expect(messages).toStrictEqual([
             { kind: "processing", path: "/u/a.png", display: "~/a.png" },
             { kind: "progress", done: 0, total: 2, skipped: 0 },
             { kind: "progress", done: 1, total: 2, skipped: 1, etaSeconds: 4.5 },
-            { kind: "scoring", done: 2, total: 9 },
         ]);
     });
 

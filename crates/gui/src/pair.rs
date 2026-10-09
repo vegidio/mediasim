@@ -3,14 +3,15 @@
 //! At most one comparison runs at a time. Starting one cancels any earlier one still running, so its loads stop and
 //! it resolves as cancelled, and [`cancel_comparison`] stops the one in flight when the window leaves the screen.
 
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use mediasim::{CancelToken, CompareError, Media, MediaError, MediaInfo};
 use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
+
+use crate::run::RunSlot;
 
 /// Why a file's details could not be read, or two files could not be compared, as the window sees it: an object
 /// tagged by `kind`.
@@ -59,48 +60,19 @@ impl From<CompareError> for PairError {
 
 impl From<tauri::Error> for PairError {
     fn from(err: tauri::Error) -> Self {
-        Self::Task { message: format!("the comparison task did not finish: {err}") }
+        Self::Task { message: crate::task_message(&err) }
     }
 }
 
-/// The comparison in flight, as Tauri managed state: its id and the token that stops it.
+/// The comparison in flight, as Tauri managed state.
 #[derive(Debug, Default)]
-pub struct PairState {
-    running: Mutex<Option<(u64, CancelToken)>>,
-    next: AtomicU64,
-}
+pub struct PairState(RunSlot);
 
-impl PairState {
-    fn lock(&self) -> MutexGuard<'_, Option<(u64, CancelToken)>> {
-        // The slot holds a plain value that is never left half-updated, so a poisoned lock is still sound.
-        self.running.lock().unwrap_or_else(PoisonError::into_inner)
-    }
+impl Deref for PairState {
+    type Target = RunSlot;
 
-    /// Registers a new comparison and cancels the one it replaces, if any.
-    fn start(&self) -> (u64, CancelToken) {
-        let id = self.next.fetch_add(1, Ordering::Relaxed);
-        let token = CancelToken::new();
-
-        if let Some((_, replaced)) = self.lock().replace((id, token.clone())) {
-            replaced.cancel();
-        }
-
-        (id, token)
-    }
-
-    /// Forgets comparison `id`, unless a newer one has replaced it already.
-    fn finish(&self, id: u64) {
-        let mut running = self.lock();
-        if running.as_ref().is_some_and(|(current, _)| *current == id) {
-            *running = None;
-        }
-    }
-
-    /// Cancels and forgets the comparison in flight, if any.
-    fn cancel(&self) {
-        if let Some((_, token)) = self.lock().take() {
-            token.cancel();
-        }
+    fn deref(&self) -> &RunSlot {
+        &self.0
     }
 }
 
@@ -324,15 +296,6 @@ mod tests {
     }
 
     #[test]
-    fn cancelling_with_nothing_running_does_nothing() {
-        let state = PairState::default();
-
-        state.cancel();
-
-        assert!(state.lock().is_none());
-    }
-
-    #[test]
     fn a_new_comparison_cancels_the_one_it_replaces() {
         let state = PairState::default();
 
@@ -345,18 +308,5 @@ mod tests {
 
         assert_eq!(first, Err(PairError::Cancelled));
         assert!(second.is_ok_and(|similarity| (similarity - 1.0).abs() < f64::EPSILON));
-    }
-
-    #[test]
-    fn running_is_cleared_only_by_its_own_comparison() {
-        let state = PairState::default();
-        let (first, first_token) = state.start();
-        let (second, _) = state.start();
-
-        assert!(first_token.is_cancelled());
-        state.finish(first);
-        assert_eq!(state.lock().as_ref().map(|(id, _)| *id), Some(second));
-        state.finish(second);
-        assert!(state.lock().is_none());
     }
 }

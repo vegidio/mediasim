@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { formatCount, formatCreated, formatDuration, formatFrameRate, formatSize, totalSize } from "./format";
+import {
+    fileName,
+    formatCount,
+    formatCreated,
+    formatDuration,
+    formatFrameRate,
+    formatSize,
+    plural,
+    totalSize,
+} from "./format";
 
 /** An RFC 3339 time for a local wall-clock time, so the expectations hold in any time zone. */
 const local = (year: number, month: number, day: number, hours = 0, minutes = 0) =>
@@ -71,5 +80,21 @@ describe("formatCreated", () => {
     it("shows the local time as YYYY-MM-DD HH:MM", () => {
         expect(formatCreated(local(2025, 7, 14, 20, 41))).toBe("2025-07-14 20:41");
         expect(formatCreated(local(2026, 1, 5, 3, 7))).toBe("2026-01-05 03:07");
+    });
+});
+
+describe("fileName", () => {
+    it("takes the last component on any platform", () => {
+        expect(fileName("/a/b/IMG_2041.jpg")).toBe("IMG_2041.jpg");
+        expect(fileName("C:\\Users\\ana\\cat.png")).toBe("cat.png");
+        expect(fileName("/a/b/folder/")).toBe("folder");
+    });
+});
+
+describe("plural", () => {
+    it("adds an s unless there is one", () => {
+        expect(plural(1, "group")).toBe("1 group");
+        expect(plural(0, "group")).toBe("0 groups");
+        expect(plural(7, "image")).toBe("7 images");
     });
 });

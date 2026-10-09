@@ -3,11 +3,17 @@ import { SLOTS, type Slot } from "@/features/home/routePairDrop";
 import type { Details } from "@/features/pair/details";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
-import { type Deletion, removeFiles, restoreFiles } from "@/lib/deletion";
+import {
+    type Deletion,
+    type Notice as DeletionNotice,
+    deletionActions,
+    removeFiles,
+    restoreFiles,
+} from "@/lib/deletion";
 import { usePairStore } from "@/stores/pair";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
-import { type DeletionMode, useSettingsStore } from "@/stores/settings";
+import type { DeletionMode } from "@/stores/settings";
 
 /** Where the comparison of the pair stands. */
 export type Comparison =
@@ -21,17 +27,8 @@ export type Comparison =
  */
 export type GoneKind = DeletionMode;
 
-export type { Deletion };
-
-/**
- * The result of the last move to the Trash, permanent deletion or restore: the files it was done to, and each one it
- * wasn't with the reason.
- */
-export type Notice = {
-    action: DeletionMode | "restore";
-    done: Slot[];
-    failed: { slot: Slot; message: string }[];
-};
+/** The result of the last move to the Trash, permanent deletion or restore, by slot. */
+export type Notice = DeletionNotice<Slot>;
 
 /** State of the pair result screen. */
 type PairResultStore = {
@@ -128,17 +125,13 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
         const slots = SLOTS.filter((slot) => marked[slot]);
         set({ deletion: { status: "removing", mode, confirmed } });
 
-        const { done, failed } = await removeFiles(
+        const settled = await removeFiles(
             mode,
             slots.map((slot) => ({ key: slot, identity: files[slot].identity })),
         );
         if (run !== opened) return;
 
-        const notice: Notice = {
-            action: mode,
-            done,
-            failed: failed.map(({ key, message }) => ({ slot: key, message })),
-        };
+        const notice: Notice = { action: mode, ...settled };
 
         set((state) => {
             const gone = { ...state.gone };
@@ -202,24 +195,15 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
 
         toggleMark: (slot) => set((state) => ({ marked: { ...state.marked, [slot]: !state.marked[slot] } })),
 
-        requestDeletion: async () => {
-            const { marked, deletion } = get();
-            if (deletion.status !== "idle" || !(marked.a || marked.b)) return;
-
-            // Read once, so this deletion keeps its mode whatever Settings says by the time it is confirmed.
-            const { deletionMode, confirmDeletion } = useSettingsStore.getState();
-            if (confirmDeletion) set({ deletion: { status: "confirming", mode: deletionMode } });
-            else await remove(deletionMode, false);
-        },
-
-        cancelDeletion: () => {
-            if (get().deletion.status === "confirming") set({ deletion: IDLE });
-        },
-
-        removeMarked: async () => {
-            const { deletion } = get();
-            if (deletion.status === "confirming") await remove(deletion.mode, true);
-        },
+        ...deletionActions(
+            get,
+            set,
+            () => {
+                const { marked } = get();
+                return marked.a || marked.b;
+            },
+            remove,
+        ),
 
         restore: async (requested) => {
             const { files, gone, deletion } = get();
@@ -231,16 +215,12 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             if (slots.length === 0) return;
             set({ deletion: { status: "restoring" } });
 
-            const { done, failed, identities } = await restoreFiles(
+            const { identities, ...settled } = await restoreFiles(
                 slots.map((slot) => ({ key: slot, identity: files[slot].identity })),
             );
             if (run !== opened) return;
 
-            const notice: Notice = {
-                action: "restore",
-                done,
-                failed: failed.map(({ key, message }) => ({ slot: key, message })),
-            };
+            const notice: Notice = { action: "restore", ...settled };
             // A restored file can come back under a new identity, which `thumb://` and a later move need.
             const restored: Partial<Record<Slot, MediaFile>> = {};
             for (const [slot, identity] of identities) restored[slot] = { ...files[slot], identity };

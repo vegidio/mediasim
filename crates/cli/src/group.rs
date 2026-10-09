@@ -1,8 +1,7 @@
 //! The grouping pipeline shared by `files` and `dir`: load, group, order and print.
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use mediasim::{CompareOptions, DirCache, Media, OnError, Scan, Scanned};
 
@@ -50,7 +49,6 @@ pub fn run(
     for members in &mut groups {
         members.sort_by(best_first);
     }
-    in_path_order(&mut groups, &positions(paths));
 
     if !skipped.is_empty() {
         if ui.interactive {
@@ -80,11 +78,6 @@ pub fn run(
     Ok(())
 }
 
-/// Each path's position in `paths`, for putting media that loaded in completion order back in input order.
-fn positions(paths: &[PathBuf]) -> HashMap<&Path, usize> {
-    paths.iter().enumerate().map(|(i, path)| (path.as_path(), i)).collect()
-}
-
 /// Orders media best first: longer duration (an image counts as zero), then more pixels, then larger file, with the
 /// path as the tie-break.
 fn best_first(a: &Media, b: &Media) -> Ordering {
@@ -96,53 +89,10 @@ fn best_first(a: &Media, b: &Media) -> Ordering {
         .then_with(|| a.path.cmp(&b.path))
 }
 
-/// Orders the groups by the earliest of their members' [`positions`], so the output does not depend on the order the
-/// files finished loading in.
-fn in_path_order(groups: &mut [Vec<Media>], positions: &HashMap<&Path, usize>) {
-    groups.sort_by_cached_key(|group| {
-        group
-            .iter()
-            .filter_map(|media| positions.get(media.path.as_path()).copied())
-            .min()
-            .expect("every grouped media was loaded from one of the paths")
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_support::{self, paths};
-
-    fn media(path: &str) -> Media {
-        test_support::media(path, 1, 1, None)
-    }
-
-    fn names(groups: &[Vec<Media>]) -> Vec<Vec<PathBuf>> {
-        groups.iter().map(|g| g.iter().map(|m| m.path.clone()).collect()).collect()
-    }
-
-    #[test]
-    fn groups_follow_the_earliest_path() {
-        let args = paths(&["a", "b", "c", "d"]);
-        let mut groups = vec![vec![media("d"), media("b")], vec![media("c"), media("a")]];
-
-        in_path_order(&mut groups, &positions(&args));
-
-        assert_eq!(names(&groups), [paths(&["c", "a"]), paths(&["d", "b"])]);
-    }
-
-    #[test]
-    fn group_order_does_not_depend_on_load_order() {
-        let args = paths(&["a", "b", "c", "d"]);
-        let mut forward = vec![vec![media("a"), media("c")], vec![media("b"), media("d")]];
-        let mut backward = vec![vec![media("b"), media("d")], vec![media("a"), media("c")]];
-
-        in_path_order(&mut forward, &positions(&args));
-        in_path_order(&mut backward, &positions(&args));
-
-        assert_eq!(names(&forward), names(&backward));
-        assert_eq!(names(&forward), [paths(&["a", "c"]), paths(&["b", "d"])]);
-    }
 
     fn best_first_order(mut group: Vec<Media>) -> Vec<PathBuf> {
         group.sort_by(best_first);

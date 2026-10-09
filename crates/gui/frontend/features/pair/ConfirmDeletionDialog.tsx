@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { DeletionDialog } from "@/components/deletion/DeletionDialog";
+import { DeletionDialog, deletionDialogProps } from "@/components/deletion/DeletionDialog";
 import { selectMarkedFiles, usePairResultStore } from "@/stores/pairResult";
 
 type ConfirmDeletionDialogProps = {
@@ -8,10 +8,7 @@ type ConfirmDeletionDialogProps = {
     children: ReactNode;
 };
 
-/**
- * The deletion dialog for the pair's marked files, in the mode the deletion was asked in. Open while the pair result
- * store's deletion is confirming or removing what it confirmed, never for a restore or a run without confirmation.
- */
+/** The deletion dialog for the pair's marked files, in the mode the deletion was asked in. */
 export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) => {
     const chosen = usePairResultStore(useShallow(selectMarkedFiles));
     const deletion = usePairResultStore((state) => state.deletion);
@@ -19,15 +16,10 @@ export const ConfirmDeletionDialog = ({ children }: ConfirmDeletionDialogProps) 
     const cancelDeletion = usePairResultStore((state) => state.cancelDeletion);
     const removeMarked = usePairResultStore((state) => state.removeMarked);
 
-    const removing = deletion.status === "removing" && deletion.confirmed;
-
     return (
         <DeletionDialog
-            open={deletion.status === "confirming" || removing}
-            mode={"mode" in deletion ? deletion.mode : "trash"}
+            {...deletionDialogProps(deletion, requestDeletion, cancelDeletion)}
             files={chosen}
-            removing={removing}
-            onOpenChange={(open) => (open ? void requestDeletion() : cancelDeletion())}
             onConfirm={() => void removeMarked()}
         >
             {children}

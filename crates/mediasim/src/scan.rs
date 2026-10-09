@@ -48,7 +48,8 @@ pub struct ScanProgress {
 /// What a finished [`Scan`] returns.
 #[derive(Debug)]
 pub struct Scanned {
-    /// The groups of similar media, as [`Grouper::finish`] orders them.
+    /// The groups of similar media, ordered by the earliest position of their members among the paths given. Each
+    /// group's members are ordered by path, as [`Grouper::finish`] orders them.
     pub groups: Vec<Vec<Media>>,
     /// The errors of the files skipped under [`OnError::Skip`], in the order their paths were given.
     pub skipped: Vec<MediaError>,
@@ -169,6 +170,7 @@ impl Scan {
 
         let total = self.paths.len();
         // A path given twice keeps its last position; its errors share the key, so the stable sort keeps them together.
+        // The groups are ordered by it too, so they don't depend on the order the files finished loading in.
         let positions: HashMap<PathBuf, usize> =
             self.paths.iter().enumerate().map(|(i, path)| (path.clone(), i)).collect();
         let mut grouper = Grouper::with_options(self.threshold, self.options);
@@ -218,8 +220,11 @@ impl Scan {
         if cancelled() {
             return Err(ScanError::Cancelled);
         }
-        skipped.sort_by_key(|err: &MediaError| positions.get(err.path()).copied().unwrap_or(usize::MAX));
-        Ok(Scanned { groups: grouper.finish(), skipped })
+        let position = |path: &Path| positions.get(path).copied().unwrap_or(usize::MAX);
+        skipped.sort_by_key(|err: &MediaError| position(err.path()));
+        let mut groups = grouper.finish();
+        groups.sort_by_cached_key(|group| group.iter().map(|media| position(&media.path)).min());
+        Ok(Scanned { groups, skipped })
     }
 
     /// Starts loading the files, through the cache if there is one.

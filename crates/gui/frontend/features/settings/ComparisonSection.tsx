@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { Slider } from "@/components/ui/slider";
-import { MATCH_THRESHOLD_MAX, MATCH_THRESHOLD_MIN, useSettingsStore } from "@/stores/settings";
+import { ThresholdSlider } from "@/components/ThresholdSlider";
+import { FRAME_OPTIONS, useSettingsStore } from "@/stores/settings";
 import { SettingSwitch } from "./SettingSwitch";
 import { SettingRow, SettingsSection } from "./SettingsSection";
 
@@ -20,18 +20,12 @@ const ThresholdRow = () => {
             hintId={`${id}-hint`}
             control={
                 <div className="flex shrink-0 items-center gap-3">
-                    <Slider
+                    <ThresholdSlider
                         aria-labelledby={`${id}-name`}
                         aria-describedby={`${id}-hint`}
-                        min={MATCH_THRESHOLD_MIN}
-                        max={MATCH_THRESHOLD_MAX}
-                        step={1}
-                        value={[matchThreshold]}
-                        onValueChange={([value]) => value !== undefined && update({ matchThreshold: value })}
-                        className="w-40 cursor-pointer"
-                        trackClassName="bg-[#3F3F46] data-horizontal:h-1"
-                        rangeClassName="bg-[#BEF264]"
-                        thumbClassName="size-3.5 border-0 bg-[#BEF264] ring-[#BEF264]/40"
+                        value={matchThreshold}
+                        onChange={(value) => update({ matchThreshold: value })}
+                        className="w-40"
                     />
                     <span className="w-10 text-right font-mono text-[#E4E4E7] text-[13px] tabular-nums">
                         {matchThreshold}%
@@ -59,14 +53,14 @@ export const ComparisonSection = () => {
                 onCheckedChange={(checked) => update({ scanSubfolders: checked })}
             />
             <SettingSwitch
-                name="Frame rotate"
-                hint="Also compare each frame rotated 90°, 180° and 270°."
+                name={FRAME_OPTIONS.frameRotate.name}
+                hint={`${FRAME_OPTIONS.frameRotate.hint}.`}
                 checked={frameRotate}
                 onCheckedChange={(checked) => update({ frameRotate: checked })}
             />
             <SettingSwitch
-                name="Frame flip"
-                hint="Also compare each frame flipped vertically and horizontally."
+                name={FRAME_OPTIONS.frameFlip.name}
+                hint={`${FRAME_OPTIONS.frameFlip.hint}.`}
                 checked={frameFlip}
                 onCheckedChange={(checked) => update({ frameFlip: checked })}
             />

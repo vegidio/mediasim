@@ -118,13 +118,13 @@ describe("GroupTile", () => {
             expect(onOpen).toHaveBeenCalledOnce();
         });
 
-        it("hands its keys to onKey", () => {
+        it("hands its keys to onKey, with its path", () => {
             const onKey = vi.fn();
             renderTile({ onKey });
 
             fireEvent.keyDown(thumbnail(), { key: "ArrowRight" });
 
-            expect(onKey).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ key: "ArrowRight" }));
+            expect(onKey).toHaveBeenCalledExactlyOnceWith(IMAGE.path, expect.objectContaining({ key: "ArrowRight" }));
         });
 
         it("isn't reached by a click on the checkbox, which only toggles the mark", () => {

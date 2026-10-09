@@ -1,13 +1,13 @@
 import { create } from "zustand";
 import { identity, includedFiles } from "@/features/gallery/derive";
-import { visibleGroups } from "@/features/groups/marks";
+import { markedFiles, visibleGroups } from "@/features/groups/marks";
 import { cancelScan, type ScanFailure, type ScanResult, startScan } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
-import { type Deletion, removeFiles, restoreFiles } from "@/lib/deletion";
+import { type Deletion, deletionActions, type Notice, removeFiles, restoreFiles } from "@/lib/deletion";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
-import { type DeletionMode, useSettingsStore } from "@/stores/settings";
+import type { DeletionMode } from "@/stores/settings";
 
 /** Where the scan is: none, running, ended without a result, or finished with one. */
 export type ScanStatus = "idle" | "running" | "failed" | "done";
@@ -21,14 +21,6 @@ export type ScanProgress = {
     skipped: number;
     /** The estimated time left, in seconds, once there is one. */
     etaSeconds?: number;
-};
-
-/** How far the scoring of the groups has got, once every file is grouped. */
-export type ScanScoring = {
-    /** The pairs scored. */
-    done: number;
-    /** The pairs inside the groups. */
-    total: number;
 };
 
 /** What the scan screen's heading describes, as it was when the scan started. */
@@ -46,15 +38,8 @@ export type ScanHeading = {
 /** The file the scan last reported it is processing. */
 export type ScanCurrent = { path: string; display: string };
 
-/**
- * The result of the last move to the Trash, permanent deletion or restore from the groups screen: the paths of the
- * files it was done to, and each one it wasn't with the reason.
- */
-export type ScanNotice = {
-    action: DeletionMode | "restore";
-    done: string[];
-    failed: { path: string; message: string }[];
-};
+/** The result of the last move to the Trash, permanent deletion or restore from the groups screen, by path. */
+export type ScanNotice = Notice<string>;
 
 /** State of the comparison of a set's files, from Compare to the groups. */
 type ScanStore = {
@@ -66,8 +51,6 @@ type ScanStore = {
     files: readonly MediaFile[];
     progress: ScanProgress;
     current?: ScanCurrent;
-    /** The scoring's progress, once it has begun. */
-    scoring?: ScanScoring;
     /** The groups and the unreadable files, once the scan is done. */
     result?: ScanResult;
     /** The paths of the files marked for deletion on the groups screen. */
@@ -126,38 +109,34 @@ const IDLE: Pick<ScanStore, "status" | "files" | "progress" | "marks" | "gone" |
     deletion: { status: "idle" },
 };
 
-/** `state` without what belongs to one scan: its heading, current file, scoring, result and notice. */
-const withoutRun = ({
-    heading: _heading,
-    current: _current,
-    scoring: _scoring,
-    result: _result,
-    notice: _notice,
-    ...rest
-}: ScanStore) => rest;
+/** `state` without what belongs to one scan: its heading, current file, result and notice. */
+const withoutRun = ({ heading: _heading, current: _current, result: _result, notice: _notice, ...rest }: ScanStore) =>
+    rest;
 
-/** The files of the groups still shown whose paths are marked, in the groups' order and each group's order. */
+/** The paths of the files of the groups still shown that are marked, in the groups' order and each group's order. */
 const markedShown = ({ result, gone, marks }: ScanStore): string[] =>
-    result
-        ? visibleGroups(result.groups, gone).flatMap(({ files }) =>
-              files.filter((file) => marks.has(file.path)).map((file) => file.path),
-          )
-        : [];
+    result ? markedFiles(visibleGroups(result.groups, gone), marks).map((file) => file.path) : [];
+
+const mediaByFiles = new WeakMap<readonly MediaFile[], ReadonlyMap<string, MediaFile>>();
+
+/** The scanned files by path, built once for each list of files. */
+export const selectMedia = ({ files }: Pick<ScanStore, "files">): ReadonlyMap<string, MediaFile> => {
+    let media = mediaByFiles.get(files);
+    if (!media) {
+        media = new Map(files.map((file) => [file.path, file]));
+        mediaByFiles.set(files, media);
+    }
+    return media;
+};
 
 /** `paths` paired with the identity each file is admitted as, leaving out any path not scanned. */
-const removable = (files: readonly MediaFile[], paths: readonly string[]) => {
-    const media = new Map(files.map((file) => [file.path, file]));
+const removable = (state: Pick<ScanStore, "files">, paths: readonly string[]) => {
+    const media = selectMedia(state);
     return paths.flatMap((path) => {
         const file = media.get(path);
         return file ? [{ key: path, identity: file.identity }] : [];
     });
 };
-
-/** A notice of `action` from what was `done` and what `failed`. */
-const noticeOf = (
-    action: ScanNotice["action"],
-    { done, failed }: { done: string[]; failed: { key: string; message: string }[] },
-): ScanNotice => ({ action, done, failed: failed.map(({ key, message }) => ({ path: key, message })) });
 
 export const useScanStore = create<ScanStore>()((set, get) => {
     /** Applies `update` only while scan `run` is still the current one. */
@@ -175,12 +154,12 @@ export const useScanStore = create<ScanStore>()((set, get) => {
     const remove = async (mode: DeletionMode, confirmed: boolean) => {
         const state = get();
         const { run } = state;
-        const items = removable(state.files, markedShown(state));
+        const items = removable(state, markedShown(state));
         set({ deletion: { status: "removing", mode, confirmed } });
 
         const settled = await removeFiles(mode, items);
         forRun(run, () => {
-            const notice = noticeOf(mode, settled);
+            const notice: ScanNotice = { action: mode, ...settled };
             set((state) => {
                 const gone = new Map(state.gone);
                 const marks = new Set(state.marks);
@@ -231,8 +210,6 @@ export const useScanStore = create<ScanStore>()((set, get) => {
                 forRun(run, () => {
                     if (message.kind === "processing") {
                         set({ current: { path: message.path, display: message.display } });
-                    } else if (message.kind === "scoring") {
-                        set({ scoring: { done: message.done, total: message.total } });
                     } else {
                         const { kind: _, ...progress } = message;
                         set({ progress });
@@ -279,24 +256,7 @@ export const useScanStore = create<ScanStore>()((set, get) => {
 
         clearMarks: () => set({ marks: new Set() }),
 
-        requestDeletion: async () => {
-            const state = get();
-            if (state.deletion.status !== "idle" || markedShown(state).length === 0) return;
-
-            // Read once, so this deletion keeps its mode whatever Settings says by the time it is confirmed.
-            const { deletionMode, confirmDeletion } = useSettingsStore.getState();
-            if (confirmDeletion) set({ deletion: { status: "confirming", mode: deletionMode } });
-            else await remove(deletionMode, false);
-        },
-
-        cancelDeletion: () => {
-            if (get().deletion.status === "confirming") set({ deletion: IDLE.deletion });
-        },
-
-        removeMarked: async () => {
-            const { deletion } = get();
-            if (deletion.status === "confirming") await remove(deletion.mode, true);
-        },
+        ...deletionActions(get, set, () => markedShown(get()).length > 0, remove),
 
         restore: async (requested) => {
             const { run, files, gone, deletion } = get();
@@ -304,7 +264,7 @@ export const useScanStore = create<ScanStore>()((set, get) => {
 
             // A deleted file is never sent: only the Trash can give a file back.
             const items = removable(
-                files,
+                { files },
                 requested.filter((path) => gone.get(path) === "trash"),
             );
             if (items.length === 0) return;
@@ -312,7 +272,7 @@ export const useScanStore = create<ScanStore>()((set, get) => {
 
             const { identities, ...settled } = await restoreFiles(items);
             forRun(run, () => {
-                const notice = noticeOf("restore", settled);
+                const notice: ScanNotice = { action: "restore", ...settled };
                 const state = get();
                 const gone = new Map(state.gone);
                 const marks = new Set(state.marks);

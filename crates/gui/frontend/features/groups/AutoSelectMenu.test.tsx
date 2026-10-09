@@ -117,11 +117,6 @@ describe("AutoSelectMenu", () => {
         const file = (path: string): GroupFile => ({ path, type: "image", width: 1, height: 1, size: 1_000_000 });
         const group = (name: string): ScanGroup => ({
             files: [file(`/p/${name}/a.jpg`), file(`/p/${name}/b.jpg`), file(`/p/${name}/c.jpg`)],
-            scores: [
-                [1, 0.9, 0.9],
-                [0.9, 1, 0.9],
-                [0.9, 0.9, 1],
-            ],
         });
 
         beforeEach(() => {

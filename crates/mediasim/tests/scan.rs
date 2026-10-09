@@ -232,3 +232,23 @@ fn cached_groups_equal_uncached_ones() {
         assert_eq!(cached.groups, uncached.groups);
     }
 }
+
+#[test]
+fn groups_follow_the_earliest_of_their_paths_given() {
+    let dir = directory(&[
+        ("test1.png", "x1.png"),
+        ("test1.png", "x2.png"),
+        ("test2.png", "a1.png"),
+        ("test2.png", "a2.png"),
+    ]);
+    let given = paths(dir.path(), &["x1.png", "a1.png", "x2.png", "a2.png"]);
+
+    let scanned = Scan::new(given, THRESHOLD).run(|_| {}).unwrap();
+
+    let groups: Vec<Vec<PathBuf>> = scanned
+        .groups
+        .iter()
+        .map(|group| group.iter().map(|media| media.path.clone()).collect())
+        .collect();
+    assert_eq!(groups, [paths(dir.path(), &["x1.png", "x2.png"]), paths(dir.path(), &["a1.png", "a2.png"])]);
+}

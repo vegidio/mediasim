@@ -200,6 +200,12 @@ export const GalleryGrid = () => {
         gridFocused();
     }, [focusGrid, scroller, selectedIndex, columns, gridFocused]);
 
+    /** Select the tile of the file at `path`, as a click on it does, keeping focus on the grid. */
+    const selectTile = (path: string) => {
+        select(path);
+        scroller?.focus({ preventScroll: true });
+    };
+
     /** Select the tile at `index`, scrolling its row into view. */
     const selectAt = (index: number) => {
         const file = files?.[index];
@@ -298,10 +304,7 @@ export const GalleryGrid = () => {
                             id={`${tileId}${at}`}
                             file={file}
                             selected={at === selectedIndex}
-                            onSelect={() => {
-                                select(file.path);
-                                scroller?.focus({ preventScroll: true });
-                            }}
+                            onSelect={selectTile}
                             inclusion={inclusion(file.type, filter, overrides.has(file.path))}
                         />
                     )}

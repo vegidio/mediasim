@@ -2,10 +2,9 @@ import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { GroupFile } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
-import { cn } from "@/lib/utils";
+import { cn, keepFocus } from "@/lib/utils";
 import { groupSize } from "./format";
 import { GroupTile } from "./GroupTile";
-import { keepFocus } from "./navigate";
 
 /** The number of files from which a group spans the full width: the fewest whose small tiles overflow a 1280 px window. */
 export const LARGE_GROUP = 7;
@@ -93,12 +92,12 @@ export const GroupCard = ({
                             best={index === best}
                             large={large}
                             marked={marks.has(file.path)}
-                            onToggle={() => onToggle(file.path)}
+                            onToggle={onToggle}
                             selected={file.path === selected}
                             tabbable={file.path === tabbable}
-                            onSelect={() => onSelect(file.path)}
-                            onOpen={() => onOpen(file.path)}
-                            onKey={(event) => onKey(file.path, event)}
+                            onSelect={onSelect}
+                            onOpen={onOpen}
+                            onKey={onKey}
                         />
                     );
                 })}

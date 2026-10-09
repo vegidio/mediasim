@@ -8,6 +8,7 @@
 mod formats;
 mod open;
 mod pair;
+mod run;
 mod scan;
 mod set;
 mod thumbs;
@@ -30,6 +31,11 @@ impl Serialize for TaskError {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_str(self)
     }
+}
+
+/// What a comparison or scan reports when its blocking task panicked or was cancelled by the runtime.
+fn task_message(err: &tauri::Error) -> String {
+    format!("the comparison task did not finish: {err}")
 }
 
 /// Build and run the application. Blocks until it exits.

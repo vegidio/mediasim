@@ -20,20 +20,38 @@ type ThumbnailProps = {
     identity?: string;
     /** The longest edge, in pixels, the picture is asked for. */
     bound: number;
+    /** What shows while the picture loads: a shimmer, or the icon of the file's kind. */
+    placeholder?: "shimmer" | "icon";
+    /** The size of the icon of the file's kind. */
+    iconClassName?: string;
 };
 
 /**
- * A file's picture covering its positioned parent: a shimmer while it loads, the icon of its kind if it can't be
- * produced. Key it by the identity, so a picture that failed doesn't hide the next one.
+ * A file's picture covering its positioned parent: a shimmer or its kind's icon while it loads, the icon of its kind
+ * if it can't be produced. Key it by the identity, so a picture that failed doesn't hide the next one.
  */
-export const Thumbnail = ({ type, identity, bound }: ThumbnailProps) => {
+export const Thumbnail = ({
+    type,
+    identity,
+    bound,
+    placeholder = "shimmer",
+    iconClassName = "[&_svg]:size-[22px]",
+}: ThumbnailProps) => {
     const [state, setState] = useState<"loading" | "loaded" | "failed">(identity ? "loading" : "failed");
+    const icon = state === "failed" || (state === "loading" && placeholder === "icon");
 
     return (
         <>
-            {state === "loading" && <span data-testid="shimmer" className={cn("absolute inset-0", SHIMMER)} />}
-            {state === "failed" && (
-                <span className="absolute inset-0 flex items-center justify-center text-muted-foreground [&_svg]:size-[22px]">
+            {state === "loading" && placeholder === "shimmer" && (
+                <span data-testid="shimmer" className={cn("absolute inset-0", SHIMMER)} />
+            )}
+            {icon && (
+                <span
+                    className={cn(
+                        "absolute inset-0 flex items-center justify-center text-muted-foreground",
+                        iconClassName,
+                    )}
+                >
                     <MediaKindIcon type={type} />
                 </span>
             )}

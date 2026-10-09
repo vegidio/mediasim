@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { Check } from "lucide-react";
-import { MediaKindIcon } from "@/components/MediaKindIcon";
+import { Thumbnail } from "@/components/Thumbnail";
 import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
-import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
+import type { MediaFile } from "@/ipc/thumbs";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useScanStore } from "@/stores/scan";
@@ -84,8 +83,7 @@ const PhaseMark = ({ state }: { state: PhaseState }) => (
 /** The scan's phase: its mark, its name and hint, and its status, in lime while it runs. */
 const PhaseRow = () => {
     const progress = useScanStore((state) => state.progress);
-    const scoring = useScanStore((state) => state.scoring);
-    const { state, status } = groupingPhase(progress, scoring);
+    const { state, status } = groupingPhase(progress);
     const { skipped } = progress;
 
     return (
@@ -107,26 +105,11 @@ const PhaseRow = () => {
 };
 
 /** A file's 48×36 thumbnail, falling back to the icon of its kind, as gallery tiles do. */
-const Thumbnail = ({ file }: { file: MediaFile }) => {
-    const [failed, setFailed] = useState(false);
-
-    return (
-        <span className="relative flex h-9 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#27272A] text-muted-foreground">
-            {failed ? (
-                <MediaKindIcon type={file.type} className="size-4" />
-            ) : (
-                // Decorative: the path beside it names the file.
-                <img
-                    alt=""
-                    src={renditionUrl(file.identity, THUMB_BOUND)}
-                    decoding="async"
-                    onError={() => setFailed(true)}
-                    className="size-full object-cover"
-                />
-            )}
-        </span>
-    );
-};
+const FileThumbnail = ({ file }: { file: MediaFile }) => (
+    <span className="relative h-9 w-12 shrink-0 overflow-hidden rounded-md bg-[#27272A]">
+        <Thumbnail type={file.type} identity={file.identity} bound={THUMB_BOUND} iconClassName="[&_svg]:size-4" />
+    </span>
+);
 
 /** The file the scan last reported it is processing, once it has reported one. */
 const NowProcessing = () => {
@@ -137,7 +120,7 @@ const NowProcessing = () => {
     return (
         <div className="flex items-center gap-3 rounded-[10px] bg-[#18181B] p-3">
             {/* Every scanned file is one of `files`; keyed by file, so a thumbnail that failed doesn't hide the next. */}
-            {file && <Thumbnail key={file.path} file={file} />}
+            {file && <FileThumbnail key={file.path} file={file} />}
             <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-[#A1A1AA] text-xs">Now processing</span>
                 <span title={current.display} className="truncate font-mono text-[13px]">

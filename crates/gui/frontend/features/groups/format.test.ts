@@ -3,7 +3,6 @@ import type { GroupFile } from "@/ipc/scan";
 import {
     applyLabel,
     detailsLine,
-    fileName,
     groupPosition,
     groupSize,
     leftSummary,
@@ -66,13 +65,6 @@ describe("uniqueLine", () => {
 
     it("says when none could be read", () => {
         expect(uniqueLine(0, 85)).toBe("None of the files could be read.");
-    });
-});
-
-describe("fileName", () => {
-    it("takes the last component on any platform", () => {
-        expect(fileName("/a/b/IMG_2041.jpg")).toBe("IMG_2041.jpg");
-        expect(fileName("C:\\Users\\ana\\cat.png")).toBe("cat.png");
     });
 });
 

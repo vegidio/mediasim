@@ -1,10 +1,8 @@
+import { position } from "@/features/details/navigate";
 import type { MediaType } from "@/ipc/formats";
 import type { GroupFile } from "@/ipc/scan";
-import { formatSize } from "@/lib/format";
+import { formatCount, formatSize, plural } from "@/lib/format";
 import type { Preview } from "./marks";
-
-/** The last component of a path, on any platform. */
-export const fileName = (path: string) => path.split(/[\\/]/).pop() || path;
 
 type SummaryCounts = {
     /** The number of files in the groups. */
@@ -23,10 +21,7 @@ type SummaryCounts = {
  * · …" with no group, going on with " · N couldn't be read" when files were skipped.
  */
 export const summary = ({ files, groups, scanned, threshold, unreadable }: SummaryCounts) => {
-    const found =
-        groups === 0
-            ? "No similar files found"
-            : `${files} similar files in ${groups} ${groups === 1 ? "group" : "groups"}`;
+    const found = groups === 0 ? "No similar files found" : `${files} similar files in ${plural(groups, "group")}`;
     const skipped = unreadable > 0 ? ` · ${unreadable} couldn't be read` : "";
 
     return `${found} · ${scanned} scanned · threshold ${threshold}%${skipped}`;
@@ -49,11 +44,11 @@ type LeftCounts = {
 export const leftSummary = ({ remaining, threshold, unreadable }: LeftCounts) => {
     const skipped = unreadable > 0 ? ` · ${unreadable} couldn't be read` : "";
 
-    return `No similar files left · ${remaining} ${remaining === 1 ? "file" : "files"} remaining · threshold ${threshold}%${skipped}`;
+    return `No similar files left · ${formatCount(remaining)} remaining · threshold ${threshold}%${skipped}`;
 };
 
 /** A group's size: "3 images", "2 videos", or "1 image" for one. */
-export const groupSize = (count: number, type: MediaType) => `${count} ${type}${count === 1 ? "" : "s"}`;
+export const groupSize = (count: number, type: MediaType) => plural(count, type);
 
 /** A grouped file's details: "4032×3024 · 4.8 MB". */
 export const detailsLine = ({ width, height, size }: GroupFile) => `${width}×${height} · ${formatSize(size)}`;
@@ -84,10 +79,10 @@ export const resolvedLine = (groups: number, remaining: number, threshold: numbe
 
 /** Where the file at `index` of a group of `count` files is, counted from one: "Group 1 · 1 of 3". */
 export const groupPosition = (number: number, index: number, count: number) =>
-    `Group ${number} · ${index + 1} of ${count}`;
+    `Group ${number} · ${position(index, count)}`;
 
 /** The Auto-select dialog's Apply button: "Apply to 7 groups", or "Apply to 1 group" for one. */
-export const applyLabel = (groups: number) => `Apply to ${groups} ${groups === 1 ? "group" : "groups"}`;
+export const applyLabel = (groups: number) => `Apply to ${plural(groups, "group")}`;
 
 /**
  * The Auto-select dialog's preview, in the two parts it styles apart: the `amount` in "Will mark 1 of 2 grouped files",

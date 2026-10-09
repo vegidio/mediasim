@@ -2,7 +2,7 @@ import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useSta
 import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MediaFile } from "@/ipc/thumbs";
-import { useScanStore } from "@/stores/scan";
+import { selectMedia, useScanStore } from "@/stores/scan";
 import { useSettingsStore } from "@/stores/settings";
 import { AutoSelectDialog } from "./AutoSelectDialog";
 import { focusAutoSelectOptions } from "./AutoSelectMenu";
@@ -11,7 +11,7 @@ import { GroupCard, type GroupView } from "./GroupCard";
 import { GroupDetailsDialog } from "./GroupDetailsDialog";
 import { GroupsFooter } from "./GroupsFooter";
 import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
-import { autoSelect, keepBestOnly, markedFiles, pickBest, visibleGroups } from "./marks";
+import { autoSelect, fileCount, keepBestOnly, markedFiles, pickBest, visibleGroups } from "./marks";
 import { stepFlat, stepVertical, type TileBox } from "./navigate";
 import type { Rule } from "./rules";
 
@@ -59,22 +59,20 @@ const findShown = (groups: readonly GroupView[], media: ReadonlyMap<string, Medi
     return { number: index + 1, group, files, file };
 };
 
-/** Every tile's thumbnail button, in screen order. */
-const thumbnails = () => [...document.querySelectorAll<HTMLElement>("[data-select]")];
-
 /**
  * Focuses the thumbnail of the file at `path`, which selects its tile, and scrolls the groups area to show the whole
  * tile: focusing alone would stop at the thumbnail, leaving its name and details line past the edge.
  */
 const focusTile = (path?: string) => {
-    const button = thumbnails().find((thumbnail) => thumbnail.dataset.select === path);
+    if (!path) return;
+    const button = document.querySelector<HTMLElement>(`[data-select="${CSS.escape(path)}"]`);
     button?.focus({ preventScroll: true });
     button?.closest("[data-path]")?.scrollIntoView({ block: "nearest" });
 };
 
 /** Where every tile's thumbnail is on screen now, at the window's current width. */
 const measure = () =>
-    thumbnails().map((button): TileBox => {
+    [...document.querySelectorAll<HTMLElement>("[data-select]")].map((button): TileBox => {
         const { top, bottom, left, right } = button.getBoundingClientRect();
         return { path: button.dataset.select ?? "", top, bottom, left, right };
     });
@@ -90,7 +88,6 @@ const measure = () =>
 export const GroupsScreen = () => {
     const result = useScanStore((state) => state.result);
     const heading = useScanStore((state) => state.heading);
-    const files = useScanStore((state) => state.files);
     const marks = useScanStore((state) => state.marks);
     const gone = useScanStore((state) => state.gone);
     const toggleMark = useScanStore((state) => state.toggleMark);
@@ -98,7 +95,7 @@ export const GroupsScreen = () => {
     const clearMarks = useScanStore((state) => state.clearMarks);
     const rules = useSettingsStore((state) => state.autoSelectRules);
 
-    const media = useMemo(() => new Map<string, MediaFile>(files.map((file) => [file.path, file])), [files]);
+    const media = useScanStore(selectMedia);
     // The result's groups less the files removed. A change to the rules moves the best files, and leaves the marks to
     // the user.
     const visible = useMemo(() => visibleGroups(result?.groups ?? [], gone), [result, gone]);
@@ -179,7 +176,7 @@ export const GroupsScreen = () => {
 
     const { count: scanned, threshold } = heading;
     const unreadable = result.skipped.length;
-    const grouped = groups.reduce((total, group) => total + group.files.length, 0);
+    const grouped = fileCount(groups);
     const found = result.groups.length > 0;
     // Every group resolved by removals, rather than none found.
     const nothingLeft = found && groups.length === 0;
@@ -254,7 +251,7 @@ export const GroupsScreen = () => {
                     )}
                 </>
             )}
-            {found && <GroupsFooter marked={marked} media={media} />}
+            {found && <GroupsFooter marked={marked} />}
         </div>
     );
 };

@@ -197,7 +197,7 @@ impl Media {
     where
         P: AsRef<Path> + Send + 'static,
     {
-        Self::load_all(paths, None, |path| Self::from_file(path))
+        Self::from_files_cancellable(paths, &CancelToken::new())
     }
 
     /// Loads every path in parallel as [`from_files`](Self::from_files) does, stopping once `cancel` is cancelled.
@@ -209,12 +209,12 @@ impl Media {
         P: AsRef<Path> + Send + 'static,
     {
         let token = cancel.clone();
-        Self::load_all(paths, Some(cancel.clone()), move |path| Self::from_file_cancellable(path, &token))
+        Self::load_all(paths, cancel.clone(), move |path| Self::from_file_cancellable(path, &token))
     }
 
-    /// Loads every path with `load`, as [`from_files`](Self::from_files) describes. Once `cancel`, if given, is
-    /// cancelled, a file not yet started yields [`MediaError::Cancelled`] instead of being loaded.
-    fn load_all<P, L>(paths: Vec<P>, cancel: Option<CancelToken>, load: L) -> MediaStream
+    /// Loads every path with `load`, as [`from_files`](Self::from_files) describes. Once `cancel` is cancelled, a file
+    /// not yet started yields [`MediaError::Cancelled`] instead of being loaded.
+    fn load_all<P, L>(paths: Vec<P>, cancel: CancelToken, load: L) -> MediaStream
     where
         P: AsRef<Path> + Send + 'static,
         L: Fn(&Path) -> Result<Self, MediaError> + Clone + Send + Sync + 'static,
@@ -293,9 +293,9 @@ fn check(path: &Path, cancel: Option<&CancelToken>) -> Result<(), MediaError> {
 }
 
 /// Loads `paths` with `load` on `pool`, from a spawned task, sending to `tx` that each file has started, then its
-/// result. A failed send means the caller dropped the stream, which ends the batch. Once `cancel`, if given, is
-/// cancelled, each file not yet started sends [`MediaError::Cancelled`] without being loaded.
-fn spawn_batch<P, L>(pool: &ThreadPool, paths: Vec<P>, tx: mpsc::Sender<Loading>, cancel: Option<CancelToken>, load: L)
+/// result. A failed send means the caller dropped the stream, which ends the batch. Once `cancel` is cancelled, each
+/// file not yet started sends [`MediaError::Cancelled`] without being loaded.
+fn spawn_batch<P, L>(pool: &ThreadPool, paths: Vec<P>, tx: mpsc::Sender<Loading>, cancel: CancelToken, load: L)
 where
     P: AsRef<Path> + Send + 'static,
     L: Fn(&Path) -> Result<Media, MediaError> + Send + Sync + 'static,
@@ -303,7 +303,7 @@ where
     pool.spawn(move || {
         let _ = paths.into_par_iter().try_for_each_with(tx.clone(), |tx, path| {
             let path = path.as_ref();
-            let loaded = match check(path, cancel.as_ref()) {
+            let loaded = match check(path, Some(&cancel)) {
                 Ok(()) => {
                     tx.send(Loading::Started(path.to_path_buf()))?;
                     load(path)

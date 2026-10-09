@@ -91,7 +91,7 @@ describe("ConfirmDeletionDialog", () => {
 
         fireEvent.error(row.querySelector("img") as HTMLImageElement);
 
-        expect(row.querySelector("img")).not.toBeInTheDocument();
+        expect(row.querySelector("img")).toHaveClass("invisible");
         expect(row.querySelector(".lucide-image")).toBeInTheDocument();
     });
 

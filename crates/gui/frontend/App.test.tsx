@@ -250,10 +250,6 @@ describe("App", () => {
                         created: "2025-06-01T00:00:00Z",
                     },
                 ],
-                scores: [
-                    [1, 0.95],
-                    [0.95, 1],
-                ],
             };
             const tile = (path: string) => document.querySelector(`[data-path="${path}"]`) as HTMLElement;
             const isBest = (path: string) => within(tile(path)).queryByText("Best") !== null;
@@ -461,7 +457,6 @@ describe("App", () => {
         }));
         const GROUP: ScanGroup = {
             files: files.slice(0, 2).map(({ path, size }) => ({ path, type: "image", width: 1, height: 1, size })),
-            scores: [],
         };
         const notice = () =>
             screen

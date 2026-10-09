@@ -93,21 +93,8 @@ describe("Scan progress", () => {
         expect(card).not.toHaveTextContent("Scoring");
     });
 
-    it("keeps the phase running while the groups are scored", () => {
+    it("reads Done with a check once every file is grouped", () => {
         running({ done: 48, etaSeconds: 0 });
-        useScanStore.setState({ scoring: { done: 2, total: 9 } });
-        render(<ScanScreen />);
-
-        const card = screen.getByRole("region", { name: "Comparison" });
-        expect(card).toHaveTextContent("100%");
-        expect(card).toHaveTextContent("Almost done");
-        expect(screen.getByText("48 / 48")).toBeInTheDocument();
-        expect(screen.getByTestId("spinner")).toBeInTheDocument();
-    });
-
-    it("reads Done with a check once every pair is scored", () => {
-        running({ done: 48, etaSeconds: 0 });
-        useScanStore.setState({ scoring: { done: 9, total: 9 } });
         render(<ScanScreen />);
 
         expect(screen.getByText("Done")).toHaveClass("text-[#A1A1AA]");
@@ -137,7 +124,7 @@ describe("Scan progress", () => {
 
     it("stops the spinning mark once the scan is done", () => {
         running({ done: 48, etaSeconds: 0 });
-        useScanStore.setState({ status: "done", scoring: { done: 0, total: 0 } });
+        useScanStore.setState({ status: "done" });
         render(<ScanScreen />);
 
         expect(screen.queryByTestId("spinner")).not.toBeInTheDocument();
@@ -187,7 +174,7 @@ describe("Now processing", () => {
         expect(image).not.toBeNull();
         if (image) fireEvent.error(image);
 
-        expect(card.querySelector("img")).toBeNull();
+        expect(card.querySelector("img")).toHaveClass("invisible");
         expect(card.querySelector("svg.lucide-video")).not.toBeNull();
     });
 });

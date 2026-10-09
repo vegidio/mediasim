@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { addToSet, clearSet, removeFromSet, rescanSet, type SetView, type SourceView } from "@/ipc/set";
+import { fileName } from "@/lib/format";
 import { useSettingsStore } from "@/stores/settings";
 
 /** A row added a moment ago, shown until Rust describes it; its kind is not known yet. */
@@ -43,7 +44,6 @@ type HomeStore = {
 };
 
 /** The name a path's last component gives, on any platform. */
-const baseName = (path: string) => path.split(/[\\/]/).findLast((part) => part !== "") ?? path;
 
 /**
  * Rust's rows, then the optimistic rows it does not describe yet. While a rescan runs, every folder shows as being
@@ -122,7 +122,7 @@ export const useHomeStore = create<HomeStore>()((set, get) => {
                 withRows(state, {
                     optimistic: [
                         ...state.optimistic,
-                        ...paths.map((path): Optimistic => ({ path, name: baseName(path), pending: true, request })),
+                        ...paths.map((path): Optimistic => ({ path, name: fileName(path), pending: true, request })),
                     ],
                 }),
             );

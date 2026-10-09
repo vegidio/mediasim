@@ -1,6 +1,6 @@
 import { type ReactNode, useRef, useState } from "react";
 import { LoaderCircleIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
-import { MediaKindIcon } from "@/components/MediaKindIcon";
+import { Thumbnail } from "@/components/Thumbnail";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -10,7 +10,8 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
+import type { MediaFile } from "@/ipc/thumbs";
+import type { Deletion } from "@/lib/deletion";
 import { formatCount, formatSize, totalSize } from "@/lib/format";
 import type { DeletionMode } from "@/stores/settings";
 import { focusDismiss } from "./DeletionNotice";
@@ -19,31 +20,17 @@ import { focusDismiss } from "./DeletionNotice";
 const THUMB_BOUND = 96;
 
 /** One file to delete: its thumbnail, or its kind icon when none can be produced, its name and its size. */
-const Row = ({ file }: { file: MediaFile }) => {
-    const [failed, setFailed] = useState(false);
-
-    return (
-        <li className="flex items-center gap-3 border-[#1F1F23] border-b px-3 py-2 last:border-b-0">
-            <span className="flex h-9 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#18181B] text-muted-foreground [&_svg]:size-4">
-                {failed ? (
-                    <MediaKindIcon type={file.type} />
-                ) : (
-                    // Decorative: the name follows.
-                    <img
-                        alt=""
-                        src={renditionUrl(file.identity, THUMB_BOUND)}
-                        onError={() => setFailed(true)}
-                        className="size-full object-cover"
-                    />
-                )}
-            </span>
-            <span title={file.name} className="min-w-0 flex-1 truncate font-mono text-xs">
-                {file.name}
-            </span>
-            <span className="shrink-0 font-mono text-[#A1A1AA] text-xs">{formatSize(file.size)}</span>
-        </li>
-    );
-};
+const Row = ({ file }: { file: MediaFile }) => (
+    <li className="flex items-center gap-3 border-[#1F1F23] border-b px-3 py-2 last:border-b-0">
+        <span className="relative h-9 w-12 shrink-0 overflow-hidden rounded-md bg-[#18181B]">
+            <Thumbnail type={file.type} identity={file.identity} bound={THUMB_BOUND} iconClassName="[&_svg]:size-4" />
+        </span>
+        <span title={file.name} className="min-w-0 flex-1 truncate font-mono text-xs">
+            {file.name}
+        </span>
+        <span className="shrink-0 font-mono text-[#A1A1AA] text-xs">{formatSize(file.size)}</span>
+    </li>
+);
 
 type DeletionDialogProps = {
     open: boolean;
@@ -58,6 +45,25 @@ type DeletionDialogProps = {
     onConfirm: () => void;
     /** The button that opens the dialog, which focus returns to when it closes without removing anything. */
     children: ReactNode;
+};
+
+/**
+ * The dialog's state for a store's `deletion`: open while it is confirming or removing what it confirmed, never for a
+ * restore or a run without confirmation. Opening it asks for the deletion, and closing it cancels the confirmation.
+ */
+export const deletionDialogProps = (
+    deletion: Deletion,
+    requestDeletion: () => Promise<void>,
+    cancelDeletion: () => void,
+): Pick<DeletionDialogProps, "open" | "mode" | "removing" | "onOpenChange"> => {
+    const removing = deletion.status === "removing" && deletion.confirmed;
+
+    return {
+        open: deletion.status === "confirming" || removing,
+        mode: "mode" in deletion ? deletion.mode : "trash",
+        removing,
+        onOpenChange: (open) => (open ? void requestDeletion() : cancelDeletion()),
+    };
 };
 
 /**

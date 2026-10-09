@@ -33,19 +33,14 @@ const FILES = [
 
 const grouped = ({ path, size }: MediaFile): GroupFile => ({ path, type: "image", width: 1, height: 1, size });
 
-const GROUPS: ScanGroup[] = [
-    { files: FILES.slice(0, 3).map(grouped), scores: [] },
-    { files: FILES.slice(3).map(grouped), scores: [] },
-];
-
-const MEDIA = new Map(FILES.map((media) => [media.path, media]));
+const GROUPS: ScanGroup[] = [{ files: FILES.slice(0, 3).map(grouped) }, { files: FILES.slice(3).map(grouped) }];
 
 /** Renders the dialog around its trigger, for the files marked, as the footer does. */
 const renderDialog = () => {
     const { result, gone, marks } = useScanStore.getState();
     const marked = markedFiles(pickBest(visibleGroups(result?.groups ?? [], gone), DEFAULT_RULES), marks);
     render(
-        <GroupsDeletionDialog marked={marked} media={MEDIA}>
+        <GroupsDeletionDialog marked={marked}>
             <Button>Move {marked.length} to Trash…</Button>
         </GroupsDeletionDialog>,
     );

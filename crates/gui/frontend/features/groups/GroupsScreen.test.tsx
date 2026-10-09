@@ -40,10 +40,9 @@ const mockedRestore = restoreMedia as Mock;
 
 const groupFile = (path: string): GroupFile => ({ path, type: "image", width: 4032, height: 3024, size: 4_800_000 });
 
-/** A group of `size` files under `/p/<name>`, every pair scoring `score`. */
-const group = (name: string, size: number, score = 0.95): ScanGroup => ({
+/** A group of `size` files under `/p/<name>`. */
+const group = (name: string, size: number): ScanGroup => ({
     files: Array.from({ length: size }, (_, i) => groupFile(`/p/${name}/${String(i).padStart(2, "0")}.jpg`)),
-    scores: Array.from({ length: size }, (_, i) => Array.from({ length: size }, (_, j) => (i === j ? 1 : score))),
 });
 
 const skipped = (path: string) => ({ path, message: `failed to read ${path}` });
@@ -123,11 +122,6 @@ describe("Groups screen", () => {
                     groupFile("/p/IMG_2041 (1).jpg"),
                     { ...groupFile("/p/IMG_2041-edit.jpg"), width: 2048, height: 1536 },
                     groupFile("/p/IMG_2041.jpg"),
-                ],
-                scores: [
-                    [1, 0.95, 1],
-                    [0.95, 1, 0.968],
-                    [1, 0.968, 1],
                 ],
             },
         ]);
@@ -248,7 +242,7 @@ describe("Marking", () => {
     const box = (path: string) =>
         within(document.querySelector(`[data-path="${path}"]`) as HTMLElement).getByRole("checkbox");
 
-    /** Every group's files are 4,800,000 bytes, and with every score equal the best is each group's first file. */
+    /** Every group's files are 4,800,000 bytes, so the best is each group's first file. */
     const GROUPS = Array.from({ length: 7 }, (_, i) => group(`g${i}`, i < 4 ? 3 : 2));
 
     it("opens with nothing marked", () => {
@@ -373,11 +367,6 @@ const COPIES: ScanGroup[] = [
             groupFile("/p/IMG_2041.jpg"),
             groupFile("/p/IMG_2041 (1).jpg"),
             { ...groupFile("/p/IMG_2041-edit.jpg"), size: 1_100_000 },
-        ],
-        scores: [
-            [1, 0.95, 0.95],
-            [0.95, 1, 0.95],
-            [0.95, 0.95, 1],
         ],
     },
     group("b", 2),
@@ -676,10 +665,6 @@ const DSC: ScanGroup[] = [
             { ...groupFile("/p/DSC_0193.HEIC"), size: 4_100_000, created: "2025-06-02T00:00:00Z" },
             { ...groupFile("/p/DSC_0193.jpg"), size: 3_200_000, created: "2025-06-01T00:00:00Z" },
         ],
-        scores: [
-            [1, 0.95],
-            [0.95, 1],
-        ],
     },
 ];
 
@@ -818,10 +803,6 @@ describe("Choosing the Auto-select rules", () => {
                     files: [
                         { ...groupFile("/p/a.jpg"), size: 1_000_000 },
                         { ...groupFile("/p/b.jpg"), size: 5_000_000 },
-                    ],
-                    scores: [
-                        [1, 0.95],
-                        [0.95, 1],
                     ],
                 },
             ]),
