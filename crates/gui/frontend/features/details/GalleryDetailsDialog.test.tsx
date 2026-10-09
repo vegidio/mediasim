@@ -52,7 +52,7 @@ const openOn = (n: number) => {
 };
 
 const dialog = () => screen.getByRole("dialog");
-const button = (name: string) => within(dialog()).getByRole("button", { name });
+const button = (name: string | RegExp) => within(dialog()).getByRole("button", { name });
 const shownPath = () => useGalleryStore.getState().details;
 
 beforeEach(() => {
@@ -217,6 +217,54 @@ describe("GalleryDetailsDialog", () => {
             expect(toggle).toHaveAccessibleName("Add to comparison");
             expect(toggle).toHaveFocus();
             expect(chips()).toEqual(["Video", "Not included"]);
+        });
+
+        it("removes the file on Space and adds it back on the next, with focus on Previous file", () => {
+            openOn(4);
+            const previous = button("Previous file");
+            previous.focus();
+
+            fireEvent.keyDown(previous, { key: " " });
+
+            expect(useGalleryStore.getState().overrides).toEqual(new Set([nth(4).path]));
+            expect(button(/comparison$/)).toHaveAccessibleName("Add back to comparison");
+            expect(chips()).toEqual(["Image", "Removed"]);
+            expect(shownPath()).toBe(nth(4).path);
+            expect(previous).toHaveFocus();
+
+            fireEvent.keyDown(previous, { key: " " });
+
+            expect(button(/comparison$/)).toHaveAccessibleName("Remove from comparison");
+            expect(chips()).toEqual(["Image"]);
+        });
+
+        it("fades the strip's thumbnails of the files out of the comparison, following Space at once", () => {
+            useGalleryStore.getState().setFilter("images");
+            openOn(4);
+            const faded = (name: string) =>
+                within(dialog())
+                    .getByRole("button", { name: `Show ${name}` })
+                    .querySelector('[data-testid="strip-picture"]')
+                    ?.classList.contains("grayscale");
+
+            expect(faded("IMG_04.jpg")).toBe(false);
+            expect(faded("VID_05.mov")).toBe(true);
+
+            fireEvent.keyDown(dialog(), { key: " " });
+
+            expect(faded("IMG_04.jpg")).toBe(true);
+            expect(faded("IMG_03.jpg")).toBe(false);
+        });
+
+        it("adds a file the tab leaves out on Space", () => {
+            useGalleryStore.getState().setFilter("images");
+            openOn(5);
+
+            fireEvent.keyDown(dialog(), { key: " " });
+
+            expect(button(/comparison$/)).toHaveAccessibleName("Remove from comparison");
+            expect(chips()).toEqual(["Video"]);
+            expect(shownPath()).toBe(nth(5).path);
         });
 
         it("reads Add back for a file removed earlier, and Remove for the next one", () => {

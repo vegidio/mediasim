@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { MediaType } from "@/ipc/formats";
 import type { SourceView } from "@/ipc/set";
-import { compareCount, compareState, filterCounts, identity, inclusion, isIncluded } from "./derive";
+import {
+    compareCount,
+    compareState,
+    filterCounts,
+    identity,
+    includedFiles,
+    inclusion,
+    isIncluded,
+    ordered,
+} from "./derive";
 
 const files = (images: number, videos: number) => [
     ...Array.from({ length: images }, () => ({ type: "image" as MediaType })),
@@ -59,6 +68,36 @@ describe("inclusion", () => {
 
     it("includes a file the tab leaves out and the user flipped", () => {
         expect(inclusion("video", "images", true)).toBe("included");
+    });
+});
+
+describe("ordered", () => {
+    const read = (["a.jpg", "b.mov", "c.jpg", "d.mov", "e.jpg"] as const).map((name) => ({
+        path: `/p/${name}`,
+        type: (name.endsWith(".mov") ? "video" : "image") as MediaType,
+    }));
+    const names = (list: readonly { path: string }[]) => list.map((file) => file.path.slice(3));
+
+    it("keeps the display order under Both", () => {
+        expect(ordered(read, "both")).toBe(read);
+    });
+
+    it("puts the images first under Images, each run in display order", () => {
+        expect(names(ordered(read, "images"))).toEqual(["a.jpg", "c.jpg", "e.jpg", "b.mov", "d.mov"]);
+    });
+
+    it("puts the videos first under Videos, each run in display order", () => {
+        expect(names(ordered(read, "videos"))).toEqual(["b.mov", "d.mov", "a.jpg", "c.jpg", "e.jpg"]);
+    });
+
+    it("doesn't move a file the user added or removed", () => {
+        const overrides = new Set(["/p/b.mov", "/p/c.jpg"]);
+
+        expect(inclusion("video", "images", overrides.has("/p/b.mov"))).toBe("included");
+        expect(inclusion("image", "images", overrides.has("/p/c.jpg"))).toBe("removed");
+        // The order reads only each file's kind, so the overrides leave it as it is without them.
+        expect(names(ordered(read, "images"))).toEqual(["a.jpg", "c.jpg", "e.jpg", "b.mov", "d.mov"]);
+        expect(names(includedFiles(ordered(read, "images"), "images", overrides))).toEqual(["a.jpg", "e.jpg", "b.mov"]);
     });
 });
 

@@ -8,8 +8,9 @@
 //! after it. The commands in [`commands`] add the locking and the off-thread listing.
 
 pub mod commands;
+mod order;
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use mediasim::{LoadOptions, Media, MediaType};
@@ -247,9 +248,12 @@ impl Set {
 
     /// The distinct media files across every counted source, the same paths [`total`](Self::total) counts.
     ///
-    /// They are in `Path` order, which compares component by component, so a folder's files stay together.
+    /// They are in display order, as [`order::display_cmp`] compares them: a folder's own files first, then its
+    /// subfolders, with names compared ignoring case and numbers by value.
     pub fn media_paths(&self) -> Vec<PathBuf> {
-        self.paths().collect::<BTreeSet<_>>().into_iter().map(Path::to_path_buf).collect()
+        let mut paths: Vec<_> = self.paths().collect::<HashSet<_>>().into_iter().map(Path::to_path_buf).collect();
+        paths.sort_by(|a, b| order::display_cmp(a, b));
+        paths
     }
 
     /// The number of times the set has been cleared, which an add reads before it starts.

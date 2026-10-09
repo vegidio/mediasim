@@ -52,6 +52,7 @@ export const GroupDetailsDialog = ({
             onShow={(target) => onShow(target.path)}
             onClose={onClose}
             onClosed={onClosed}
+            onToggle={() => toggleMark(file.path)}
             marks={marks}
             chips={
                 <>

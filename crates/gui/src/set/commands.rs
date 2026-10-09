@@ -295,16 +295,17 @@ mod tests {
     }
 
     #[test]
-    fn listing_media_returns_the_files_in_path_order_with_the_revision() {
+    fn listing_media_returns_the_files_in_display_order_with_the_revision() {
         let state = SetState::default();
         let thumbs = crate::thumbs::tests::state();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
         std::fs::create_dir(dir.path().join("b")).unwrap();
         std::fs::copy(fixture("test3.mp4"), dir.path().join("b/clip.mp4")).unwrap();
-        std::fs::copy(fixture("test1.png"), dir.path().join("a.png")).unwrap();
+        // `c.png` sorts after the subfolder `b` by name, but a folder's own files come before its subfolders.
+        std::fs::copy(fixture("test1.png"), dir.path().join("c.png")).unwrap();
 
         let added =
-            block_on(add(&state, vec![dir.path().join("b"), dir.path().join("a.png")], true, list_folder)).unwrap();
+            block_on(add(&state, vec![dir.path().join("b"), dir.path().join("c.png")], true, list_folder)).unwrap();
         let media = block_on(list_media(&state, &thumbs)).unwrap();
 
         assert_eq!(media.revision, added.revision);
@@ -312,7 +313,7 @@ mod tests {
         assert_eq!(
             described,
             [
-                ("a.png", MediaType::Image, std::fs::metadata(fixture("test1.png")).unwrap().len()),
+                ("c.png", MediaType::Image, std::fs::metadata(fixture("test1.png")).unwrap().len()),
                 ("clip.mp4", MediaType::Video, std::fs::metadata(fixture("test3.mp4")).unwrap().len()),
             ]
         );

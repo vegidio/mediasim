@@ -54,9 +54,9 @@ export const GalleryDetailsDialog = ({ files, file }: GalleryDetailsDialogProps)
     const filter = useGalleryStore((state) => state.filter);
     const showDetails = useGalleryStore((state) => state.showDetails);
     const closeDetails = useGalleryStore((state) => state.closeDetails);
-    const overridden = useGalleryStore((state) => state.overrides.has(file.path));
+    const overrides = useGalleryStore((state) => state.overrides);
     const toggle = useGalleryStore((state) => state.toggle);
-    const included = inclusion(file.type, filter, overridden);
+    const included = inclusion(file.type, filter, overrides.has(file.path));
 
     return (
         <DetailsDialog
@@ -67,6 +67,9 @@ export const GalleryDetailsDialog = ({ files, file }: GalleryDetailsDialogProps)
             onClose={closeDetails}
             chips={<InclusionChips type={file.type} inclusion={included} />}
             action={<InclusionButton inclusion={included} onToggle={() => toggle(file.path)} />}
+            onToggle={() => toggle(file.path)}
+            // Faded as the gallery's tiles are: removed, or left out by the tab and not added.
+            isDimmed={(target) => inclusion(target.type, filter, overrides.has(target.path)) !== "included"}
         />
     );
 };

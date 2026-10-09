@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { GalleryDetailsDialog } from "../details/GalleryDetailsDialog";
+import { ordered } from "./derive";
 import { GalleryGrid } from "./GalleryGrid";
 import { GalleryToolbar } from "./GalleryToolbar";
 
@@ -24,7 +25,8 @@ export const GalleryScreen = () => {
         void load();
     }, [load]);
 
-    const files = listing.status === "ready" ? listing.files : undefined;
+    // In grid order, so the details step through the files as the grid shows them.
+    const files = listing.status === "ready" ? ordered(listing.files, filter) : undefined;
     const shown = details === undefined ? undefined : files?.find((file) => file.path === details);
 
     return (

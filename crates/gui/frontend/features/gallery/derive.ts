@@ -29,6 +29,19 @@ export const inclusion = (type: MediaType, filter: GalleryFilter, overridden: bo
     return byTab ? "removed" : "left-out";
 };
 
+/**
+ * `files` in the grid's order under `filter`: the tab's kind first, then the rest, each run in the order of `files`.
+ * Under "both" it is `files` itself. A file's place depends only on its kind, so overriding it never moves it.
+ */
+export const ordered = <F extends { type: MediaType }>(files: readonly F[], filter: GalleryFilter): readonly F[] => {
+    if (filter === "both") return files;
+
+    const first: F[] = [];
+    const rest: F[] = [];
+    for (const file of files) (isIncluded(file.type, filter) ? first : rest).push(file);
+    return [...first, ...rest];
+};
+
 /** The `files` a comparison under `filter` includes, in their order, with the `overrides` flipped against the tab. */
 export const includedFiles = <F extends { path: string; type: MediaType }>(
     files: readonly F[],

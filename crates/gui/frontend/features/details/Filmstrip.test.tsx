@@ -50,6 +50,17 @@ describe("Filmstrip", () => {
         expect(washed(current)).not.toBeNull();
     });
 
+    it("fades the picture of a file out of the comparison, keeping the current file's ring bright", () => {
+        render(<Filmstrip files={FILES} index={0} onShow={() => {}} isDimmed={(file) => file !== FILES[1]} />);
+        const picture = (name: string) => thumb(name).querySelector('[data-testid="strip-picture"]');
+
+        expect(picture("Show IMG_2041.jpg")).toHaveClass("opacity-28", "grayscale");
+        expect(thumb("Show IMG_2041.jpg")).toHaveClass("shadow-[0_0_0_2px_#BEF264]");
+        expect(thumb("Show IMG_2041.jpg")).not.toHaveClass("grayscale");
+        expect(picture("Show IMG_2041 (1).jpg")).not.toHaveClass("grayscale");
+        expect(picture("Show IMG_2041-edit.jpg")).toHaveClass("opacity-28", "grayscale");
+    });
+
     it("shows the file whose thumbnail is activated", () => {
         const onShow = vi.fn();
         render(<Filmstrip files={FILES} index={0} onShow={onShow} />);

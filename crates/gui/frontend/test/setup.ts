@@ -20,6 +20,20 @@ globalThis.ResizeObserver ??= class {
 // jsdom has no layout, so it leaves out `scrollIntoView`; nothing scrolls here, so it does nothing.
 Element.prototype.scrollIntoView ??= () => {};
 
+// jsdom evaluates no media queries, so it leaves out `matchMedia`; this stands for a screen that matches none of them,
+// as one with no preference for reduced motion does. A test that needs one to match mocks it.
+window.matchMedia ??= (query) => ({
+    matches: false,
+    media: query,
+    // The DOM spells "no handler" as `null`.
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+});
+
 /** What the media element stub below keeps for each element, as a browser would after loading its metadata. */
 type MediaState = { currentTime: number; duration: number; muted: boolean; paused: boolean; ended: boolean };
 

@@ -156,6 +156,37 @@ describe("GroupDetailsDialog", () => {
         expect(button("Show IMG_2041 (1).jpg")).toBeInTheDocument();
     });
 
+    it("marks the shown file on Space and unmarks it on the next, with focus on Previous file", () => {
+        openOn(2);
+        const previous = button("Previous file");
+        previous.focus();
+
+        fireEvent.keyDown(previous, { key: " " });
+
+        expect(useScanStore.getState().marks).toEqual(new Set([nth(2).path]));
+        expect(button(/^(Unmark|Mark for deletion)$/)).toHaveAccessibleName("Unmark");
+        expect(chips()).toEqual(["Image", "Marked for deletion"]);
+        expect(button("Show IMG_2041 (1).jpg, marked for deletion")).toBeInTheDocument();
+        expect(dialog()).toHaveAccessibleName("Media details: IMG_2041 (1).jpg");
+        expect(previous).toHaveFocus();
+
+        fireEvent.keyDown(previous, { key: " " });
+
+        expect(useScanStore.getState().marks).toEqual(new Set());
+        expect(button(/^(Unmark|Mark for deletion)$/)).toHaveAccessibleName("Mark for deletion");
+        expect(chips()).toEqual(["Image"]);
+    });
+
+    it("marks the shown file once while Space is held down", () => {
+        openOn(2);
+
+        fireEvent.keyDown(dialog(), { key: " " });
+        fireEvent.keyDown(dialog(), { key: " ", repeat: true });
+        fireEvent.keyDown(dialog(), { key: " ", repeat: true });
+
+        expect(useScanStore.getState().marks).toEqual(new Set([nth(2).path]));
+    });
+
     it("keeps Recommended keep on a marked best file", () => {
         openOn(1);
 

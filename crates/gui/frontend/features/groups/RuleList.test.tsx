@@ -112,7 +112,9 @@ describe("RuleList", () => {
         it("moves a dragged row where it is dropped, renumbering the ranks", async () => {
             const onChange = vi.fn();
             render(<Harness onChange={onChange} />);
-            const row = screen.getByRole("button", { name: "Reorder Oldest creation date" }).closest("li") as HTMLElement;
+            const row = screen
+                .getByRole("button", { name: "Reorder Oldest creation date" })
+                .closest("li") as HTMLElement;
 
             // From the middle of the 4th row to above the 1st one, past the few pixels that start a drag.
             await pointer(() => fireEvent.pointerDown(row, { isPrimary: true, button: 0, clientX: 100, clientY: 210 }));
@@ -137,7 +139,9 @@ describe("RuleList", () => {
             render(<RuleList rules={DEFAULT_RULES} onChange={onChange} onDraggingChange={onDraggingChange} />);
             const toggle = screen.getByRole("switch", { name: "Largest file size" });
 
-            await pointer(() => fireEvent.pointerDown(toggle, { isPrimary: true, button: 0, clientX: 520, clientY: 150 }));
+            await pointer(() =>
+                fireEvent.pointerDown(toggle, { isPrimary: true, button: 0, clientX: 520, clientY: 150 }),
+            );
             await pointer(() => fireEvent.pointerMove(document, { clientX: 520, clientY: 30 }));
             await pointer(() => fireEvent.pointerUp(document, { clientX: 520, clientY: 30 }));
 

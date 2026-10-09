@@ -29,8 +29,8 @@ const STAGE_WIDTH = "max(776px, var(--fit-h) * var(--ratio))";
 /** The height of the dialog's body: the stage and the strip below it. */
 const BODY_HEIGHT = "calc(var(--fit-h) + 116px)";
 
-/** Whether a key pressed on `target` belongs to it, as an arrow key on the seek bar does. */
-const ownsArrows = (target: EventTarget) =>
+/** Whether a key pressed on `target` belongs to it, as an arrow key or Space on the seek bar does. */
+const ownsKeys = (target: EventTarget) =>
     target instanceof Element && target.closest('[role="slider"], input, textarea, select') !== null;
 
 const ICON_BUTTON =
@@ -50,8 +50,12 @@ type DetailsDialogProps = {
     chips: ReactNode;
     /** The sidebar's button below "Open in app" and "Show in folder". */
     action: ReactNode;
+    /** Does what `action` does for the shown file, as Space does anywhere in the dialog. */
+    onToggle: () => void;
     /** The paths of the files marked for deletion, which the strip shows as such. */
     marks?: ReadonlySet<string>;
+    /** Whether `file` is out of the comparison, which the strip shows faded. */
+    isDimmed?: (file: MediaFile) => boolean;
     /** Puts focus back where the caller wants it, once the dialog has closed. */
     onClosed?: () => void;
 };
@@ -68,7 +72,9 @@ export const DetailsDialog = ({
     onClose,
     chips,
     action,
+    onToggle,
     marks,
+    isDimmed,
     onClosed,
 }: DetailsDialogProps) => {
     const details = useFileDetails(file);
@@ -97,11 +103,22 @@ export const DetailsDialog = ({
     const show = (target?: MediaFile) => target && onShow(target);
 
     const onKeyDown = (event: KeyboardEvent) => {
-        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-        if (ownsArrows(event.target)) return;
+        const { key } = event;
+        if ((key !== "ArrowLeft" && key !== "ArrowRight" && key !== " ") || ownsKeys(event.target)) return;
 
+        // Left alone, Space would also press the focused button, such as "Previous file".
         event.preventDefault();
-        show(event.key === "ArrowLeft" ? previous : next);
+        if (key === " ") {
+            // Held down, it flips the file once.
+            if (!event.repeat) onToggle();
+        } else {
+            show(key === "ArrowLeft" ? previous : next);
+        }
+    };
+
+    // Some webviews press the focused button on Space's keyup even when its keydown was handled.
+    const onKeyUp = (event: KeyboardEvent) => {
+        if (event.key === " " && !ownsKeys(event.target)) event.preventDefault();
     };
 
     return (
@@ -109,6 +126,7 @@ export const DetailsDialog = ({
             <DialogContent
                 aria-describedby={undefined}
                 onKeyDown={onKeyDown}
+                onKeyUp={onKeyUp}
                 // The caller puts focus back itself: the file it last showed may not be the one it opened on, and the
                 // gallery's tile may have been virtualized away.
                 onCloseAutoFocus={(event) => {
@@ -160,7 +178,13 @@ export const DetailsDialog = ({
                             file={file}
                             onRatio={(shape) => shape !== undefined && setPictured({ path: file.path, ratio: shape })}
                         />
-                        <Filmstrip files={files} index={index} onShow={show} {...(marks && { marks })} />
+                        <Filmstrip
+                            files={files}
+                            index={index}
+                            onShow={show}
+                            {...(marks && { marks })}
+                            {...(isDimmed && { isDimmed })}
+                        />
                     </div>
                     {/* Keyed by path, so an action's failure message is gone once another file is shown. */}
                     <DetailsSidebar key={file.path} file={file} details={details} chips={chips} action={action} />

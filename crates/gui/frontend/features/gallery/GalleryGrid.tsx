@@ -14,46 +14,55 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@/components/ui/button";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
-import { inclusion } from "./derive";
+import { inclusion, ordered } from "./derive";
+import { columnsFor, PADDING, ROW_GAP, ROW_HEIGHT, rowWidth, tileOffset } from "./layout";
 import { MediaTile, PlaceholderTile } from "./MediaTile";
 import { isArrow, move } from "./navigate";
-
-/** A tile's width, in pixels. */
-const TILE_WIDTH = 160;
-/** The space between columns, in pixels. */
-const COLUMN_GAP = 12;
-/** The space between rows, in pixels. */
-const ROW_GAP = 20;
-/** A row's height with the gap below it: the 120 px picture, an 8 px gap, the 16 px name row, then the row gap. */
-const ROW_HEIGHT = 120 + 8 + 16 + ROW_GAP;
-/** The grid's padding on every side, in pixels. */
-const PADDING = 24;
-
-/** How many tiles fit across `width` pixels of content, never fewer than one. */
-export const columnsFor = (width: number) => Math.max(1, Math.floor((width + COLUMN_GAP) / (TILE_WIDTH + COLUMN_GAP)));
+import { useReorderAnimation } from "./useReorderAnimation";
 
 /** The width of the content inside `element`, without its padding or scrollbar. */
 const contentWidth = (element: HTMLElement) => element.clientWidth - 2 * PADDING;
 
-type VirtualRowsProps = {
+type VirtualRowsProps<T> = {
     scroller?: HTMLDivElement;
-    count: number;
+    /** Every tile, in the grid's order. */
+    tiles: readonly T[];
     columns: number;
-    /** The tiles of row `index`. */
-    row: (index: number, columns: number) => ReactNode;
+    /** A tile's key, which keeps its element, and its picture, when it moves to another row. */
+    keyOf: (tile: T) => string;
+    /** The contents of a tile, at `index` in the grid's order. */
+    render: (tile: T, index: number) => ReactNode;
+    /** The id of the cell `render` gives the tile at `index`, which its row owns; none for cells that aren't. */
+    cellId?: (index: number) => string;
+    /** How the tiles are arranged, such as the selected tab; a change slides them to their new places from the top. */
+    arrangement?: string;
     /** A row to scroll into view, if it isn't already; each new request scrolls again. */
     reveal?: { row: number };
     /** The selected tile, which the scroller names as its active descendant while its row is rendered. */
     active?: { row: number; id: string };
 };
 
-/** Only the rows in view, and two either side, of `count` tiles in `columns` columns. */
-const VirtualRows = ({ scroller, count, columns, row, reveal, active }: VirtualRowsProps) => {
+/**
+ * Only the rows in view, and two either side, of `tiles` in `columns` columns. Every tile sits in one layer, placed by
+ * its index, so a tile that changes rows keeps its element; the rows are empty, and own their tiles for assistive
+ * technology.
+ */
+const VirtualRows = <T,>({
+    scroller,
+    tiles,
+    columns,
+    keyOf,
+    render,
+    cellId,
+    arrangement,
+    reveal,
+    active,
+}: VirtualRowsProps<T>) => {
     // The virtualizer is one mutable object that rerenders through its own state, which the compiler can't follow.
     "use no memo";
 
     const virtualizer = useVirtualizer({
-        count: Math.ceil(count / columns),
+        count: Math.ceil(tiles.length / columns),
         getScrollElement: () => scroller ?? null,
         estimateSize: () => ROW_HEIGHT,
         overscan: 2,
@@ -76,6 +85,30 @@ const VirtualRows = ({ scroller, count, columns, row, reveal, active }: VirtualR
         else scroller.removeAttribute("aria-activedescendant");
     }, [scroller, descendant]);
 
+    const shown = items.flatMap(({ index }) =>
+        tiles.slice(index * columns, (index + 1) * columns).map((tile, column) => ({
+            key: keyOf(tile),
+            tile,
+            index: index * columns + column,
+        })),
+    );
+    const { departing, track } = useReorderAnimation({
+        ...(arrangement !== undefined && { arrangement }),
+        tiles,
+        keyOf,
+        columns,
+        shown: new Set(shown.map(({ key }) => key)),
+        viewTop: virtualizer.scrollOffset ?? 0,
+        ...(scroller && { scroller }),
+    });
+
+    /** The indices of the tiles in row `row`. */
+    const indicesOf = (row: number) =>
+        Array.from({ length: Math.min(columns, tiles.length - row * columns) }, (_, column) => row * columns + column);
+
+    // A full row's left edge; a short last row starts there too, so it lines up under the others.
+    const left = `calc(50% - ${rowWidth(columns) / 2}px)`;
+
     return (
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {items.map(({ key, index, start }) => (
@@ -83,18 +116,33 @@ const VirtualRows = ({ scroller, count, columns, row, reveal, active }: VirtualR
                 // biome-ignore lint/a11y/useSemanticElements: see above.
                 // biome-ignore lint/a11y/useFocusableInteractive: see above.
                 <div
-                    key={key}
+                    key={`row:${key}`}
                     role="row"
                     aria-rowindex={index + 1}
-                    className="absolute top-0 left-0 flex w-full justify-center"
+                    {...(cellId && { "aria-owns": indicesOf(index).map(cellId).join(" ") })}
+                    className="absolute top-0 left-0 w-full"
                     style={{ height: ROW_HEIGHT, transform: `translateY(${start}px)` }}
-                >
-                    {/* The full row's width, so a short last row lines up under the others. */}
-                    <div className="flex gap-3" style={{ width: columns * TILE_WIDTH + (columns - 1) * COLUMN_GAP }}>
-                        {row(index, columns)}
-                    </div>
-                </div>
+                />
             ))}
+            {[
+                ...shown.map((entry) => ({ ...entry, leaving: false })),
+                ...departing.map((entry) => ({ ...entry, leaving: true })),
+            ].map(({ key, tile, index, leaving }) => {
+                const { x, y } = tileOffset(index, columns);
+                return (
+                    <div
+                        key={key}
+                        ref={track}
+                        data-key={key}
+                        // A tile sliding out of view is only a picture of where it went.
+                        {...(leaving && { inert: true, "aria-hidden": true })}
+                        className="absolute top-0"
+                        style={{ left, transform: `translate(${x}px, ${y}px)` }}
+                    >
+                        {render(tile, index)}
+                    </div>
+                );
+            })}
         </div>
     );
 };
@@ -138,7 +186,8 @@ export const GalleryGrid = () => {
         };
     }, []);
 
-    const files = listing.status === "ready" ? listing.files : undefined;
+    // The one order the rows, the selection and the keys all follow: the tab's files first.
+    const files = listing.status === "ready" ? ordered(listing.files, filter) : undefined;
     const selectedIndex = selected ? (files?.findIndex((file) => file.path === selected) ?? -1) : -1;
 
     // As after the details close, or a click on a filter tab: the grid takes focus, without selecting a tile.
@@ -233,43 +282,38 @@ export const GalleryGrid = () => {
         >
             {files ? (
                 <VirtualRows
+                    key="files"
                     {...(scroller && { scroller })}
-                    count={files.length}
+                    tiles={files}
+                    arrangement={filter}
                     columns={columns}
+                    keyOf={(file) => file.path}
+                    cellId={(at) => `${tileId}${at}`}
                     {...(reveal && { reveal })}
                     {...(selectedIndex >= 0 && {
                         active: { row: Math.floor(selectedIndex / columns), id: `${tileId}${selectedIndex}` },
                     })}
-                    row={(index, columns) =>
-                        files.slice(index * columns, (index + 1) * columns).map((file, column) => {
-                            const at = index * columns + column;
-                            return (
-                                <MediaTile
-                                    key={file.path}
-                                    id={`${tileId}${at}`}
-                                    file={file}
-                                    selected={at === selectedIndex}
-                                    onSelect={() => {
-                                        select(file.path);
-                                        scroller?.focus({ preventScroll: true });
-                                    }}
-                                    inclusion={inclusion(file.type, filter, overrides.has(file.path))}
-                                />
-                            );
-                        })
-                    }
+                    render={(file, at) => (
+                        <MediaTile
+                            id={`${tileId}${at}`}
+                            file={file}
+                            selected={at === selectedIndex}
+                            onSelect={() => {
+                                select(file.path);
+                                scroller?.focus({ preventScroll: true });
+                            }}
+                            inclusion={inclusion(file.type, filter, overrides.has(file.path))}
+                        />
+                    )}
                 />
             ) : (
                 <VirtualRows
+                    key="placeholders"
                     {...(scroller && { scroller })}
-                    count={total}
+                    tiles={Array.from({ length: total }, (_, at) => at)}
                     columns={columns}
-                    row={(index, columns) =>
-                        Array.from({ length: Math.min(columns, total - index * columns) }, (_, column) => (
-                            // biome-ignore lint/suspicious/noArrayIndexKey: a placeholder is identified by its position alone.
-                            <PlaceholderTile key={column} />
-                        ))
-                    }
+                    keyOf={(at) => `placeholder:${at}`}
+                    render={() => <PlaceholderTile />}
                 />
             )}
         </div>

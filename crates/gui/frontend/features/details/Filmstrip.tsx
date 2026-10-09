@@ -13,11 +13,13 @@ type StripThumbProps = {
     current: boolean;
     /** Whether the file is marked for deletion, which shows the wash and the trash icon, and a red ring unless current. */
     marked: boolean;
+    /** Whether the file is out of the comparison, which fades its picture as the gallery's tile does. */
+    dimmed: boolean;
     onShow: () => void;
 };
 
 /** One file of the strip: its picture, or its kind icon until it loads or when it can't be produced. */
-const StripThumb = ({ file, current, marked, onShow }: StripThumbProps) => {
+const StripThumb = ({ file, current, marked, dimmed, onShow }: StripThumbProps) => {
     const [loaded, setLoaded] = useState(false);
 
     return (
@@ -31,20 +33,23 @@ const StripThumb = ({ file, current, marked, onShow }: StripThumbProps) => {
                 current ? "shadow-[0_0_0_2px_#BEF264]" : marked ? "shadow-[0_0_0_2px_#EF4444]" : "opacity-70",
             )}
         >
-            {!loaded && (
-                <span className="absolute inset-0 flex items-center justify-center text-muted-foreground [&_svg]:size-4">
-                    <MediaKindIcon type={file.type} />
-                </span>
-            )}
-            {/* Decorative: the button is named after the file. */}
-            <img
-                alt=""
-                src={renditionUrl(file.identity, STRIP_BOUND)}
-                decoding="async"
-                onLoad={() => setLoaded(true)}
-                onError={() => setLoaded(false)}
-                className={cn("absolute inset-0 size-full object-cover", !loaded && "invisible")}
-            />
+            {/* Only the picture is faded, so the ring stays bright. */}
+            <span data-testid="strip-picture" className={cn("absolute inset-0", dimmed && "opacity-28 grayscale")}>
+                {!loaded && (
+                    <span className="absolute inset-0 flex items-center justify-center text-muted-foreground [&_svg]:size-4">
+                        <MediaKindIcon type={file.type} />
+                    </span>
+                )}
+                {/* Decorative: the button is named after the file. */}
+                <img
+                    alt=""
+                    src={renditionUrl(file.identity, STRIP_BOUND)}
+                    decoding="async"
+                    onLoad={() => setLoaded(true)}
+                    onError={() => setLoaded(false)}
+                    className={cn("absolute inset-0 size-full object-cover", !loaded && "invisible")}
+                />
+            </span>
             {!current && !marked && (
                 <span className="pointer-events-none absolute inset-0 rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]" />
             )}
@@ -72,10 +77,15 @@ type FilmstripProps = {
     onShow: (file: MediaFile) => void;
     /** The paths of the files marked for deletion. */
     marks?: ReadonlySet<string>;
+    /** Whether `file` is out of the comparison, which fades its thumbnail; none is when left out. */
+    isDimmed?: (file: MediaFile) => boolean;
 };
 
-/** Up to 7 of `files` around the one shown, which is ringed in lime, with the marked ones washed in red. */
-export const Filmstrip = ({ files, index, onShow, marks }: FilmstripProps) => {
+/**
+ * Up to 7 of `files` around the one shown, which is ringed in lime, with the marked ones washed in red and the ones out
+ * of the comparison faded.
+ */
+export const Filmstrip = ({ files, index, onShow, marks, isDimmed }: FilmstripProps) => {
     const { start, end } = stripWindow(files.length, index);
 
     return (
@@ -86,6 +96,7 @@ export const Filmstrip = ({ files, index, onShow, marks }: FilmstripProps) => {
                     file={file}
                     current={start + offset === index}
                     marked={marks?.has(file.path) ?? false}
+                    dimmed={isDimmed?.(file) ?? false}
                     onShow={() => onShow(file)}
                 />
             ))}
