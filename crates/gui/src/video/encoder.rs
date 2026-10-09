@@ -126,20 +126,16 @@ fn check(candidate: Candidate) -> Result<(), String> {
 }
 
 /// The index of the first of `candidates` from `from` on that passes its [test](check), or of [`LIBX264`], which
-/// passes untested. Says which on stderr, and why each one before it wasn't used.
+/// passes untested. Says on stderr why each one before it wasn't used.
 fn first_passing(candidates: &[Candidate], from: usize, #[cfg(test)] tests: &std::sync::atomic::AtomicUsize) -> usize {
     for (index, candidate) in candidates.iter().enumerate().skip(from) {
         if candidate.is_software() {
-            eprintln!("video encoder: {}", candidate.name);
             return index;
         }
         #[cfg(test)]
         tests.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         match check(*candidate) {
-            Ok(()) => {
-                eprintln!("video encoder: {}", candidate.name);
-                return index;
-            }
+            Ok(()) => return index,
             Err(reason) => eprintln!("video encoder {}: not used: {reason}", candidate.name),
         }
     }
