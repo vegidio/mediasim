@@ -1,9 +1,9 @@
 import { Trash2Icon } from "lucide-react";
 import type { GroupFile } from "@/ipc/scan";
+import { pickBest, preview } from "@/lib/marks";
+import type { Rule } from "@/lib/rules";
 import { applyLabel, willMark } from "./format";
-import { pickBest, preview } from "./marks";
 import { RulesDialog } from "./RulesDialog";
-import type { Rule } from "./rules";
 
 type AutoSelectDialogProps = {
     open: boolean;
@@ -22,11 +22,11 @@ const Preview = ({ groups, rules }: { groups: AutoSelectDialogProps["groups"]; r
     const { amount, freed } = willMark(preview(pickBest(groups, rules)));
 
     return (
-        <div className="mx-6 mt-5 flex items-center gap-3 rounded-[10px] bg-[#18181B] px-4 py-3.5">
-            <Trash2Icon aria-hidden="true" className="size-[18px] shrink-0 text-[#F87171]" />
+        <div className="mx-6 mt-5 flex items-center gap-3 rounded-[10px] bg-muted px-4 py-3.5">
+            <Trash2Icon aria-hidden="true" className="size-[18px] shrink-0 text-danger-bright" />
             <p className="text-sm">
                 Will mark <strong className="font-semibold">{amount}</strong> grouped files
-                <span className="text-[#A1A1AA]">{freed}</span>
+                <span className="text-muted-foreground">{freed}</span>
             </p>
         </div>
     );

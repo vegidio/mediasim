@@ -4,8 +4,10 @@ use std::collections::HashMap;
 
 use rayon::prelude::*;
 
+use super::bound::ChannelSums;
 use super::dsu::Dsu;
-use crate::{CancelToken, CompareOptions, Media};
+use super::similarity::falls_short;
+use crate::{CancelToken, CompareOptions, Media, MediaType};
 
 /// Groups media whose similarity reaches a threshold, one media at a time.
 ///
@@ -13,10 +15,11 @@ use crate::{CancelToken, CompareOptions, Media};
 /// so grouping can run while files are still loading. Two media join the same group when their
 /// [`similarity_with`](Media::similarity_with) under the grouper's [`CompareOptions`] is at least the threshold, and
 /// grouping is transitive: if A matches B and B matches C, all three end up in one group. An image and a video are
-/// never compared, so they are never grouped together and mixing them is not an error.
+/// never compared, so they are never grouped together and mixing them is not an error. A media without frames matches
+/// nothing.
 ///
 /// [`finish`](Self::finish) orders each group's members by path. It does not rank them by duration, resolution or
-/// file size; that is left to the caller.
+/// file size; that is left to the caller, for example with [`Media::best_first`].
 ///
 /// ```no_run
 /// use mediasim::{Grouper, Media};
@@ -35,7 +38,18 @@ pub struct Grouper {
     threshold: f64,
     options: CompareOptions,
     media: Vec<Media>,
+    /// The channel sums of each image's frame, by index into `media`, for [`ChannelSums::min_diff`]; `None` for a
+    /// video or a media without frames.
+    sums: Vec<Option<ChannelSums>>,
     dsu: Dsu,
+    /// The members of every group, by media type and then by the group's root in `dsu`, kept up to date as groups
+    /// merge so a push never has to rebuild them.
+    groups: HashMap<MediaType, HashMap<usize, Vec<usize>>>,
+}
+
+/// Panics unless `threshold` is a number in the closed range `[0, 1]`, the check every grouping entry point makes.
+pub(crate) fn check_threshold(threshold: f64) {
+    assert!((0.0..=1.0).contains(&threshold), "the threshold must be between 0 and 1, got {threshold}");
 }
 
 impl Grouper {
@@ -62,8 +76,15 @@ impl Grouper {
     /// Panics unless `threshold` is a number in the closed range `[0, 1]`.
     #[must_use]
     pub fn with_options(threshold: f64, options: CompareOptions) -> Self {
-        assert!((0.0..=1.0).contains(&threshold), "the threshold must be between 0 and 1, got {threshold}");
-        Self { threshold, options, media: Vec::new(), dsu: Dsu::default() }
+        check_threshold(threshold);
+        Self {
+            threshold,
+            options,
+            media: Vec::new(),
+            sums: Vec::new(),
+            dsu: Dsu::default(),
+            groups: HashMap::new(),
+        }
     }
 
     /// Adds `media`, comparing it in parallel with the earlier media of the same type and merging it into the
@@ -78,48 +99,71 @@ impl Grouper {
     /// starts, and if it is cancelled by the time the comparisons end, `media` is not added. Returns whether `media`
     /// was added.
     pub(crate) fn push_cancellable(&mut self, media: Media, cancel: &CancelToken) -> bool {
-        let matched = self.matched_groups(&media, cancel);
+        let sums = image_sums(&media);
+        let matched = self.matched_groups(&media, sums, cancel);
         if cancel.is_cancelled() {
             return false;
         }
 
-        self.add(media, matched);
+        self.add(media, sums, &matched);
         true
     }
 
-    /// The roots of the groups `media` matches, comparing it in parallel with the earlier media of its type. Once
-    /// `cancel` is cancelled, the comparisons not yet started count as no match.
-    fn matched_groups(&mut self, media: &Media, cancel: &CancelToken) -> Vec<usize> {
-        let mut groups: HashMap<usize, Vec<&Media>> = HashMap::new();
-        for (i, earlier) in self.media.iter().enumerate() {
-            if earlier.media_type == media.media_type {
-                groups.entry(self.dsu.find(i)).or_default().push(earlier);
-            }
-        }
+    /// The roots of the groups `media`, whose image sums are `sums`, matches, comparing it in parallel with the
+    /// earlier media of its type. Once `cancel` is cancelled, the comparisons not yet started count as no match.
+    ///
+    /// `media` is oriented once here rather than once per comparison, and an image whose [`ChannelSums`] already
+    /// rule a pair out is not compared at all: [`ChannelSums::min_diff`] never exceeds the difference that would be
+    /// computed, so it only skips pairs that would not have matched, and the groups are the same as without it.
+    fn matched_groups(&self, media: &Media, sums: Option<ChannelSums>, cancel: &CancelToken) -> Vec<usize> {
+        let Some(groups) = self.groups.get(&media.media_type) else { return Vec::new() };
 
-        let (threshold, options) = (self.threshold, self.options);
-        let is_match = |earlier: &&Media| !cancel.is_cancelled() && earlier.matches(media, options, threshold);
+        let threshold = self.threshold;
+        let oriented = media.oriented(self.options);
+        let ruled_out = |earlier: usize| match (sums, self.sums[earlier]) {
+            (Some(new), Some(old)) => falls_short(new.min_diff(old), threshold),
+            _ => false,
+        };
+        let is_match = |&earlier: &usize| {
+            !cancel.is_cancelled() && !ruled_out(earlier) && self.media[earlier].matches_oriented(&oriented, threshold)
+        };
+
         groups
-            .into_par_iter()
+            .par_iter()
             .filter(|(_, members)| members.par_iter().any(is_match))
-            .map(|(root, _)| root)
+            .map(|(&root, _)| root)
             .collect()
     }
 
-    /// Adds `media` to the grouper, merged into the groups of `matched`.
-    fn add(&mut self, media: Media, matched: Vec<usize>) {
+    /// Adds `media`, whose image sums are `sums`, to the grouper, merged into the groups of `matched`.
+    ///
+    /// The merged group keeps the largest of the member lists and takes in the others, so over a run each media is
+    /// moved only a logarithmic number of times.
+    fn add(&mut self, media: Media, sums: Option<ChannelSums>, matched: &[usize]) {
         let index = self.dsu.push();
-        for root in matched {
+        for &root in matched {
             self.dsu.union(root, index);
         }
+
+        let groups = self.groups.entry(media.media_type).or_default();
+        let mut lists: Vec<Vec<usize>> = matched.iter().filter_map(|root| groups.remove(root)).collect();
+        let largest = (0..lists.len()).max_by_key(|&i| lists[i].len());
+        let mut members = largest.map(|i| lists.swap_remove(i)).unwrap_or_default();
+        for list in lists {
+            members.extend(list);
+        }
+        members.push(index);
+        groups.insert(self.dsu.find(index), members);
+
         self.media.push(media);
+        self.sums.push(sums);
     }
 
     /// Returns the groups of two or more media, leaving out media that matched nothing.
     ///
     /// Each group's members are ordered by path, and the groups by the path of their first member, so the result does
     /// not depend on the order the media were added in. The members are not ranked by quality: a caller that wants
-    /// them ranked sorts each group itself.
+    /// them ranked sorts each group itself, for example with [`Media::best_first`].
     #[must_use]
     pub fn finish(mut self) -> Vec<Vec<Media>> {
         let roots: Vec<usize> = (0..self.media.len()).map(|i| self.dsu.find(i)).collect();
@@ -135,6 +179,14 @@ impl Grouper {
         }
         groups.sort_by(|a, b| a[0].path.cmp(&b[0].path));
         groups
+    }
+}
+
+/// The channel sums of `media`'s frame if it is an image with one, for the pre-filter of [`Grouper::matched_groups`].
+fn image_sums(media: &Media) -> Option<ChannelSums> {
+    match (media.media_type, media.frames.first()) {
+        (MediaType::Image, Some(frame)) => Some(ChannelSums::of(frame)),
+        _ => None,
     }
 }
 
@@ -391,5 +443,115 @@ mod tests {
     #[should_panic(expected = "between 0 and 1")]
     fn with_options_checks_the_threshold() {
         let _ = Grouper::with_options(-0.1, CompareOptions::new().flip(true));
+    }
+
+    /// `base` with every value moved by up to `amplitude` either way (xorshift64 from `seed`), so copies of one base
+    /// score anywhere from identical to unrelated depending on `amplitude`.
+    fn noisy(base: &Icon, seed: u64, amplitude: u64) -> Icon {
+        let mut next = crate::core::xorshift(seed);
+        let pixels = base
+            .pixels()
+            .iter()
+            .map(|&v| {
+                let shift = i64::try_from(next() % (2 * amplitude + 1)).unwrap() - i64::try_from(amplitude).unwrap();
+                u16::try_from((i64::from(v) + shift).clamp(0, 65_025)).unwrap()
+            })
+            .collect();
+        Icon::from_raw(pixels)
+    }
+
+    /// The groups of `media` found the slow way: every pair scored with `similarity_with`, then merged transitively.
+    fn reference(threshold: f64, options: CompareOptions, media: &[Media]) -> Vec<Vec<PathBuf>> {
+        let mut dsu = Dsu::default();
+        for _ in media {
+            dsu.push();
+        }
+        for (i, a) in media.iter().enumerate() {
+            for (j, b) in media.iter().enumerate().skip(i + 1) {
+                if a.similarity_with(b, options).is_ok_and(|score| score >= threshold) {
+                    dsu.union(i, j);
+                }
+            }
+        }
+
+        let mut by_root: HashMap<usize, Vec<PathBuf>> = HashMap::new();
+        for (i, m) in media.iter().enumerate() {
+            by_root.entry(dsu.find(i)).or_default().push(m.path.clone());
+        }
+        let mut groups: Vec<Vec<PathBuf>> = by_root.into_values().filter(|g| g.len() >= 2).collect();
+        for group in &mut groups {
+            group.sort();
+        }
+        groups.sort();
+        groups
+    }
+
+    #[test]
+    fn grouping_equals_scoring_every_pair() {
+        // Images near four bases, some turned or mirrored and some solid, and videos near two, at noise levels that
+        // put the scores on both sides of every threshold below.
+        let bases: Vec<Icon> = (0..4).map(|seed| Icon::textured(1_000 + seed)).collect();
+        let mut all = Vec::new();
+        for i in 0..36u64 {
+            let base = &bases[usize::try_from(i % 4).unwrap()];
+            let mut frame = noisy(base, i + 1, [500, 4_000, 12_000, 30_000][usize::try_from(i % 3).unwrap()]);
+            if i % 5 == 0 {
+                frame = Orientation::ALL[usize::try_from(i % 8).unwrap()].apply(&frame);
+            }
+            all.push(media(&format!("i{i:02}.png"), MediaType::Image, vec![frame]));
+        }
+        for (i, y) in [0, 2_000, 30_000, 31_000, 65_025].into_iter().enumerate() {
+            all.push(image(&format!("s{i}.png"), y));
+        }
+        for i in 0..8u64 {
+            let base = &bases[usize::try_from(i % 2).unwrap()];
+            let frames = (0..(3 + i % 4))
+                .map(|f| noisy(base, 100 + i * 10 + f, [800, 9_000][usize::try_from(i % 2).unwrap()]))
+                .collect();
+            all.push(media(&format!("v{i}.mp4"), MediaType::Video, frames));
+        }
+
+        for options in [
+            CompareOptions::new(),
+            CompareOptions::new().flip(true),
+            CompareOptions::new().flip(true).rotate(true),
+        ] {
+            for threshold in [0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0] {
+                let want = reference(threshold, options, &all);
+
+                assert_eq!(paths(&group_with(threshold, options, all.clone())), want, "{options:?} at {threshold}");
+                assert_eq!(
+                    paths(&group_with(threshold, options, all.iter().rev().cloned())),
+                    want,
+                    "{options:?} at {threshold}, reversed"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn media_without_frames_join_no_group() {
+        let empty = Media { frames: Vec::new(), ..image("empty.png", 0) };
+
+        let groups = group(0.0, [image("a.png", 0), empty.clone(), image("b.png", 0), empty]);
+
+        assert_eq!(paths(&groups), [[PathBuf::from("a.png"), PathBuf::from("b.png")]]);
+    }
+
+    #[test]
+    fn group_members_are_kept_up_to_date_as_groups_merge() {
+        // a-b and c-d form two groups; e matches b and c, merging both.
+        let mut grouper = Grouper::new(0.6);
+        for (path, y) in [("a.png", 0), ("b.png", 20_000), ("c.png", 47_000), ("d.png", 65_025), ("e.png", 33_000)] {
+            grouper.push(image(path, y));
+        }
+
+        let groups = &grouper.groups[&MediaType::Image];
+        assert_eq!(groups.len(), 1, "{groups:?}");
+        let (&root, members) = groups.iter().next().unwrap();
+        let mut members = members.clone();
+        members.sort_unstable();
+        assert_eq!(members, [0, 1, 2, 3, 4]);
+        assert!((0..5).all(|i| grouper.dsu.find(i) == root));
     }
 }

@@ -1,8 +1,8 @@
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { ChevronsLeftRightIcon, Trash2Icon } from "lucide-react";
 import { Slider } from "radix-ui";
-import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import { type GoneKind, NONE_GONE } from "@/stores/pairResult";
 import { MarkWash } from "./MarkWash";
@@ -52,7 +52,7 @@ const DeleteTag = ({ slot }: { slot: Slot }) => (
         aria-hidden="true"
         data-testid={`delete-tag-${slot}`}
         className={cn(
-            "pointer-events-none absolute top-2.5 rounded-md bg-[#DC2626] px-[9px] py-[3px] font-semibold text-white text-xs",
+            "pointer-events-none absolute top-2.5 rounded-md bg-danger px-[9px] py-[3px] font-semibold text-white text-xs",
             slot === "a" ? "left-2.5" : "right-2.5",
         )}
     >
@@ -77,7 +77,7 @@ export const SliderStage = ({
     /** Each picture's width over its height, by file identity, so another file's shape never stands in for it. */
     const [ratios, setRatios] = useState<Partial<Record<string, number>>>({});
     const onRatio = (identity: string) => (ratio?: number) =>
-        setRatios((previous) => ({ ...previous, [identity]: ratio }));
+        setRatios(({ [identity]: _replaced, ...rest }) => (ratio ? { ...rest, [identity]: ratio } : rest));
 
     const onKeyDown = (event: KeyboardEvent) => {
         const move = KEY_MOVES[event.key];
@@ -92,7 +92,7 @@ export const SliderStage = ({
         return (
             <div
                 data-testid="slider-stage"
-                className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2.5 bg-background bg-dots text-[#A1A1AA] text-[13px]"
+                className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2.5 bg-background bg-dots text-muted-foreground text-[13px]"
             >
                 <Trash2Icon aria-hidden="true" className="size-[22px]" />
                 {gone.a === "trash" && gone.b === "trash"
@@ -162,7 +162,7 @@ export const SliderStage = ({
             <div
                 aria-hidden="true"
                 style={{ left: `${position}%` }}
-                className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-[#FAFAFA] shadow-[0_0_0_1px_rgba(0,0,0,0.3)]"
+                className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.3)]"
             />
 
             {/* The whole stage is the track; the line and the clip above draw the value, so no Track or Range. */}
@@ -184,7 +184,7 @@ export const SliderStage = ({
                     aria-valuetext={`${Math.round(position)}% A`}
                     className="group relative block size-0 outline-none"
                 >
-                    <span className="absolute top-1/2 left-1/2 flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090B] shadow-[0_4px_16px_rgba(0,0,0,0.5)] group-focus-visible:ring-4 group-focus-visible:ring-primary">
+                    <span className="absolute top-1/2 left-1/2 flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-foreground text-background shadow-[0_4px_16px_rgba(0,0,0,0.5)] group-focus-visible:ring-4 group-focus-visible:ring-primary">
                         <ChevronsLeftRightIcon aria-hidden="true" className="size-5" />
                     </span>
                 </Slider.Thumb>

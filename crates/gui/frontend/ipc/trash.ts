@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { outcomeReader } from "./wire";
 
 /** Why a file was not moved, as `TrashFailure` in `crates/gui/src/trash.rs` serializes it. */
-export type TrashFailure = "unknown" | "changed" | "missing" | "trash";
+export type TrashFailure = "unknown" | "changed" | "missing" | "unchosen" | "trash";
 
 /** What happened to one file, as `TrashOutcome` in `crates/gui/src/trash.rs` serializes it. */
 export type TrashOutcome = { status: "trashed" } | { status: "failed"; reason: TrashFailure; message: string };
@@ -18,7 +18,7 @@ export const trashMedia = async (identities: string[]): Promise<TrashOutcome[]> 
 };
 
 /** Why a file was not deleted, as `DeleteFailure` in `crates/gui/src/trash.rs` serializes it. */
-export type DeleteFailure = "unknown" | "changed" | "missing" | "delete";
+export type DeleteFailure = "unknown" | "changed" | "missing" | "unchosen" | "delete";
 
 /** What happened to one file, as `DeleteOutcome` in `crates/gui/src/trash.rs` serializes it. */
 export type DeleteOutcome = { status: "deleted" } | { status: "failed"; reason: DeleteFailure; message: string };
@@ -57,14 +57,14 @@ export const restoreMedia = async (identities: string[]): Promise<RestoreOutcome
 /** The {@link TrashOutcome} a reply describes, or a `failed` one for any other shape, so it never reads as moved. */
 const toOutcome = outcomeReader<{ status: "trashed" }, TrashFailure>(
     ({ status }) => (status === "trashed" ? { status } : undefined),
-    ["unknown", "changed", "missing", "trash"],
+    ["unknown", "changed", "missing", "unchosen", "trash"],
     "trash",
 );
 
 /** The {@link DeleteOutcome} a reply describes, or a `failed` one for any other shape, so it never reads as deleted. */
 const toDeleteOutcome = outcomeReader<{ status: "deleted" }, DeleteFailure>(
     ({ status }) => (status === "deleted" ? { status } : undefined),
-    ["unknown", "changed", "missing", "delete"],
+    ["unknown", "changed", "missing", "unchosen", "delete"],
     "delete",
 );
 

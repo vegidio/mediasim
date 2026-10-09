@@ -1,6 +1,4 @@
 import { create } from "zustand";
-import { SLOTS, type Slot } from "@/features/home/routePairDrop";
-import type { Details } from "@/features/pair/details";
 import { cancelComparison, comparePair, type PairFailure, probeMedia } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import {
@@ -10,6 +8,8 @@ import {
     removeFiles,
     restoreFiles,
 } from "@/lib/deletion";
+import type { Details } from "@/lib/mediaInfo";
+import { SLOTS, type Slot } from "@/lib/slots";
 import { usePairStore } from "@/stores/pair";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";
@@ -129,6 +129,13 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             mode,
             slots.map((slot) => ({ key: slot, identity: files[slot].identity })),
         );
+
+        // The disk changed whichever screen is showing now. A file gone can't be compared again, so it leaves the Home
+        // screen's slot, unless that slot has since been given another file.
+        const start = usePairStore.getState();
+        for (const slot of settled.done) {
+            if (start[slot]?.identity === files[slot].identity) start.remove(slot);
+        }
         if (run !== opened) return;
 
         const notice: Notice = { action: mode, ...settled };
@@ -142,13 +149,6 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             }
             return { gone, marked, deletion: IDLE, notice };
         });
-
-        // A file gone can't be compared again, so it leaves the Home screen's slot, unless that slot has since been
-        // given another file.
-        const start = usePairStore.getState();
-        for (const slot of notice.done) {
-            if (start[slot]?.identity === files[slot].identity) start.remove(slot);
-        }
     };
 
     return {
@@ -189,7 +189,8 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             opened += 1;
             compared += 1;
             cancelComparison().catch((error: unknown) => console.error("could not cancel the comparison", error));
-            set(withoutNotice, true);
+            // A removal or restore still under way finishes off screen, so nothing is left waiting on it.
+            set((state) => ({ ...withoutNotice(state), deletion: IDLE }), true);
             useScreenStore.getState().show("home");
         },
 
@@ -218,12 +219,20 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
             const { identities, ...settled } = await restoreFiles(
                 slots.map((slot) => ({ key: slot, identity: files[slot].identity })),
             );
-            if (run !== opened) return;
 
-            const notice: Notice = { action: "restore", ...settled };
             // A restored file can come back under a new identity, which `thumb://` and a later move need.
             const restored: Partial<Record<Slot, MediaFile>> = {};
             for (const [slot, identity] of identities) restored[slot] = { ...files[slot], identity };
+
+            // Back in its start slot whichever screen is showing now, unless that slot has been given another file since.
+            const start = usePairStore.getState();
+            for (const slot of settled.done) {
+                const file = restored[slot];
+                if (file) start.refill(slot, file);
+            }
+            if (run !== opened) return;
+
+            const notice: Notice = { action: "restore", ...settled };
 
             set((state) => {
                 if (!state.files) return { deletion: IDLE, notice };
@@ -231,13 +240,6 @@ export const usePairResultStore = create<PairResultStore>()((set, get) => {
                 for (const slot of notice.done) delete gone[slot];
                 return { files: { ...state.files, ...restored }, gone, deletion: IDLE, notice };
             });
-
-            // Back in its start slot, unless that slot has been given another file since.
-            const start = usePairStore.getState();
-            for (const slot of notice.done) {
-                const file = restored[slot];
-                if (file) start.refill(slot, file);
-            }
         },
 
         dismissNotice: () => set(withoutNotice, true),

@@ -25,7 +25,7 @@ export const SettingsScreen = () => {
                         closeSettings();
                         focusSettings();
                     }}
-                    className="h-9 gap-1.5 rounded-lg border-[#27272A] bg-[#09090B] pr-3 pl-2 text-[#E4E4E7] text-sm dark:border-[#27272A] dark:bg-[#09090B] [&_svg:not([class*='size-'])]:size-4"
+                    className="h-9 gap-1.5 rounded-lg border-border bg-background pr-3 pl-2 text-text-label text-sm dark:border-border dark:bg-background [&_svg:not([class*='size-'])]:size-4"
                 >
                     <ArrowLeftIcon aria-hidden="true" />
                     Back
@@ -34,7 +34,7 @@ export const SettingsScreen = () => {
                 <Button
                     variant="outline"
                     onClick={reset}
-                    className="h-9 rounded-lg border-[#27272A] bg-[#09090B] px-3 text-[#A1A1AA] text-[13px] dark:border-[#27272A] dark:bg-[#09090B]"
+                    className="h-9 rounded-lg border-border bg-background px-3 text-muted-foreground text-[13px] dark:border-border dark:bg-background"
                 >
                     Reset to defaults
                 </Button>

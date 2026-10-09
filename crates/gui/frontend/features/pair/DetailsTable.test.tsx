@@ -2,8 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Details } from "@/lib/mediaInfo";
 import { DetailsTable } from "./DetailsTable";
-import type { Details } from "./details";
 
 const media = (name: string, type: MediaFile["type"] = "image"): MediaFile => ({
     path: `/media/${name}`,

@@ -277,7 +277,7 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::fixture;
+    use crate::admission::tests::fixture;
 
     /// `test4.mp4`: AV1 with 11.7 s of stereo AAC at 44.1 kHz.
     fn source() -> String {

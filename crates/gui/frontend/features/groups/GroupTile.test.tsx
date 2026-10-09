@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
+import { useScanStore } from "@/stores/scan";
 import { GroupTile } from "./GroupTile";
 
 vi.mock("@/ipc/thumbs", () => ({
@@ -27,13 +28,13 @@ const renderTile = ({
     onSelect = () => {},
     onOpen = () => {},
     onKey = () => {},
-} = {}) =>
-    render(
+} = {}) => {
+    useScanStore.setState({ marks: new Set(marked ? [file.path] : []) });
+    return render(
         <GroupTile
             file={file}
             best={best}
             large={false}
-            marked={marked}
             onToggle={onToggle}
             selected={selected}
             tabbable={tabbable}
@@ -42,6 +43,7 @@ const renderTile = ({
             onKey={onKey}
         />,
     );
+};
 
 const checkbox = () => screen.getByRole("checkbox", { name: "Mark IMG_2041 (1).jpg for deletion" });
 const thumbnail = () => screen.getByRole("button", { name: "IMG_2041 (1).jpg" });
@@ -50,6 +52,10 @@ const thumbnail = () => screen.getByRole("button", { name: "IMG_2041 (1).jpg" })
 const frame = () => thumbnail().parentElement as HTMLElement;
 
 describe("GroupTile", () => {
+    beforeEach(() => {
+        useScanStore.setState(useScanStore.getInitialState(), true);
+    });
+
     describe("thumbnail button", () => {
         it("is named after the file, and carries its path", () => {
             renderTile();
@@ -66,7 +72,6 @@ describe("GroupTile", () => {
                     file={IMAGE}
                     best={false}
                     large={false}
-                    marked={false}
                     onToggle={() => {}}
                     selected
                     tabbable
@@ -172,7 +177,7 @@ describe("GroupTile", () => {
             const { container } = renderTile({ marked: true, selected: true });
 
             expect(frame()).toHaveClass("ring-primary");
-            expect(frame()).not.toHaveClass("ring-[#EF4444]");
+            expect(frame()).not.toHaveClass("ring-mark");
             expect(container.querySelector(".bg-\\[rgba\\(69\\,10\\,10\\,0\\.62\\)\\]")).not.toBeNull();
             expect(screen.getByText("Delete")).toBeInTheDocument();
         });
@@ -213,7 +218,7 @@ describe("GroupTile", () => {
 
             expect(screen.getByText("Delete")).toBeInTheDocument();
             expect(screen.queryByText("Best")).not.toBeInTheDocument();
-            expect(container.querySelector(".ring-\\[\\#EF4444\\]")).not.toBeNull();
+            expect(container.querySelector(".ring-mark")).not.toBeNull();
             expect(container.querySelector(".ring-primary")).toBeNull();
         });
 
@@ -221,7 +226,7 @@ describe("GroupTile", () => {
             const { container } = renderTile({ marked: true });
 
             expect(container.querySelector(".bg-\\[rgba\\(69\\,10\\,10\\,0\\.62\\)\\]")).not.toBeNull();
-            expect(screen.getByText("IMG_2041 (1).jpg")).toHaveClass("line-through", "text-[#A1A1AA]");
+            expect(screen.getByText("IMG_2041 (1).jpg")).toHaveClass("line-through", "text-muted-foreground");
         });
 
         it("keeps a marked video's duration", () => {
@@ -237,7 +242,7 @@ describe("GroupTile", () => {
             expect(screen.queryByText("Delete")).not.toBeInTheDocument();
             expect(screen.getByText("Best")).toBeInTheDocument();
             expect(container.querySelector(".line-through")).toBeNull();
-            expect(container.querySelector(".ring-\\[\\#EF4444\\]")).toBeNull();
+            expect(container.querySelector(".ring-mark")).toBeNull();
         });
     });
 });

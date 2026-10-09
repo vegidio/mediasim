@@ -1,12 +1,12 @@
 import { StarIcon, Trash2Icon } from "lucide-react";
+import { DetailsDialog } from "@/features/details/DetailsDialog";
+import { Chip, kindLabel } from "@/features/details/DetailsSidebar";
+import { indexOfPath } from "@/features/details/navigate";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { GroupView } from "@/lib/marks";
 import { cn } from "@/lib/utils";
 import { useScanStore } from "@/stores/scan";
-import { DetailsDialog } from "../details/DetailsDialog";
-import { Chip, kindLabel } from "../details/DetailsSidebar";
-import { indexOfPath } from "../details/navigate";
 import { groupPosition } from "./format";
-import type { GroupView } from "./GroupCard";
 
 const MARK_BUTTON =
     "flex h-[38px] cursor-pointer items-center justify-center gap-2 rounded-lg border font-semibold text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary";
@@ -58,13 +58,13 @@ export const GroupDetailsDialog = ({
                 <>
                     <Chip>{kindLabel(file.type)}</Chip>
                     {best && (
-                        <Chip className="gap-1 border-transparent bg-primary font-semibold text-[#1A2E05]">
+                        <Chip className="gap-1 border-transparent bg-primary font-semibold text-primary-foreground">
                             <StarIcon aria-hidden="true" className="size-[11px] fill-current stroke-none" />
                             Recommended keep
                         </Chip>
                     )}
                     {marked && (
-                        <Chip className="border-transparent bg-[#DC2626] font-semibold text-white">
+                        <Chip className="border-transparent bg-danger font-semibold text-white">
                             Marked for deletion
                         </Chip>
                     )}
@@ -77,8 +77,8 @@ export const GroupDetailsDialog = ({
                     className={cn(
                         MARK_BUTTON,
                         marked
-                            ? "border-[#DC2626] bg-[#DC2626] text-white hover:bg-[#B91C1C]"
-                            : "border-[#7F1D1D] bg-transparent text-[#FCA5A5] hover:bg-[rgba(127,29,29,0.25)]",
+                            ? "border-danger bg-danger text-white hover:bg-danger-hover"
+                            : "border-danger-border bg-transparent text-danger-soft hover:bg-[rgba(127,29,29,0.25)]",
                     )}
                 >
                     <Trash2Icon aria-hidden="true" className="size-[15px]" />

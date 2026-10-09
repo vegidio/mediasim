@@ -4,9 +4,14 @@ import { SHIMMER, Thumbnail, TILE_BOUND } from "@/components/Thumbnail";
 import type { MediaFile } from "@/ipc/thumbs";
 import { probeVideo } from "@/ipc/video";
 import { formatDuration, formatSize } from "@/lib/format";
+import type { Inclusion } from "@/lib/gallery";
 import { cn, keepFocus } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
-import type { Inclusion } from "./derive";
+import { NAME_GAP, PICTURE_HEIGHT, TILE_WIDTH } from "./layout";
+
+/** A tile's box, as the grid lays it out: its picture, then its name row. */
+const TILE_STYLE = { width: TILE_WIDTH, gap: NAME_GAP };
+const PICTURE_STYLE = { width: TILE_WIDTH, height: PICTURE_HEIGHT };
 
 /** How long a video tile must stay shown before its duration is read, so a fast scroll past it reads nothing. */
 export const DURATION_DWELL_MS = 150;
@@ -49,8 +54,7 @@ type MediaTileProps = {
     inclusion: Inclusion;
 };
 
-const TOOLTIPS: Record<Inclusion, string | undefined> = {
-    included: undefined,
+const TOOLTIPS: Partial<Record<Inclusion, string>> = {
     removed: "Removed from this comparison",
     "left-out": "Not included in this comparison",
 };
@@ -83,15 +87,14 @@ export const MediaTile = memo(({ id, file, selected, onSelect, inclusion }: Medi
             onClick={() => onSelect(file.path)}
             onDoubleClick={open}
             {...(tooltip && { title: tooltip })}
-            className="group flex w-40 flex-col gap-2 text-left"
+            style={TILE_STYLE}
+            className="group flex flex-col text-left"
         >
             <span
-                className={cn(
-                    "relative block h-[120px] w-40 overflow-hidden rounded-[10px]",
-                    selected && "ring-2 ring-primary",
-                )}
+                style={PICTURE_STYLE}
+                className={cn("relative block overflow-hidden rounded-[10px]", selected && "ring-2 ring-primary")}
             >
-                <span className={cn("absolute inset-0 bg-[#18181B]", dimmed)}>
+                <span className={cn("absolute inset-0 bg-muted", dimmed)}>
                     <Thumbnail key={file.identity} type={file.type} identity={file.identity} bound={TILE_BOUND} />
                     {/* Over the picture, which would otherwise hide an inset border. */}
                     {!selected && (
@@ -100,10 +103,10 @@ export const MediaTile = memo(({ id, file, selected, onSelect, inclusion }: Medi
                     {file.type === "video" && (
                         <>
                             <span className="absolute top-1/2 left-1/2 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(9,9,11,0.6)]">
-                                <PlayIcon aria-hidden="true" className="size-4 fill-[#FAFAFA] stroke-none" />
+                                <PlayIcon aria-hidden="true" className="size-4 fill-foreground stroke-none" />
                             </span>
                             {duration !== undefined && (
-                                <span className="absolute right-2 bottom-2 rounded-md bg-[rgba(9,9,11,0.8)] px-[7px] py-0.5 font-medium font-mono text-[#FAFAFA] text-[11px]">
+                                <span className="absolute right-2 bottom-2 rounded-md bg-[rgba(9,9,11,0.8)] px-[7px] py-0.5 font-medium font-mono text-foreground text-[11px]">
                                     {formatDuration(duration)}
                                 </span>
                             )}
@@ -119,7 +122,7 @@ export const MediaTile = memo(({ id, file, selected, onSelect, inclusion }: Medi
                     onMouseDown={keepFocus}
                     onClick={open}
                     className={cn(
-                        "absolute top-2 right-2 flex h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-[#FAFAFA] text-xs opacity-0 outline-none group-hover:opacity-100",
+                        "absolute top-2 right-2 flex h-[26px] items-center gap-[5px] rounded-md bg-[rgba(9,9,11,0.8)] px-[9px] font-medium text-foreground text-xs opacity-0 outline-none group-hover:opacity-100",
                         selected && "opacity-100",
                     )}
                 >
@@ -128,8 +131,8 @@ export const MediaTile = memo(({ id, file, selected, onSelect, inclusion }: Medi
                 </button>
             </span>
             <span className={cn("flex items-baseline justify-between gap-2", dimmed)}>
-                <span className="truncate font-mono text-[#E4E4E7] text-xs">{file.name}</span>
-                <span className="whitespace-nowrap text-[#A1A1AA] text-[11px]">{formatSize(file.size)}</span>
+                <span className="truncate font-mono text-text-label text-xs">{file.name}</span>
+                <span className="whitespace-nowrap text-muted-foreground text-[11px]">{formatSize(file.size)}</span>
             </span>
         </div>
     );
@@ -137,8 +140,8 @@ export const MediaTile = memo(({ id, file, selected, onSelect, inclusion }: Medi
 
 /** A tile's place while the files are read: a shimmering picture and two shimmering bars. */
 export const PlaceholderTile = () => (
-    <div data-testid="placeholder-tile" aria-hidden="true" className="flex w-40 flex-col gap-2">
-        <span className={cn("block h-[120px] w-40 rounded-[10px]", SHIMMER)} />
+    <div data-testid="placeholder-tile" aria-hidden="true" style={TILE_STYLE} className="flex flex-col">
+        <span style={PICTURE_STYLE} className={cn("block rounded-[10px]", SHIMMER)} />
         <span className="flex items-center justify-between gap-2">
             <span className={cn("block h-3 w-24 rounded", SHIMMER)} />
             <span className={cn("block h-3 w-10 rounded", SHIMMER)} />

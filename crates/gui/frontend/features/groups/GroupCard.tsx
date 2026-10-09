@@ -1,20 +1,13 @@
 import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
-import type { GroupFile } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { GroupView } from "@/lib/marks";
 import { cn, keepFocus } from "@/lib/utils";
 import { groupSize } from "./format";
 import { GroupTile } from "./GroupTile";
 
 /** The number of files from which a group spans the full width: the fewest whose small tiles overflow a 1280 px window. */
-export const LARGE_GROUP = 7;
-
-/** A group as its card shows it. */
-export type GroupView = {
-    files: readonly GroupFile[];
-    /** The index of the best file in `files`. */
-    best: number;
-};
+const LARGE_GROUP = 7;
 
 type GroupCardProps = {
     /** The group's number, from 1. */
@@ -22,8 +15,6 @@ type GroupCardProps = {
     group: GroupView;
     /** The scanned files by path, for their thumbnails. */
     media: ReadonlyMap<string, MediaFile>;
-    /** The paths of the files marked for deletion, in any group. */
-    marks: ReadonlySet<string>;
     /** Marks the file at `path`, or unmarks it when it is marked. */
     onToggle: (path: string) => void;
     /** Unmarks the group's best file and marks every other file of it. */
@@ -48,7 +39,6 @@ export const GroupCard = ({
     number,
     group: { files, best },
     media,
-    marks,
     onToggle,
     onKeepBestOnly,
     selected,
@@ -64,19 +54,19 @@ export const GroupCard = ({
         <section
             aria-label={`Group ${number}`}
             className={cn(
-                "flex flex-col gap-3.5 rounded-[14px] border border-[#27272A] bg-[#111113] px-5 pt-4 pb-5",
+                "flex flex-col gap-3.5 rounded-[14px] border border-border bg-card px-5 pt-4 pb-5",
                 large && "w-full",
             )}
         >
             <div className="flex items-center gap-2.5">
                 <span className="font-semibold text-sm">Group {number}</span>
-                <span className="text-[#A1A1AA] text-[13px]">{groupSize(files.length, type)}</span>
+                <span className="text-muted-foreground text-[13px]">{groupSize(files.length, type)}</span>
                 <span className="flex-1" />
                 <Button
                     variant="outline"
                     onClick={onKeepBestOnly}
                     onMouseDown={keepFocus}
-                    className="h-7 rounded-md border-[#27272A] bg-transparent px-2.5 font-medium text-[#E4E4E7] text-xs dark:border-[#27272A] dark:bg-transparent"
+                    className="h-7 rounded-md border-border bg-transparent px-2.5 font-medium text-text-label text-xs dark:border-border dark:bg-transparent"
                 >
                     Keep best only
                 </Button>
@@ -91,7 +81,6 @@ export const GroupCard = ({
                             {...(identity && { identity })}
                             best={index === best}
                             large={large}
-                            marked={marks.has(file.path)}
                             onToggle={onToggle}
                             selected={file.path === selected}
                             tabbable={file.path === tabbable}

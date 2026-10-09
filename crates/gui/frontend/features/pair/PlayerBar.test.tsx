@@ -94,17 +94,50 @@ describe("PlayerBar", () => {
         expect(seek.mock.calls).toEqual([[17], [7], [0], [42]]);
     });
 
-    it("seeks to the point pressed on the seek bar", () => {
+    /** The slider's root, which reads a press against its own box; jsdom lays nothing out and has no pointer capture. */
+    const seekTrack = () => {
+        const track = seekBar().closest(".flex-1") as HTMLElement;
+        let captured = false;
+        track.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 0, width: 200, height: 44 });
+        track.setPointerCapture = () => {
+            captured = true;
+        };
+        track.hasPointerCapture = () => captured;
+        track.releasePointerCapture = () => {
+            captured = false;
+        };
+        return track;
+    };
+
+    it("seeks to the point pressed on the seek bar once it is let go", () => {
         const seek = vi.fn();
         render(<PlayerBar name={NAME} playback={playback({ time: 0, duration: 42, seek })} />);
-        // The slider's root, which reads the press against its own box; jsdom lays nothing out and has no pointer capture.
-        const track = seekBar().closest(".flex-1") as HTMLElement;
-        track.getBoundingClientRect = () => DOMRect.fromRect({ x: 100, y: 0, width: 200, height: 44 });
-        track.setPointerCapture = () => {};
+        const track = seekTrack();
 
         fireEvent.pointerDown(track, { clientX: 200, pointerId: 1 });
+        expect(seek).not.toHaveBeenCalled();
+        fireEvent.pointerUp(track, { clientX: 200, pointerId: 1 });
 
         expect(seek).toHaveBeenCalledExactlyOnceWith(21);
+    });
+
+    it("shows a drag's position while it lasts and seeks once, where it is let go", () => {
+        const seek = vi.fn();
+        render(<PlayerBar name={NAME} playback={playback({ time: 0, duration: 42, seek })} />);
+        const track = seekTrack();
+
+        fireEvent.pointerDown(track, { clientX: 150, pointerId: 1 });
+        fireEvent.pointerMove(track, { clientX: 200, pointerId: 1 });
+        fireEvent.pointerMove(track, { clientX: 250, pointerId: 1 });
+
+        expect(seek).not.toHaveBeenCalled();
+        expect(seekBar()).toHaveAttribute("aria-valuetext", "0:31 of 0:42");
+        expect(screen.getByText("0:31 / 0:42")).toBeInTheDocument();
+
+        fireEvent.pointerUp(track, { clientX: 250, pointerId: 1 });
+
+        expect(seek).toHaveBeenCalledExactlyOnceWith(31.5);
+        expect(seekBar()).toHaveAttribute("aria-valuetext", "0:00 of 0:42");
     });
 
     it("keeps an arrow key's seek within the video", () => {

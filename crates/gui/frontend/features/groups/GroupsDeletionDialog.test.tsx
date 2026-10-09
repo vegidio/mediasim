@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Button } from "@/components/ui/button";
 import type { GroupFile, ScanGroup } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
+import { markedFiles, pickBest, visibleGroups } from "@/lib/marks";
+import { DEFAULT_RULES } from "@/lib/rules";
 import { useScanStore } from "@/stores/scan";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { GroupsDeletionDialog } from "./GroupsDeletionDialog";
-import { markedFiles, pickBest, visibleGroups } from "./marks";
-import { DEFAULT_RULES } from "./rules";
 
 vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), deleteMedia: vi.fn(), restoreMedia: vi.fn() }));

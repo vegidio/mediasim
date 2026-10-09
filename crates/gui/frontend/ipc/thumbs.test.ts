@@ -1,6 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
-import { admitMedia, describeMedia, renditionUrl } from "./thumbs";
+import { describeMedia, renditionUrl } from "./thumbs";
 
 vi.mock("@tauri-apps/api/core", () => ({
     invoke: vi.fn(),
@@ -10,28 +10,6 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const mockedInvoke = invoke as Mock;
 const mockedConvertFileSrc = convertFileSrc as Mock;
-
-describe("admitMedia", () => {
-    beforeEach(() => {
-        mockedInvoke.mockReset();
-    });
-
-    it("sends the paths and keeps the order", async () => {
-        mockedInvoke.mockResolvedValue(["0123456789abcdef", "fedcba9876543210"]);
-
-        await expect(admitMedia(["/a.png", "/b.mp4"])).resolves.toEqual(["0123456789abcdef", "fedcba9876543210"]);
-        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("admit_media", { paths: ["/a.png", "/b.mp4"] });
-    });
-
-    it("turns a path without an identity into undefined", async () => {
-        mockedInvoke.mockResolvedValue(["0123456789abcdef", JSON.parse("null"), "fedcba9876543210"]);
-
-        const identities = await admitMedia(["/a.png", "/missing.png", "/b.mp4"]);
-
-        expect(identities).toEqual(["0123456789abcdef", undefined, "fedcba9876543210"]);
-        expect(identities[1]).toBeUndefined();
-    });
-});
 
 describe("describeMedia", () => {
     const image = { path: "/a.png", name: "a.png", type: "image", size: 10, identity: "0123456789abcdef" };

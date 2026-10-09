@@ -30,7 +30,7 @@ export const formatSize = (bytes: number) => {
 };
 
 /** `value` with a leading zero below 10: `05`, `42`. */
-export const pad = (value: number) => String(value).padStart(2, "0");
+const pad = (value: number) => String(value).padStart(2, "0");
 
 /** A duration as `M:SS` below an hour and `H:MM:SS` from an hour, with the seconds rounded down. */
 export const formatDuration = (seconds: number) => {

@@ -22,7 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "cn";
 import { GripVerticalIcon, VideoIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { moveRule, RULE_INFO, type Rule, type RuleId } from "./rules";
+import { moveRule, RULE_INFO, type Rule, type RuleId } from "@/lib/rules";
 
 /** Keeps a lifted row in its column: the rows only move up and down. */
 const vertical: Modifier = ({ transform }) => ({ ...transform, x: 0 });
@@ -53,7 +53,7 @@ const RuleRow = ({ rule: { id, on }, rank, onToggle }: RuleRowProps) => {
             style={{ transform: CSS.Translate.toString(transform), transition }}
             {...listeners}
             className={cn(
-                "relative flex cursor-grab touch-none items-center gap-3 bg-[#0F0F11] px-3.5 py-3",
+                "relative flex cursor-grab touch-none items-center gap-3 bg-surface-inset px-3.5 py-3",
                 isDragging && "z-10 cursor-grabbing shadow-[0_8px_24px_rgba(0,0,0,0.5)]",
             )}
         >
@@ -62,27 +62,29 @@ const RuleRow = ({ rule: { id, on }, rank, onToggle }: RuleRowProps) => {
                 ref={setActivatorNodeRef}
                 {...attributes}
                 aria-label={`Reorder ${label}`}
-                className="-m-1 flex shrink-0 cursor-grab rounded p-1 text-[#52525B] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="-m-1 flex shrink-0 cursor-grab rounded p-1 text-text-faint outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
                 <GripVerticalIcon aria-hidden="true" className="size-4" />
             </button>
-            <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md border border-[#27272A] bg-[#18181B] font-mono text-[#A1A1AA] text-[11px]">
+            <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-muted-foreground text-[11px]">
                 {rank}
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-center gap-2">
-                    <span className={cn("font-medium text-sm", on ? "text-[#FAFAFA]" : "text-[#A1A1AA]")}>{label}</span>
+                    <span className={cn("font-medium text-sm", on ? "text-foreground" : "text-muted-foreground")}>
+                        {label}
+                    </span>
                     {videoOnly && (
                         <span
                             title="Applies to video files only"
-                            className="flex h-[18px] items-center gap-1 rounded-full border border-[#3F3F46] bg-[#18181B] px-1.5 font-medium text-[#A1A1AA] text-[11px]"
+                            className="flex h-[18px] items-center gap-1 rounded-full border border-border-strong bg-muted px-1.5 font-medium text-muted-foreground text-[11px]"
                         >
                             <VideoIcon aria-hidden="true" className="size-[11px]" strokeWidth={2.2} />
                             Videos only
                         </span>
                     )}
                 </span>
-                <span id={hintId} className="text-[#A1A1AA] text-xs">
+                <span id={hintId} className="text-muted-foreground text-xs">
                     {hint}
                 </span>
             </span>
@@ -93,8 +95,8 @@ const RuleRow = ({ rule: { id, on }, rank, onToggle }: RuleRowProps) => {
                 onCheckedChange={onToggle}
                 // A press on the switch toggles it, and never starts a drag.
                 onPointerDown={(event) => event.stopPropagation()}
-                className="border-0 p-0.5 data-[size=default]:h-[22px] data-[size=default]:w-10 data-checked:bg-[#BEF264] data-unchecked:bg-[#3F3F46] dark:data-unchecked:bg-[#3F3F46]"
-                thumbClassName="bg-[#FAFAFA] shadow-[0_1px_2px_rgba(0,0,0,.4)] group-data-[size=default]/switch:size-[18px] group-data-[size=default]/switch:data-checked:translate-x-[18px] dark:data-checked:bg-[#FAFAFA] dark:data-unchecked:bg-[#FAFAFA]"
+                className="border-0 p-0.5 data-[size=default]:h-[22px] data-[size=default]:w-10 data-checked:bg-primary data-unchecked:bg-border-strong dark:data-unchecked:bg-border-strong"
+                thumbClassName="bg-foreground shadow-[0_1px_2px_rgba(0,0,0,.4)] group-data-[size=default]/switch:size-[18px] group-data-[size=default]/switch:data-checked:translate-x-[18px] dark:data-checked:bg-foreground dark:data-unchecked:bg-foreground"
             />
         </li>
     );
@@ -156,10 +158,10 @@ export const RuleList = ({ rules, onChange, onDraggingChange }: RuleListProps) =
     return (
         <div className="flex flex-col gap-2.5">
             <div className="flex items-baseline justify-between">
-                <span className="font-semibold text-[#A1A1AA] text-[11px] uppercase tracking-[0.06em]">
+                <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-[0.06em]">
                     Keep the file with…
                 </span>
-                <span className="text-[#A1A1AA] text-xs">Drag to reorder · first rule wins</span>
+                <span className="text-muted-foreground text-xs">Drag to reorder · first rule wins</span>
             </div>
             <DndContext
                 sensors={sensors}
@@ -172,7 +174,7 @@ export const RuleList = ({ rules, onChange, onDraggingChange }: RuleListProps) =
                 onDragCancel={() => onDraggingChange?.(false)}
             >
                 <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                    <ul className="divide-y divide-[#27272A] overflow-hidden rounded-xl border border-[#27272A]">
+                    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                         {rules.map((rule, index) => (
                             <RuleRow
                                 key={rule.id}

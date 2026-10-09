@@ -26,8 +26,8 @@ export const SettingSwitch = ({ name, hint, checked, onCheckedChange }: SettingS
                     aria-describedby={hintId}
                     checked={checked}
                     onCheckedChange={onCheckedChange}
-                    className="border-0 p-0.5 data-[size=default]:h-[22px] data-[size=default]:w-10 data-checked:bg-[#BEF264] data-unchecked:bg-[#3F3F46] dark:data-unchecked:bg-[#3F3F46]"
-                    thumbClassName="bg-[#FAFAFA] shadow-[0_1px_2px_rgba(0,0,0,.4)] group-data-[size=default]/switch:size-[18px] group-data-[size=default]/switch:data-checked:translate-x-[18px] dark:data-checked:bg-[#FAFAFA] dark:data-unchecked:bg-[#FAFAFA]"
+                    className="border-0 p-0.5 data-[size=default]:h-[22px] data-[size=default]:w-10 data-checked:bg-primary data-unchecked:bg-border-strong dark:data-unchecked:bg-border-strong"
+                    thumbClassName="bg-foreground shadow-[0_1px_2px_rgba(0,0,0,.4)] group-data-[size=default]/switch:size-[18px] group-data-[size=default]/switch:data-checked:translate-x-[18px] dark:data-checked:bg-foreground dark:data-unchecked:bg-foreground"
                 />
             }
         />

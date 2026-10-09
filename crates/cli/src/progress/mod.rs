@@ -29,7 +29,10 @@ use bar::GradientBar;
 use eta::format_eta;
 use spring::Spring;
 
-const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
+/// How many frames the display draws per second, at most. [`spring`] steps its animation by one such frame.
+const FPS: u64 = 60;
+
+const FRAME: Duration = Duration::from_nanos(1_000_000_000 / FPS);
 
 /// Once every file has loaded, the bar gets at most this long to finish its animation.
 const SETTLE_CAP: Duration = Duration::from_secs(1);
@@ -68,14 +71,19 @@ where
 /// Runs `scan` over `total` files and returns its result: through the progress display, labelled `label`, when `ui` is
 /// interactive, otherwise silently.
 ///
-/// Ctrl+C cancels the scan, so its loads stop, and ends it with [`CliError::Interrupted`].
+/// Ctrl+C cancels the scan, so its loads stop, and ends it with [`CliError::Interrupted`]. That holds without the
+/// display too, where Ctrl+C is a signal rather than a key press: the scan then still returns, so whatever the caller
+/// holds (such as a [`DirCache`](mediasim::DirCache), which keeps its writes when dropped) is released properly. A
+/// second Ctrl+C exits at once.
 pub fn scan(scan: Scan, total: usize, label: &str, ui: Ui) -> Result<Scanned, CliError> {
+    let cancel = CancelToken::new();
+    let scan = scan.cancel(cancel.clone());
+
     if !ui.interactive {
+        cancel_on_sigint(cancel);
         return Ok(scan.run(|_| {})?);
     }
 
-    let cancel = CancelToken::new();
-    let scan = scan.cancel(cancel.clone());
     let work = move |ticks: &mpsc::Sender<usize>| {
         let scanned = scan.run(|event| {
             if let ScanEvent::Progress(progress) = event {
@@ -86,6 +94,17 @@ pub fn scan(scan: Scan, total: usize, label: &str, ui: Ui) -> Result<Scanned, Cl
         Ok(scanned)
     };
     show(total, label, ui.color, work, move || cancel.cancel())
+}
+
+/// Makes SIGINT (Ctrl+C) cancel `cancel` instead of killing the process, and a second one exit with the shell's code
+/// for it. If no handler can be installed, Ctrl+C keeps its default behaviour.
+fn cancel_on_sigint(cancel: CancelToken) {
+    let _ = ctrlc::set_handler(move || {
+        if cancel.is_cancelled() {
+            std::process::exit(130);
+        }
+        cancel.cancel();
+    });
 }
 
 /// Shows the progress display, labelled `label`, while `work` runs over `total` items, and returns what `work`

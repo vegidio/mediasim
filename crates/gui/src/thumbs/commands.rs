@@ -1,4 +1,4 @@
-//! The Tauri commands that admit files for thumbnails.
+//! The Tauri commands that admit files, for thumbnails and everything else the window asks of them by identity.
 
 use std::path::{Path, PathBuf};
 
@@ -8,8 +8,8 @@ use serde::Serialize;
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
-use super::{Admitted, ThumbState, admit_one};
 use crate::TaskError;
+use crate::admission::{Admissions, Admitted, admit_one};
 
 /// Admits files for thumbnails and returns, in the same order, an identity for each one, or `None` for a path that is
 /// missing, is a folder or is not a supported media type, or a video whose path isn't Unicode. Admitting a file again
@@ -19,12 +19,15 @@ use crate::TaskError;
 ///
 /// If the blocking admission task fails to finish.
 #[tauri::command]
-pub async fn admit_media(state: State<'_, ThumbState>, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, TaskError> {
-    admit(&state, paths).await
+pub async fn admit_media(
+    registry: State<'_, Admissions>,
+    paths: Vec<PathBuf>,
+) -> Result<Vec<Option<String>>, TaskError> {
+    admit(&registry, paths).await
 }
 
-pub(crate) async fn admit(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, TaskError> {
-    let admitted = admit_all(state, paths).await?;
+pub(crate) async fn admit(registry: &Admissions, paths: Vec<PathBuf>) -> Result<Vec<Option<String>>, TaskError> {
+    let admitted = admit_all(registry, paths).await?;
 
     Ok(admitted.into_iter().map(|entry| entry.map(|(identity, ..)| identity)).collect())
 }
@@ -48,14 +51,14 @@ pub struct MediaFile {
 /// If the blocking admission task fails to finish.
 #[tauri::command]
 pub async fn describe_media(
-    state: State<'_, ThumbState>,
+    registry: State<'_, Admissions>,
     paths: Vec<PathBuf>,
 ) -> Result<Vec<Option<MediaFile>>, TaskError> {
-    describe(&state, paths).await
+    describe(&registry, paths).await
 }
 
-pub(crate) async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, TaskError> {
-    let admitted = admit_all(state, paths).await?;
+pub(crate) async fn describe(registry: &Admissions, paths: Vec<PathBuf>) -> Result<Vec<Option<MediaFile>>, TaskError> {
+    let admitted = admit_all(registry, paths).await?;
 
     Ok(admitted
         .into_iter()
@@ -73,13 +76,13 @@ pub(crate) async fn describe(state: &ThumbState, paths: Vec<PathBuf>) -> Result<
 
 /// Admits `paths` and returns what [`admit_one`] gave for each, in the same order.
 async fn admit_all(
-    state: &ThumbState,
+    registry: &Admissions,
     paths: Vec<PathBuf>,
 ) -> Result<Vec<Option<(String, Admitted, MediaType)>>, TaskError> {
     // Stats run in parallel, off the lock and off the async runtime; the registry is locked only to record the results.
     let admitted: Vec<_> = spawn_blocking(move || paths.par_iter().map(|path| admit_one(path)).collect()).await?;
 
-    state.admit(admitted.iter().flatten().map(|(identity, entry, _)| (identity.clone(), entry.clone())));
+    registry.admit(admitted.iter().flatten().map(|(identity, entry, _)| (identity.clone(), entry.clone())));
 
     Ok(admitted)
 }
@@ -92,14 +95,14 @@ pub(crate) fn file_name(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::thumbs::tests::{fixture, state};
+    use crate::admission::tests::fixture;
 
     #[test]
     fn a_mixed_list_returns_identities_and_nothing_in_input_order() {
-        let state = state();
+        let registry = Admissions::default();
         let paths = vec![fixture("test1.png"), fixture("missing.jpg"), fixture("test3.mp4"), "notes.txt".into()];
 
-        let identities = tauri::async_runtime::block_on(admit(&state, paths)).unwrap();
+        let identities = tauri::async_runtime::block_on(admit(&registry, paths)).unwrap();
 
         assert_eq!(identities.len(), 4);
         assert!(identities[0].is_some());
@@ -108,7 +111,7 @@ mod tests {
         assert_eq!(identities[3], None);
         assert_ne!(identities[0], identities[2]);
         for identity in identities.iter().flatten() {
-            assert!(state.lookup(identity).is_some(), "{identity} was returned but not admitted");
+            assert!(registry.lookup(identity).is_some(), "{identity} was returned but not admitted");
         }
     }
 
@@ -117,10 +120,10 @@ mod tests {
         let dir = rust_sak::fs::mk_temp_dir("mediasim-thumbs-").unwrap();
         let notes = dir.path().join("notes.txt");
         std::fs::write(&notes, b"not media").unwrap();
-        let state = state();
+        let registry = Admissions::default();
         let paths = vec![fixture("test1.png"), fixture("missing.jpg"), fixture("test3.mp4"), dir.path().into(), notes];
 
-        let files = tauri::async_runtime::block_on(describe(&state, paths)).unwrap();
+        let files = tauri::async_runtime::block_on(describe(&registry, paths)).unwrap();
 
         assert_eq!(files.len(), 5);
         assert_eq!(files[1], None);
@@ -131,14 +134,14 @@ mod tests {
         {
             let file = file.as_ref().expect("a media file is described");
             let path = fixture(name);
-            let identity = tauri::async_runtime::block_on(admit(&state, vec![path.clone()])).unwrap();
+            let identity = tauri::async_runtime::block_on(admit(&registry, vec![path.clone()])).unwrap();
 
             assert_eq!(file.path, path.to_string_lossy());
             assert_eq!(file.name, name);
             assert_eq!(file.r#type, media_type);
             assert_eq!(file.size, std::fs::metadata(&path).unwrap().len());
             assert_eq!(Some(&file.identity), identity[0].as_ref());
-            assert!(state.lookup(&file.identity).is_some(), "{name} was described but not admitted");
+            assert!(registry.lookup(&file.identity).is_some(), "{name} was described but not admitted");
         }
     }
 
@@ -162,10 +165,10 @@ mod tests {
 
     #[test]
     fn admitting_again_returns_the_same_identity() {
-        let state = state();
+        let registry = Admissions::default();
 
-        let first = tauri::async_runtime::block_on(admit(&state, vec![fixture("test1.png")])).unwrap();
-        let second = tauri::async_runtime::block_on(admit(&state, vec![fixture("test1.png")])).unwrap();
+        let first = tauri::async_runtime::block_on(admit(&registry, vec![fixture("test1.png")])).unwrap();
+        let second = tauri::async_runtime::block_on(admit(&registry, vec![fixture("test1.png")])).unwrap();
 
         assert_eq!(first, second);
     }

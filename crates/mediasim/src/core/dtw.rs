@@ -46,26 +46,71 @@ impl Cell {
 ///
 /// Panics if `rows` or `cols` is zero.
 pub(crate) fn mean_cost(rows: usize, cols: usize, cost: impl Fn(usize, usize) -> f64 + Sync) -> f64 {
-    let best = align(rows, cols, cost);
+    let best = align(rows, cols, cost, |_| false).expect("an alignment that is never abandoned finishes");
+    mean(best)
+}
+
+/// Returns what [`mean_cost`] returns, or `None` as soon as the table shows that the mean is too high for the caller:
+/// that is, once `hopeless(m)` holds for a value `m` the mean is sure to reach. When it returns a value, that value is
+/// bit-identical to [`mean_cost`]'s.
+///
+/// `hopeless` must be monotone: if it holds for `m`, it must hold for every larger value too. It is asked about a
+/// lower bound of the mean after each row but the last. The bound is sound in floating point, not only on paper:
+///
+/// - Every cost is non-negative (`cost` must ensure it), and adding a non-negative number never makes a
+///   floating-point sum smaller. So the final cell's cost `C` is at least every stored cell along its path, and the
+///   path crosses every row, so `C` is at least the smallest cell `r` of any row.
+/// - A path takes at most `rows + cols - 1` steps, and division rounds monotonically, so the computed mean `C / steps`
+///   is at least the computed `r / (rows + cols - 1)`, which is the value `hopeless` is asked about.
+///
+/// # Panics
+///
+/// Panics if `rows` or `cols` is zero.
+pub(crate) fn mean_cost_bounded(
+    rows: usize,
+    cols: usize,
+    cost: impl Fn(usize, usize) -> f64 + Sync,
+    hopeless: impl Fn(f64) -> bool,
+) -> Option<f64> {
+    align(rows, cols, cost, hopeless).map(mean)
+}
+
+/// The average cost per step of the alignment `best`.
+fn mean(best: Cell) -> f64 {
     // Step counts are bounded by the frame counts, far below the 2^53 where `f64` loses precision.
     #[allow(clippy::cast_precision_loss)]
     let steps = best.steps as f64;
     best.cost / steps
 }
 
-/// Returns the cheapest alignment of a `rows × cols` matrix, putting the shorter side on the columns.
-fn align(rows: usize, cols: usize, cost: impl Fn(usize, usize) -> f64 + Sync) -> Cell {
+/// Returns the cheapest alignment of a `rows × cols` matrix, putting the shorter side on the columns, or `None` once
+/// `hopeless` holds for a lower bound of its mean, as [`mean_cost_bounded`] describes.
+fn align(
+    rows: usize,
+    cols: usize,
+    cost: impl Fn(usize, usize) -> f64 + Sync,
+    hopeless: impl Fn(f64) -> bool,
+) -> Option<Cell> {
     assert!(rows > 0 && cols > 0, "DTW needs at least one item on each side");
 
     if cols > rows {
-        align_rows(cols, rows, &|i, j| cost(j, i))
+        align_rows(cols, rows, &|i, j| cost(j, i), &hopeless)
     } else {
-        align_rows(rows, cols, &cost)
+        align_rows(rows, cols, &cost, &hopeless)
     }
 }
 
-/// Fills the DTW table one row at a time, keeping only the previous and the current row.
-fn align_rows(rows: usize, cols: usize, cost: &(impl Fn(usize, usize) -> f64 + Sync)) -> Cell {
+/// Fills the DTW table one row at a time, keeping only the previous and the current row, and gives up once `hopeless`
+/// holds for the smallest cell of a row spread over the longest path.
+fn align_rows(
+    rows: usize,
+    cols: usize,
+    cost: &(impl Fn(usize, usize) -> f64 + Sync),
+    hopeless: &impl Fn(f64) -> bool,
+) -> Option<Cell> {
+    // The most steps a path can take: every one moves down a row, right a column, or both.
+    #[allow(clippy::cast_precision_loss)]
+    let longest = (rows + cols - 1) as f64;
     let mut costs = vec![0.0; cols];
     let mut prev: Vec<Cell> = Vec::with_capacity(cols);
     let mut cur: Vec<Cell> = Vec::with_capacity(cols);
@@ -88,10 +133,18 @@ fn align_rows(rows: usize, cols: usize, cost: &(impl Fn(usize, usize) -> f64 + S
             cur.push(cell);
         }
 
+        // The last row holds the answer itself, so there is nothing left to save.
+        if i + 1 < rows {
+            let cheapest = cur.iter().map(|cell| cell.cost).fold(f64::INFINITY, f64::min);
+            if hopeless(cheapest / longest) {
+                return None;
+            }
+        }
+
         std::mem::swap(&mut prev, &mut cur);
     }
 
-    prev[cols - 1]
+    Some(prev[cols - 1])
 }
 
 #[cfg(test)]
@@ -101,7 +154,7 @@ mod tests {
 
     /// Runs [`align`] over a matrix given as rows.
     fn align_matrix(m: &[Vec<f64>]) -> Cell {
-        align(m.len(), m[0].len(), |i, j| m[i][j])
+        align(m.len(), m[0].len(), |i, j| m[i][j], |_| false).unwrap()
     }
 
     fn transpose(m: &[Vec<f64>]) -> Vec<Vec<f64>> {
@@ -173,7 +226,7 @@ mod tests {
     #[test]
     fn all_zero_matrix_takes_the_longest_path() {
         // Every path costs 0, so the tie-break picks the longest one: rows + cols - 1 steps.
-        assert_eq!(align(3, 5, |_, _| 0.0), Cell { cost: 0.0, steps: 7 });
+        assert_eq!(align(3, 5, |_, _| 0.0, |_| false), Some(Cell { cost: 0.0, steps: 7 }));
         assert_eq!(mean_cost(3, 5, |_, _| 0.0), 0.0);
     }
 
@@ -224,5 +277,60 @@ mod tests {
     #[should_panic(expected = "at least one item")]
     fn empty_side_panics() {
         let _ = mean_cost(0, 3, |_, _| 0.0);
+    }
+
+    /// Whether a mean of `mean` falls short of `threshold` as a similarity, as the grouping decides it.
+    fn falls_short(mean: f64, threshold: f64) -> bool {
+        (1.0 - mean).clamp(0.0, 1.0) < threshold
+    }
+
+    #[test]
+    fn bounded_decisions_equal_the_unbounded_ones() {
+        let mut abandoned = 0;
+        for (seed, (rows, cols)) in (1..).zip([(1, 1), (1, 9), (9, 1), (6, 6), (23, 17), (17, 23), (40, 3), (90, 70)]) {
+            // Costs in [0, scale), so the means straddle the thresholds below.
+            for scale in [0.05, 0.3, 1.0] {
+                let m: Vec<Vec<f64>> = random_matrix(rows, cols, seed)
+                    .into_iter()
+                    .map(|row| row.into_iter().map(|v| v * scale).collect())
+                    .collect();
+                let exact = mean_cost(rows, cols, |i, j| m[i][j]);
+
+                for threshold in [0.0, 0.5, 0.8, 0.9, 0.95, 0.99, 1.0, 1.0 - exact] {
+                    let bounded = mean_cost_bounded(rows, cols, |i, j| m[i][j], |lower| falls_short(lower, threshold));
+
+                    if let Some(mean) = bounded {
+                        assert_eq!(mean.to_bits(), exact.to_bits(), "{rows}×{cols} at {threshold}");
+                    } else {
+                        abandoned += 1;
+                        assert!(falls_short(exact, threshold), "{rows}×{cols} at {threshold}: {exact} matches");
+                    }
+                }
+            }
+        }
+
+        // Otherwise the test would pass without ever stopping early.
+        assert!(abandoned > 0);
+    }
+
+    #[test]
+    fn a_never_hopeless_bound_is_the_exact_mean() {
+        let m = random_matrix(31, 12, 5);
+
+        let bounded = mean_cost_bounded(31, 12, |i, j| m[i][j], |_| false).unwrap();
+
+        assert_eq!(bounded.to_bits(), mean_cost(31, 12, |i, j| m[i][j]).to_bits());
+    }
+
+    #[test]
+    fn a_hopeless_first_row_stops_before_the_rest_is_computed() {
+        let computed = std::sync::atomic::AtomicUsize::new(0);
+        let cost = |_, _| {
+            computed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            1.0
+        };
+
+        assert_eq!(mean_cost_bounded(10, 4, cost, |lower| lower > 0.0), None);
+        assert_eq!(computed.into_inner(), 4);
     }
 }

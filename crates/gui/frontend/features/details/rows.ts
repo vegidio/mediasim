@@ -1,20 +1,20 @@
 import type { MediaType } from "@/ipc/formats";
 import type { MediaInfo } from "@/ipc/pair";
 import type { VideoProbe } from "@/ipc/video";
-import { formatCreated, formatDuration, formatFrameRate, formatSize } from "@/lib/format";
+import { fileName, formatCreated, formatDuration, formatFrameRate, formatSize } from "@/lib/format";
+import { formatResolution, type Loadable, rowsFor, shortProfile, UNKNOWN } from "@/lib/mediaInfo";
+
+/** What the details sidebar reads of a file. */
+type Ready = {
+    info: MediaInfo;
+    /** The path as the set list shows it. */
+    path: string;
+    /** A video's streams, absent for an image or when they couldn't be read. */
+    streams?: VideoProbe;
+};
 
 /** What is known of a file's details: still being read, read, or unreadable. */
-export type FileDetails =
-    | { status: "loading" }
-    | {
-          status: "ready";
-          info: MediaInfo;
-          /** The path as the set list shows it. */
-          path: string;
-          /** A video's streams, absent for an image or when they couldn't be read. */
-          streams?: VideoProbe;
-      }
-    | { status: "failed" };
+export type FileDetails = Loadable<Ready>;
 
 /** One row of a details section. */
 export type DetailsRow = {
@@ -27,11 +27,6 @@ export type DetailsRow = {
 
 /** A titled group of rows. */
 export type DetailsSection = { title: "File" | "Image" | "Video"; rows: DetailsRow[] };
-
-const UNKNOWN = "Unknown";
-
-/** The sRGB profile almost every camera and phone embeds, whose full name would break the row. */
-const SRGB = "sRGB IEC61966-2.1";
 
 /** A video container's name by extension, since the demuxer's own name, such as `mov,mp4,m4a,3gp,3g2,mj2`, is ambiguous. */
 const CONTAINERS: Record<string, string> = {
@@ -69,7 +64,7 @@ const CODECS: Record<string, string> = {
 export const codecName = (codec: string) => (codec.startsWith("pcm_") ? "PCM" : (CODECS[codec] ?? codec));
 
 const extension = (path: string) => {
-    const name = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
+    const name = fileName(path);
     const dot = name.lastIndexOf(".");
     return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
 };
@@ -81,8 +76,7 @@ export const containerName = (path: string) => {
 };
 
 /** A colour profile, with sRGB's full name shortened, or `None` when the file declares none. */
-export const formatProfile = (profile?: string) =>
-    profile === undefined ? "None" : profile === SRGB ? "sRGB" : profile;
+export const formatProfile = (profile?: string) => (profile ? shortProfile(profile) : "None");
 
 /** Width times height in millions, with one decimal: `12.2 MP`. */
 export const formatMegapixels = (width: number, height: number) => `${((width * height) / 1e6).toFixed(1)} MP`;
@@ -96,8 +90,6 @@ export const formatBitrate = (bitsPerSecond: number) =>
 
 /** A sample rate in kilohertz, without trailing zeros: `48 kHz`, `44.1 kHz`. */
 const formatSampleRate = (hertz: number) => `${Number((hertz / 1000).toFixed(1))} kHz`;
-
-const formatDimensions = ({ width, height }: MediaInfo) => `${width} × ${height}`;
 
 const formatDate = (rfc3339?: string) => (rfc3339 ? formatCreated(rfc3339) : UNKNOWN);
 
@@ -113,8 +105,6 @@ const audio = (streams?: VideoProbe) => {
     return sampleRate === undefined ? codecName(codec) : `${codecName(codec)} · ${formatSampleRate(sampleRate)}`;
 };
 
-type Ready = Extract<FileDetails, { status: "ready" }>;
-
 type RowSpec = { key: string; mono?: boolean; value: (details: Ready) => string };
 
 const FILE_ROWS: readonly RowSpec[] = [
@@ -129,7 +119,7 @@ const FILE_ROWS: readonly RowSpec[] = [
 ];
 
 const IMAGE_ROWS: readonly RowSpec[] = [
-    { key: "Dimensions", mono: true, value: ({ info }) => formatDimensions(info) },
+    { key: "Dimensions", mono: true, value: ({ info }) => formatResolution(info) },
     { key: "Megapixels", mono: true, value: ({ info }) => formatMegapixels(info.width, info.height) },
     { key: "Colour profile", value: ({ info }) => formatProfile(info.colorProfile) },
     {
@@ -145,7 +135,7 @@ const VIDEO_ROWS: readonly RowSpec[] = [
         mono: true,
         value: ({ info }) => (info.duration === undefined ? UNKNOWN : formatDuration(info.duration)),
     },
-    { key: "Resolution", mono: true, value: ({ info }) => formatDimensions(info) },
+    { key: "Resolution", mono: true, value: ({ info }) => formatResolution(info) },
     {
         key: "Frame rate",
         mono: true,
@@ -157,13 +147,12 @@ const VIDEO_ROWS: readonly RowSpec[] = [
 ];
 
 const rows = (specs: readonly RowSpec[], details: FileDetails): DetailsRow[] =>
-    specs.map(({ key, mono, value }) => {
-        const row = { key, ...(mono && { mono }) };
-        if (details.status === "loading") return row;
-        if (details.status === "failed") return { ...row, value: UNKNOWN };
-
-        return { ...row, value: value(details) };
-    });
+    rowsFor(
+        specs,
+        details,
+        ({ key, mono }): DetailsRow => ({ key, ...(mono && { mono }) }),
+        ({ value }, ready) => ({ value: value(ready) }),
+    );
 
 /**
  * The sidebar's sections for a file of type `type`: File, then Image or Video. Each value is absent while `details`

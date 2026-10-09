@@ -22,8 +22,8 @@ export const ThresholdSlider = ({ value, onChange, className, ...aria }: Thresho
         value={[value]}
         onValueChange={([next]) => next !== undefined && onChange(next)}
         className={cn("cursor-pointer", className)}
-        trackClassName="bg-[#3F3F46] data-horizontal:h-1"
-        rangeClassName="bg-[#BEF264]"
-        thumbClassName="size-3.5 border-0 bg-[#BEF264] ring-[#BEF264]/40"
+        trackClassName="bg-border-strong data-horizontal:h-1"
+        rangeClassName="bg-primary"
+        thumbClassName="size-3.5 border-0 bg-primary ring-primary/40"
     />
 );

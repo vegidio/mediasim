@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
 import { probeVideo } from "@/ipc/video";
+import type { Inclusion } from "@/lib/gallery";
 import { useGalleryStore } from "@/stores/gallery";
-import type { Inclusion } from "./derive";
 import { DURATION_DWELL_MS, MediaTile, PlaceholderTile } from "./MediaTile";
 
 vi.mock("@/ipc/thumbs", () => ({

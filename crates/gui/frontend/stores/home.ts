@@ -43,8 +43,6 @@ type HomeStore = {
     rescans: number;
 };
 
-/** The name a path's last component gives, on any platform. */
-
 /**
  * Rust's rows, then the optimistic rows it does not describe yet. While a rescan runs, every folder shows as being
  * counted, since a view taken before the rescan started still carries the old counts.

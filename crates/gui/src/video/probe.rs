@@ -7,7 +7,8 @@ use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Manager};
 
 use super::VideoError;
-use crate::thumbs::{Admitted, Refusal, ThumbState, locate};
+use crate::admission::{Admissions, Admitted, locate};
+use crate::scheme::Refusal;
 
 /// A video's container, duration and main streams.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -41,8 +42,8 @@ pub struct StreamProbe {
 
 /// The admitted video behind `identity`, refused as not found when it is an image. Shared with the sessions and the
 /// `video` scheme.
-pub(crate) fn locate_video(state: &ThumbState, identity: &str) -> Result<Admitted, Refusal> {
-    let admitted = locate(state, identity)?;
+pub(crate) fn locate_video(registry: &Admissions, identity: &str) -> Result<Admitted, Refusal> {
+    let admitted = locate(registry, identity)?;
     if MediaType::from_path(&admitted.path) != Some(MediaType::Video) {
         return Err(Refusal::NotFound);
     }
@@ -51,8 +52,8 @@ pub(crate) fn locate_video(state: &ThumbState, identity: &str) -> Result<Admitte
 }
 
 /// What the video behind `identity` holds. The main stream of each kind is the one a session carries.
-fn read(state: &ThumbState, identity: &str) -> Result<VideoProbe, VideoError> {
-    let admitted = locate_video(state, identity)?;
+fn read(registry: &Admissions, identity: &str) -> Result<VideoProbe, VideoError> {
+    let admitted = locate_video(registry, identity)?;
     // Admission refuses a video whose path isn't Unicode.
     let path = admitted.path.to_str().ok_or(VideoError::Gone)?;
 
@@ -88,7 +89,7 @@ fn read(state: &ThumbState, identity: &str) -> Result<VideoProbe, VideoError> {
 /// `unreadable` for one that can't be read as a video.
 #[tauri::command]
 pub async fn probe_video(app: AppHandle, identity: String) -> Result<VideoProbe, VideoError> {
-    spawn_blocking(move || read(&app.state::<ThumbState>(), &identity)).await?
+    spawn_blocking(move || read(&app.state::<Admissions>(), &identity)).await?
 }
 
 #[cfg(test)]
@@ -96,7 +97,7 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::{fixture, state};
+    use crate::admission::tests::fixture;
     use crate::video::fixtures::{admit, mkv, mkv_undecodable, mkv_video_only};
 
     fn stream(codec: &str, codec_string: &str) -> StreamProbe {
@@ -114,7 +115,7 @@ mod tests {
 
     #[test]
     fn an_mp4_reports_its_container_and_codec() {
-        let state = state();
+        let state = Admissions::default();
         let identity = admit(&state, &fixture("test3.mp4"));
 
         let probe = read(&state, &identity).unwrap();
@@ -129,7 +130,7 @@ mod tests {
 
     #[test]
     fn an_mp4_with_audio_reports_it() {
-        let state = state();
+        let state = Admissions::default();
         let identity = admit(&state, &fixture("test4.mp4"));
 
         let probe = read(&state, &identity).unwrap();
@@ -140,7 +141,7 @@ mod tests {
 
     #[test]
     fn only_the_audio_stream_reports_a_sample_rate() {
-        let state = state();
+        let state = Admissions::default();
         let identity = admit(&state, &fixture("test4.mp4"));
 
         let json = serde_json::to_value(read(&state, &identity).unwrap()).unwrap();
@@ -151,7 +152,7 @@ mod tests {
 
     #[test]
     fn an_mkv_reports_matroska_and_the_same_codec_strings() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
         let mp4 = read(&state, &admit(&state, &fixture("test3.mp4"))).unwrap();
         let identity = admit(&state, &mkv(dir.path()));
@@ -165,7 +166,7 @@ mod tests {
 
     #[test]
     fn a_video_only_file_has_no_audio() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
         let identity = admit(&state, &mkv_video_only(dir.path()));
 
@@ -177,7 +178,7 @@ mod tests {
 
     #[test]
     fn a_stream_that_cant_be_decoded_is_reported_not_refused() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
         let identity = admit(&state, &mkv_undecodable(dir.path()));
 
@@ -189,7 +190,7 @@ mod tests {
 
     #[test]
     fn the_answer_is_camel_case_and_leaves_out_what_is_absent() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
         let identity = admit(&state, &mkv_video_only(dir.path()));
 
@@ -211,7 +212,7 @@ mod tests {
 
     #[test]
     fn an_image_and_an_unknown_identity_are_not_found() {
-        let state = state();
+        let state = Admissions::default();
         let image = admit(&state, &fixture("test1.png"));
 
         assert_eq!(read(&state, &image), Err(VideoError::NotFound));
@@ -220,7 +221,7 @@ mod tests {
 
     #[test]
     fn a_removed_file_is_gone() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
         let path = mkv(dir.path());
         let identity = admit(&state, &path);
@@ -232,7 +233,7 @@ mod tests {
 
     #[test]
     fn a_file_that_is_not_a_video_inside_is_unreadable() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-probe-").unwrap();
         let path = dir.path().join("fake.mkv");
         std::fs::write(&path, b"not a video").unwrap();

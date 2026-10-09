@@ -1,6 +1,5 @@
 //! The grouping pipeline shared by `files` and `dir`: load, group, order and print.
 
-use std::cmp::Ordering;
 use std::path::PathBuf;
 
 use mediasim::{CompareOptions, DirCache, Media, OnError, Scan, Scanned};
@@ -47,7 +46,7 @@ pub fn run(
         cache.finish();
     }
     for members in &mut groups {
-        members.sort_by(best_first);
+        members.sort_by(Media::best_first);
     }
 
     if !skipped.is_empty() {
@@ -76,68 +75,4 @@ pub fn run(
     }
 
     Ok(())
-}
-
-/// Orders media best first: longer duration (an image counts as zero), then more pixels, then larger file, with the
-/// path as the tie-break.
-fn best_first(a: &Media, b: &Media) -> Ordering {
-    b.duration
-        .unwrap_or_default()
-        .cmp(&a.duration.unwrap_or_default())
-        .then_with(|| b.pixels().cmp(&a.pixels()))
-        .then_with(|| b.size.cmp(&a.size))
-        .then_with(|| a.path.cmp(&b.path))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_support::{self, paths};
-
-    fn best_first_order(mut group: Vec<Media>) -> Vec<PathBuf> {
-        group.sort_by(best_first);
-        group.into_iter().map(|m| m.path).collect()
-    }
-
-    fn sized(mut media: Media, size: u64) -> Media {
-        media.size = size;
-        media
-    }
-
-    #[test]
-    fn resolution_decides() {
-        let group = vec![test_support::media("a.png", 500, 500, None), test_support::media("b.png", 1000, 1000, None)];
-
-        assert_eq!(best_first_order(group), paths(&["b.png", "a.png"]));
-    }
-
-    #[test]
-    fn duration_decides_before_resolution() {
-        let group = vec![
-            test_support::media("a.mp4", 1920, 1080, Some(30)),
-            test_support::media("b.mp4", 1280, 720, Some(60)),
-        ];
-
-        assert_eq!(best_first_order(group), paths(&["b.mp4", "a.mp4"]));
-    }
-
-    #[test]
-    fn file_size_breaks_a_tie() {
-        let group = vec![
-            sized(test_support::media("a.png", 200, 50, None), 10),
-            sized(test_support::media("b.png", 100, 100, None), 20),
-        ];
-
-        assert_eq!(best_first_order(group), paths(&["b.png", "a.png"]));
-    }
-
-    #[test]
-    fn path_breaks_a_full_tie() {
-        let group = vec![
-            sized(test_support::media("b.png", 100, 100, None), 10),
-            sized(test_support::media("a.png", 100, 100, None), 10),
-        ];
-
-        assert_eq!(best_first_order(group), paths(&["a.png", "b.png"]));
-    }
 }

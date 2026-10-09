@@ -1,7 +1,7 @@
 import { act } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_RULES } from "@/features/groups/rules";
+import { DEFAULT_RULES } from "@/lib/rules";
 import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { SettingsScreen } from "./SettingsScreen";
@@ -173,8 +173,8 @@ describe("SettingsScreen", () => {
     it("draws the selected indicator green for the Trash and red for permanent deletion", () => {
         render(<SettingsScreen />);
 
-        expect(option("Move to Trash")).toHaveClass("data-checked:border-[#BEF264]");
-        expect(option("Delete permanently")).toHaveClass("data-checked:border-[#F87171]");
+        expect(option("Move to Trash")).toHaveClass("data-checked:border-primary");
+        expect(option("Delete permanently")).toHaveClass("data-checked:border-danger-bright");
     });
 
     it("moves the selection with the Down arrow", async () => {

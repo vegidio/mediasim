@@ -13,10 +13,10 @@ export const SLOTS: readonly Slot[] = ["a", "b"];
  * - One file onto the card outside the slots: the first empty slot, A before B, or none when both are filled.
  *
  * @param count the number of files that can be placed in a slot.
- * @param target the slot under the drop, or `undefined` outside both.
  * @param filled which slots hold a file.
+ * @param target the slot under the drop, absent outside both.
  */
-export const route = (count: number, target: Slot | undefined, filled: { a: boolean; b: boolean }): Slot[] => {
+export const route = (count: number, filled: { a: boolean; b: boolean }, target?: Slot): Slot[] => {
     if (count === 0) return [];
     if (count >= 2) return ["a", "b"];
     if (target) return [target];

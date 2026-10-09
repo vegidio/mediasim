@@ -1,14 +1,18 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { pickFile, pickFiles, pickFolders } from "./dialog";
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-const mockedOpen = open as Mock;
+const mockedInvoke = invoke as Mock;
+
+beforeEach(() => {
+    mockedInvoke.mockReset();
+});
 
 describe("pickFiles", () => {
     it("filters on every extension in both cases and returns the picked files", async () => {
-        mockedOpen.mockResolvedValue(["/a.jpg", "/b.MOV"]);
+        mockedInvoke.mockResolvedValue(["/a.jpg", "/b.MOV"]);
 
         const picked = await pickFiles([
             { type: "image", extensions: ["jpg", "jpeg"] },
@@ -16,23 +20,27 @@ describe("pickFiles", () => {
         ]);
 
         expect(picked).toEqual(["/a.jpg", "/b.MOV"]);
-        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith({
-            multiple: true,
-            directory: false,
+        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("pick_files", {
             filters: [{ name: "Images and videos", extensions: ["jpg", "JPG", "jpeg", "JPEG", "mov", "MOV"] }],
         });
     });
 
     it("returns nothing when cancelled", async () => {
-        mockedOpen.mockResolvedValue(null);
+        mockedInvoke.mockResolvedValue([]);
 
         await expect(pickFiles([])).resolves.toEqual([]);
+    });
+
+    it("rejects when the command does", async () => {
+        mockedInvoke.mockRejectedValue("the background task did not finish");
+
+        await expect(pickFiles([])).rejects.toBe("the background task did not finish");
     });
 });
 
 describe("pickFile", () => {
     it("opens a single-file picker with the same filter and returns the picked file", async () => {
-        mockedOpen.mockResolvedValue("/a.JPG");
+        mockedInvoke.mockResolvedValue("/a.JPG");
 
         const picked = await pickFile([
             { type: "image", extensions: ["jpg"] },
@@ -40,15 +48,13 @@ describe("pickFile", () => {
         ]);
 
         expect(picked).toBe("/a.JPG");
-        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith({
-            multiple: false,
-            directory: false,
+        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("pick_file", {
             filters: [{ name: "Images and videos", extensions: ["jpg", "JPG", "mov", "MOV"] }],
         });
     });
 
     it("returns undefined when cancelled", async () => {
-        mockedOpen.mockResolvedValue(null);
+        mockedInvoke.mockResolvedValue(JSON.parse("null"));
 
         await expect(pickFile([])).resolves.toBeUndefined();
     });
@@ -56,14 +62,14 @@ describe("pickFile", () => {
 
 describe("pickFolders", () => {
     it("opens a multi-select folder picker and returns the picked folders", async () => {
-        mockedOpen.mockResolvedValue(["/x", "/y"]);
+        mockedInvoke.mockResolvedValue(["/x", "/y"]);
 
         await expect(pickFolders()).resolves.toEqual(["/x", "/y"]);
-        expect(mockedOpen).toHaveBeenCalledExactlyOnceWith({ multiple: true, directory: true });
+        expect(mockedInvoke).toHaveBeenCalledExactlyOnceWith("pick_folders");
     });
 
     it("returns nothing when cancelled", async () => {
-        mockedOpen.mockResolvedValue(null);
+        mockedInvoke.mockResolvedValue([]);
 
         await expect(pickFolders()).resolves.toEqual([]);
     });

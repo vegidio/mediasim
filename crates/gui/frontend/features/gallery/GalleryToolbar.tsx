@@ -4,20 +4,19 @@ import { ThresholdSlider } from "@/components/ThresholdSlider";
 import { Button } from "@/components/ui/button";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { focusContinue } from "@/features/home/SetCard";
+import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "@/lib/gallery";
+import { focusById } from "@/lib/utils";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
 import { ComparisonOptionsMenu } from "./ComparisonOptionsMenu";
-import { compareCount, compareState, type FilterCounts, filterCounts, identity } from "./derive";
 
 /** The Compare button's id, which focus is sent to on coming back from a comparison. */
-export const COMPARE_BUTTON_ID = "gallery-compare";
+const COMPARE_BUTTON_ID = "gallery-compare";
 
 /** Move focus to the gallery's Compare button, once React has rendered the gallery just shown. */
-export const focusCompare = () => {
-    requestAnimationFrame(() => document.getElementById(COMPARE_BUTTON_ID)?.focus());
-};
+export const focusCompare = () => focusById(COMPARE_BUTTON_ID);
 
 /** The filter tabs, in the order the toolbar shows them. */
 const FILTERS: { value: GalleryFilter; label: string }[] = [
@@ -40,7 +39,7 @@ const BackButton = () => {
                 show("home");
                 focusContinue();
             }}
-            className="h-9 gap-1.5 rounded-lg border-[#27272A] bg-transparent pr-3 pl-2 text-[#E4E4E7] text-sm dark:border-[#27272A] dark:bg-transparent [&_svg:not([class*='size-'])]:size-4"
+            className="h-9 gap-1.5 rounded-lg border-border bg-transparent pr-3 pl-2 text-text-label text-sm dark:border-border dark:bg-transparent [&_svg:not([class*='size-'])]:size-4"
         >
             <ArrowLeftIcon aria-hidden="true" />
             Back
@@ -57,12 +56,12 @@ const IdentityBlock = () => {
 
     return (
         <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#27272A] bg-[#18181B] text-[#A1A1AA]">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
                 <Icon aria-hidden="true" className="size-[18px]" />
             </span>
             <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate font-semibold text-[15px]">{title}</span>
-                <span title={details} className="truncate font-mono text-[#A1A1AA] text-xs">
+                <span title={details} className="truncate font-mono text-muted-foreground text-xs">
                     {details}
                 </span>
             </div>
@@ -78,7 +77,7 @@ const FilterTabs = ({ counts }: { counts?: FilterCounts }) => {
     const returnToGrid = useGalleryStore((state) => state.returnToGrid);
 
     return (
-        <TabsList aria-label="Filter media" className="h-auto rounded-[9px] border-[#27272A] bg-[#18181B]">
+        <TabsList aria-label="Filter media" className="h-auto rounded-[9px] border-border bg-muted">
             {FILTERS.map(({ value, label }) => (
                 // A click from Enter or Space has no pointer press, and so a `detail` of 0.
                 <TabsTrigger
@@ -90,7 +89,7 @@ const FilterTabs = ({ counts }: { counts?: FilterCounts }) => {
                     {label}
                     {/* A space, so the name reads "Images 36"; a flex container doesn't render it. */}
                     {counts && " "}
-                    {counts && <span className="font-mono text-[#A1A1AA] text-[11px]">{counts[value]}</span>}
+                    {counts && <span className="font-mono text-muted-foreground text-[11px]">{counts[value]}</span>}
                 </TabsTrigger>
             ))}
         </TabsList>
@@ -105,7 +104,7 @@ const ThresholdControl = () => {
 
     return (
         <div className="flex items-center gap-2.5">
-            <span id={labelId} className="whitespace-nowrap text-[#A1A1AA] text-[13px]">
+            <span id={labelId} className="whitespace-nowrap text-muted-foreground text-[13px]">
                 Match threshold
             </span>
             <ThresholdSlider
@@ -132,7 +131,7 @@ const CompareButton = ({ count }: { count?: number }) => {
                 id={COMPARE_BUTTON_ID}
                 disabled={!enabled}
                 onClick={() => useScanStore.getState().start()}
-                className="h-[38px] gap-2 rounded-r-none px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90"
+                className="h-[38px] gap-2 rounded-r-none px-4 font-semibold text-primary-foreground text-sm hover:bg-primary/90"
             >
                 {label}
                 <ArrowRightIcon aria-hidden="true" />
@@ -150,10 +149,10 @@ export const GalleryToolbar = () => {
     const counts = files && filterCounts(files);
 
     return (
-        <div className="grid h-[72px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 border-[#1F1F23] border-b px-6">
+        <div className="grid h-[72px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 border-border-subtle border-b px-6">
             <div className="flex min-w-0 items-center gap-3">
                 <BackButton />
-                <span aria-hidden="true" className="h-7 w-px shrink-0 bg-[#27272A]" />
+                <span aria-hidden="true" className="h-7 w-px shrink-0 bg-border" />
                 <IdentityBlock />
             </div>
             <FilterTabs {...(counts && { counts })} />

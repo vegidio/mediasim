@@ -93,7 +93,7 @@ export const useReorderAnimation = <T>({
 
     useLayoutEffect(() => {
         const last = committed.current;
-        committed.current = { ...(arrangement !== undefined && { arrangement }), tiles, columns };
+        committed.current = { ...(arrangement && { arrangement }), tiles, columns };
 
         if (last && last.arrangement !== arrangement) {
             if (scroller) scroller.scrollTop = 0;

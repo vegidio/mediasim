@@ -1,9 +1,20 @@
 //! Similarity between two loaded [`Media`] values.
 
+use std::borrow::Cow;
+
 use super::diff::calculate_diff;
 use super::dtw;
 use super::orientation::Orientation;
 use crate::{CompareError, CompareOptions, Icon, Media, MediaType};
+
+/// A media's frames in each orientation that some [`CompareOptions`] enable, the identity first, prepared once so
+/// that comparing it with many other media orients it only once.
+#[derive(Debug)]
+pub(crate) struct Oriented<'a> {
+    media_type: MediaType,
+    /// One sequence of frames per orientation; the identity borrows the media's own frames.
+    frames: Vec<Cow<'a, [Icon]>>,
+}
 
 impl Media {
     /// Scores how alike `self` and `other` look, from `0` (completely different) to `1` (identical).
@@ -16,7 +27,8 @@ impl Media {
     ///
     /// # Errors
     ///
-    /// Returns [`CompareError::MediaTypeMismatch`] if one is an image and the other a video.
+    /// - [`CompareError::MediaTypeMismatch`] if one is an image and the other a video.
+    /// - [`CompareError::NoFrames`] if either has no frames to compare.
     pub fn similarity(&self, other: &Media) -> Result<f64, CompareError> {
         self.similarity_with(other, CompareOptions::default())
     }
@@ -30,7 +42,8 @@ impl Media {
     ///
     /// # Errors
     ///
-    /// Returns [`CompareError::MediaTypeMismatch`] if one is an image and the other a video.
+    /// - [`CompareError::MediaTypeMismatch`] if one is an image and the other a video.
+    /// - [`CompareError::NoFrames`] if either has no frames to compare, `self` checked first.
     pub fn similarity_with(&self, other: &Media, options: CompareOptions) -> Result<f64, CompareError> {
         if self.media_type != other.media_type {
             return Err(CompareError::MediaTypeMismatch {
@@ -40,39 +53,56 @@ impl Media {
                 right_type: other.media_type,
             });
         }
+        if let Some(empty) = [self, other].into_iter().find(|media| media.frames.is_empty()) {
+            return Err(CompareError::NoFrames { path: empty.path.clone() });
+        }
 
-        Ok(self.scores(other, options).fold(0.0, f64::max))
+        Ok(other.oriented(options).frames.iter().map(|frames| self.score(frames)).fold(0.0, f64::max))
     }
 
     /// Whether `self` and `other`, which must be of the same type, score at least `threshold` under `options`,
-    /// stopping at the first orientation that does.
+    /// stopping at the first orientation that does. Media without frames match nothing.
+    #[cfg(test)]
     pub(crate) fn matches(&self, other: &Media, options: CompareOptions, threshold: f64) -> bool {
-        self.scores(other, options).any(|score| score >= threshold)
+        self.matches_oriented(&other.oriented(options), threshold)
     }
 
-    /// The score of `self` against each orientation of `other` that `options` enables, in order and computed lazily.
-    /// Both must be of the same type.
+    /// Whether `self` scores at least `threshold` against `other`, the frames of a media of the same type prepared by
+    /// [`oriented`](Self::oriented), stopping at the first orientation that does. Media without frames match nothing.
     ///
-    /// Only `other` is oriented. The orientation sets are closed under inverses and [`euc_metric`](crate::euc_metric)
-    /// does not depend on pixel order, so the best score is bit-identical in either order.
-    fn scores<'a>(&'a self, other: &'a Media, options: CompareOptions) -> impl Iterator<Item = f64> + 'a {
-        debug_assert_eq!(self.media_type, other.media_type, "only media of the same type are scored");
+    /// The decision is the one [`similarity_with`](Self::similarity_with)'s score would give, but a video comparison
+    /// stops as soon as the alignment can no longer reach `threshold`.
+    pub(crate) fn matches_oriented(&self, other: &Oriented<'_>, threshold: f64) -> bool {
+        debug_assert_eq!(self.media_type, other.media_type, "only media of the same type are compared");
+        if self.frames.is_empty() || other.frames[0].is_empty() {
+            return false;
+        }
 
-        // Reused by every orientation; only allocated once one other than the identity is reached.
-        let mut oriented: Vec<Icon> = Vec::new();
+        other.frames.iter().any(|frames| self.reaches(frames, threshold))
+    }
 
-        options.orientations().iter().map(move |&orientation| {
-            if orientation == Orientation::Identity {
-                return self.score(&other.frames);
-            }
-            if oriented.is_empty() {
-                oriented.clone_from(&other.frames);
-            }
-            for (frame, out) in other.frames.iter().zip(&mut oriented) {
-                orientation.apply_into(frame, out);
-            }
-            self.score(&oriented)
-        })
+    /// `self`'s frames in each orientation that `options` enables, the identity first.
+    ///
+    /// Only one side of a comparison is oriented. The orientation sets are closed under inverses and
+    /// [`euc_metric`](crate::euc_metric) does not depend on pixel order, so the best score is bit-identical whichever
+    /// side it is.
+    pub(crate) fn oriented(&self, options: CompareOptions) -> Oriented<'_> {
+        let frames = options
+            .orientations()
+            .iter()
+            .map(|&orientation| {
+                if orientation == Orientation::Identity {
+                    return Cow::Borrowed(&self.frames[..]);
+                }
+                let mut oriented = self.frames.clone();
+                for (frame, out) in self.frames.iter().zip(&mut oriented) {
+                    orientation.apply_into(frame, out);
+                }
+                Cow::Owned(oriented)
+            })
+            .collect();
+
+        Oriented { media_type: self.media_type, frames }
     }
 
     /// Scores `self`'s frames against `frames`, which belong to media of the same type.
@@ -84,8 +114,35 @@ impl Media {
             }
         };
 
-        (1.0 - diff).clamp(0.0, 1.0)
+        score_of(diff)
     }
+
+    /// Whether [`score`](Self::score) of `frames` is at least `threshold`, giving up on a video's alignment as soon as
+    /// it can no longer get there.
+    fn reaches(&self, frames: &[Icon], threshold: f64) -> bool {
+        match self.media_type {
+            MediaType::Image => score_of(calculate_diff(&self.frames[0], &frames[0])) >= threshold,
+            MediaType::Video => {
+                let cost = |i, j| calculate_diff(&self.frames[i], &frames[j]);
+                // `score_of` never rises as the mean does, so a lower bound of the mean that already falls short
+                // means the mean itself does too: the monotonicity `mean_cost_bounded` asks of its predicate.
+                dtw::mean_cost_bounded(self.frames.len(), frames.len(), cost, |lower| falls_short(lower, threshold))
+                    .is_some_and(|mean| score_of(mean) >= threshold)
+            }
+        }
+    }
+}
+
+/// The score of a difference (or mean difference) `diff`: `1 - diff`, kept within `[0, 1]`. It never rises as `diff`
+/// does, in floating point too.
+pub(super) fn score_of(diff: f64) -> f64 {
+    (1.0 - diff).clamp(0.0, 1.0)
+}
+
+/// Whether a difference of `diff` scores below `threshold`. Since [`score_of`] never rises with `diff`, every larger
+/// difference falls short too.
+pub(super) fn falls_short(diff: f64, threshold: f64) -> bool {
+    score_of(diff) < threshold
 }
 
 #[cfg(test)]
@@ -162,7 +219,9 @@ mod tests {
         let vid = video("b.mp4", fade());
 
         let err = img.similarity(&vid).unwrap_err();
-        let CompareError::MediaTypeMismatch { left, left_type, right, right_type } = err;
+        let CompareError::MediaTypeMismatch { left, left_type, right, right_type } = err else {
+            panic!("expected a type mismatch: {err}")
+        };
         assert_eq!((left.to_str(), left_type), (Some("a.png"), MediaType::Image));
         assert_eq!((right.to_str(), right_type), (Some("b.mp4"), MediaType::Video));
     }
@@ -173,7 +232,9 @@ mod tests {
         let vid = video("b.mp4", fade());
 
         let err = vid.similarity(&img).unwrap_err();
-        let CompareError::MediaTypeMismatch { left_type, right_type, .. } = err;
+        let CompareError::MediaTypeMismatch { left_type, right_type, .. } = err else {
+            panic!("expected a type mismatch: {err}")
+        };
         assert_eq!((left_type, right_type), (MediaType::Video, MediaType::Image));
     }
 
@@ -368,6 +429,61 @@ mod tests {
         for options in all_options() {
             assert!(matches!(img.similarity_with(&vid, options), Err(CompareError::MediaTypeMismatch { .. })));
             assert!(matches!(vid.similarity_with(&img, options), Err(CompareError::MediaTypeMismatch { .. })));
+        }
+    }
+
+    #[test]
+    fn media_without_frames_cannot_be_compared() {
+        let empty = image("empty.png", Icon::solid(0, GREY, GREY));
+        let empty = Media { frames: Vec::new(), ..empty };
+        let full = image("full.png", Icon::textured(1));
+
+        for options in all_options() {
+            for (a, b) in [(&empty, &full), (&full, &empty), (&empty, &empty)] {
+                let err = a.similarity_with(b, options).unwrap_err();
+                let CompareError::NoFrames { path } = err else { panic!("expected no frames: {err}") };
+                assert_eq!(path, empty.path);
+                for threshold in [0.0, 0.5, 1.0] {
+                    assert!(!a.matches(b, options, threshold), "{options:?} at {threshold}");
+                }
+            }
+        }
+
+        let empty_video = video("empty.mp4", Vec::new());
+        assert!(matches!(empty_video.similarity(&video("b.mp4", fade())), Err(CompareError::NoFrames { .. })));
+        assert!(!empty_video.matches(&empty_video, CompareOptions::new(), 0.0));
+    }
+
+    #[test]
+    fn a_type_mismatch_is_reported_before_missing_frames() {
+        let empty = Media { frames: Vec::new(), ..image("a.png", Icon::textured(1)) };
+
+        let err = empty.similarity(&video("b.mp4", fade())).unwrap_err();
+
+        assert!(matches!(err, CompareError::MediaTypeMismatch { .. }), "{err}");
+    }
+
+    #[test]
+    fn video_matches_stop_early_without_changing_the_decision() {
+        // Long enough that the alignment has rows left to skip, under every option, at thresholds on both sides of the
+        // scores.
+        let pairs = [
+            (textured_video("a.mp4", 200, 12), textured_video("b.mp4", 300, 9)),
+            (
+                textured_video("a.mp4", 400, 10),
+                oriented(&textured_video("b.mp4", 400, 10), Orientation::FlipH),
+            ),
+            (video("a.mp4", fade()), video("b.mp4", fade().into_iter().rev().collect())),
+        ];
+
+        for (a, b) in pairs {
+            for options in all_options() {
+                let score = a.similarity_with(&b, options).unwrap();
+                for threshold in [0.0, 0.3, 0.5, 0.6, 0.7, 0.9, 1.0, score, score.next_up(), score.next_down()] {
+                    let threshold = threshold.clamp(0.0, 1.0);
+                    assert_eq!(a.matches(&b, options, threshold), score >= threshold, "{options:?} at {threshold}");
+                }
+            }
         }
     }
 }

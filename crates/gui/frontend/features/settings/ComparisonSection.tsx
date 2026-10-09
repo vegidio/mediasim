@@ -27,7 +27,7 @@ const ThresholdRow = () => {
                         onChange={(value) => update({ matchThreshold: value })}
                         className="w-40"
                     />
-                    <span className="w-10 text-right font-mono text-[#E4E4E7] text-[13px] tabular-nums">
+                    <span className="w-10 text-right font-mono text-text-label text-[13px] tabular-nums">
                         {matchThreshold}%
                     </span>
                 </div>

@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 
 #[cfg(feature = "cache")]
 use crate::DirCache;
+use crate::cancel::CancelOnDrop;
+use crate::core::check_threshold;
 #[cfg(feature = "cache")]
 use crate::media::CachedDecoder;
 use crate::media::Loading;
@@ -14,7 +16,8 @@ use crate::{CancelToken, CompareOptions, Eta, Grouper, Media, MediaError, MediaS
 /// What a [`Scan`] does with a file that can't be loaded.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum OnError {
-    /// The first such file ends the scan with its error, and files not yet started are not loaded.
+    /// The first such file ends the scan with its error: files not yet started are not loaded, and those loading stop
+    /// as they would on a cancel.
     #[default]
     Stop,
     /// The file is counted as done and as skipped, and the scan goes on. Its error is returned in
@@ -78,7 +81,8 @@ pub enum ScanError {
 ///
 /// A [`CancelToken`] given with [`cancel`](Self::cancel) stops the scan from another thread: loads in flight stop as
 /// [`Media::from_file_cancellable`] does, files not started are not loaded, no new comparison starts, no further event
-/// is reported, and `run` returns [`ScanError::Cancelled`]. A comparison already under way finishes first.
+/// is reported, and `run` returns [`ScanError::Cancelled`]. A comparison already under way finishes first. A scan that
+/// ends early for any other reason stops its loads in flight the same way, without cancelling the token.
 ///
 /// ```no_run
 /// use mediasim::{OnError, Scan, ScanEvent};
@@ -113,7 +117,7 @@ impl Scan {
     ///
     /// Panics unless `threshold` is a number in the closed range `[0, 1]`, as [`Grouper::new`] does.
     pub fn new(paths: impl IntoIterator<Item = impl Into<PathBuf>>, threshold: f64) -> Self {
-        assert!((0.0..=1.0).contains(&threshold), "the threshold must be between 0 and 1, got {threshold}");
+        check_threshold(threshold);
 
         Self {
             paths: paths.into_iter().map(Into::into).collect(),
@@ -175,13 +179,18 @@ impl Scan {
             self.paths.iter().enumerate().map(|(i, path)| (path.clone(), i)).collect();
         let mut grouper = Grouper::with_options(self.threshold, self.options);
         let on_error = self.on_error;
-        let mut stream = self.stream();
+        // The loads answer to a token of the scan's own, cancelled on every way out of `run`, so a scan that ends
+        // early (on an error, say) also stops the decodes already under way instead of leaving them running on the
+        // shared pools. It is declared before `stream`, so the stream is dropped first.
+        let loads = self.cancel.child();
+        let _stop_loads = CancelOnDrop(loads.clone());
+        let mut stream = self.stream(&loads);
 
         let started = Instant::now();
         let mut eta = Eta::default();
         let (mut done, mut skipped) = (0, Vec::new());
 
-        // Returning drops `stream`, which stops every file not yet started.
+        // Returning drops `stream`, which stops every file not yet started, and `_stop_loads`, which stops the rest.
         while let Some(loading) = stream.next_loading() {
             if cancelled() {
                 return Err(ScanError::Cancelled);
@@ -227,14 +236,14 @@ impl Scan {
         Ok(Scanned { groups, skipped })
     }
 
-    /// Starts loading the files, through the cache if there is one.
-    fn stream(self) -> MediaStream {
+    /// Starts loading the files, through the cache if there is one, stopping once `cancel` is cancelled.
+    fn stream(self, cancel: &CancelToken) -> MediaStream {
         #[cfg(feature = "cache")]
         if let Some(decoder) = self.cache {
-            return Media::from_files_cached_cancellable(self.paths, decoder, &self.cancel);
+            return Media::from_files_cached_cancellable(self.paths, decoder, cancel);
         }
 
-        Media::from_files_cancellable(self.paths, &self.cancel)
+        Media::from_files_cancellable(self.paths, cancel)
     }
 }
 
@@ -265,5 +274,38 @@ mod tests {
 
         assert_eq!(ScanError::Cancelled.to_string(), "the scan was cancelled");
         assert_eq!(load.to_string(), "unsupported file notes.txt");
+    }
+
+    #[cfg(feature = "cache")]
+    #[test]
+    fn a_scan_stopped_by_an_error_stops_the_loads_under_way() {
+        use std::fs::File;
+
+        use crate::media::tests::fixture;
+
+        let dir = rust_sak::fs::mk_temp_dir("mediasim").unwrap();
+        let videos = [dir.path().join("a.mp4"), dir.path().join("b.mp4")];
+        std::fs::copy(fixture("test3.mp4"), &videos[0]).unwrap();
+        std::fs::copy(fixture("test4.mp4"), &videos[1]).unwrap();
+        let broken = dir.path().join("broken.png");
+        std::fs::write(&broken, b"not a png").unwrap();
+        let cache = DirCache::open(dir.path()).unwrap();
+
+        // The broken image fails at once, long before either video could finish decoding.
+        let result = Scan::new([broken, videos[0].clone(), videos[1].clone()], 0.9).cache(&cache).run(|_| {});
+        assert!(matches!(result, Err(ScanError::Load(MediaError::Image { .. }))), "{result:?}");
+
+        // Every video worker runs this only once the decode it had under way has ended, stored or not.
+        crate::pool::video_pool().broadcast(|_| ());
+
+        // A stopped load stores nothing, so the videos are decoded again: as garbage, with the same size and mtime.
+        for path in &videos {
+            let mtime = std::fs::metadata(path).unwrap().modified().unwrap();
+            let len = usize::try_from(std::fs::metadata(path).unwrap().len()).unwrap();
+            std::fs::write(path, vec![0xAB; len]).unwrap();
+            File::options().write(true).open(path).unwrap().set_modified(mtime).unwrap();
+        }
+        let results: Vec<_> = Media::from_files_cached(videos.to_vec(), &cache).collect();
+        assert!(results.iter().all(|r| matches!(r, Err(MediaError::Video { .. }))), "{results:?}");
     }
 }

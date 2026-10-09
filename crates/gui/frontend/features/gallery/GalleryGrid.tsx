@@ -12,9 +12,9 @@ import {
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@/components/ui/button";
+import { inclusion, ordered } from "@/lib/gallery";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
-import { inclusion, ordered } from "./derive";
 import { columnsFor, PADDING, ROW_GAP, ROW_HEIGHT, rowWidth, tileOffset } from "./layout";
 import { MediaTile, PlaceholderTile } from "./MediaTile";
 import { isArrow, move } from "./navigate";
@@ -93,7 +93,7 @@ const VirtualRows = <T,>({
         })),
     );
     const { departing, track } = useReorderAnimation({
-        ...(arrangement !== undefined && { arrangement }),
+        ...(arrangement && { arrangement }),
         tiles,
         keyOf,
         columns,

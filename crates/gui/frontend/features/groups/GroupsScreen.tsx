@@ -1,19 +1,19 @@
-import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, type MouseEvent, useRef, useState } from "react";
 import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MediaFile } from "@/ipc/thumbs";
+import { autoSelect, fileCount, type GroupView, keepBestOnly, markedFiles, pickBest, visibleGroups } from "@/lib/marks";
+import type { Rule } from "@/lib/rules";
 import { selectMedia, useScanStore } from "@/stores/scan";
 import { useSettingsStore } from "@/stores/settings";
 import { AutoSelectDialog } from "./AutoSelectDialog";
 import { focusAutoSelectOptions } from "./AutoSelectMenu";
 import { leftSummary, resolvedLine, summary, uniqueLine } from "./format";
-import { GroupCard, type GroupView } from "./GroupCard";
+import { GroupCard } from "./GroupCard";
 import { GroupDetailsDialog } from "./GroupDetailsDialog";
 import { GroupsFooter } from "./GroupsFooter";
 import { GroupsToolbar, useNewComparison } from "./GroupsToolbar";
-import { autoSelect, fileCount, keepBestOnly, markedFiles, pickBest, visibleGroups } from "./marks";
 import { stepFlat, stepVertical, type TileBox } from "./navigate";
-import type { Rule } from "./rules";
 
 /** A round check mark, a heading, a line, and New comparison, centred in the groups area. */
 const Resolved = ({ heading, line }: { heading: string; line: string }) => {
@@ -25,10 +25,10 @@ const Resolved = ({ heading, line }: { heading: string; line: string }) => {
                 <CheckIcon aria-hidden="true" className="size-[26px]" strokeWidth={2.4} />
             </span>
             <h2 className="font-semibold text-[22px] tracking-[-0.02em]">{heading}</h2>
-            <p className="max-w-[440px] text-[#A1A1AA] text-sm leading-normal">{line}</p>
+            <p className="max-w-[440px] text-muted-foreground text-sm leading-normal">{line}</p>
             <Button
                 onClick={newComparison}
-                className="mt-1.5 h-10 rounded-lg px-[18px] font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90"
+                className="mt-1.5 h-10 rounded-lg px-[18px] font-semibold text-primary-foreground text-sm hover:bg-primary/90"
             >
                 New comparison
             </Button>
@@ -98,13 +98,15 @@ export const GroupsScreen = () => {
     const media = useScanStore(selectMedia);
     // The result's groups less the files removed. A change to the rules moves the best files, and leaves the marks to
     // the user.
-    const visible = useMemo(() => visibleGroups(result?.groups ?? [], gone), [result, gone]);
-    const groups = useMemo(() => pickBest(visible, rules), [visible, rules]);
-    const marked = useMemo(() => markedFiles(groups, marks), [groups, marks]);
+    const visible = visibleGroups(result?.groups ?? [], gone);
+    const groups = pickBest(visible, rules);
+    const marked = markedFiles(groups, marks);
     // Every group's files in screen order, which ← and → step through.
-    const paths = useMemo(() => groups.flatMap((group) => group.files.map((file) => file.path)), [groups]);
-    // The selected file's path, whose thumbnail, or else Group 1's first, is the groups area's stop in the tab order.
-    const [selected, setSelected] = useState<string>();
+    const paths = groups.flatMap((group) => group.files.map((file) => file.path));
+    // The selected file's path, whose thumbnail, or else Group 1's first, is the groups area's stop in the tab order. A
+    // selected tile whose file is removed leaves no tile selected.
+    const [chosen, setSelected] = useState<string>();
+    const selected = chosen && !gone.has(chosen) ? chosen : undefined;
     const tabbable = selected ?? paths[0];
     // The path of the file the details show, while they are open, and of the one they last showed, to focus its tile.
     const [shown, setShown] = useState<string>();
@@ -113,12 +115,7 @@ export const GroupsScreen = () => {
     // Whether the Auto-select rules dialog is open.
     const [rulesOpen, setRulesOpen] = useState(false);
 
-    // A selected tile whose file is removed leaves no tile selected.
-    useEffect(() => {
-        if (selected && gone.has(selected)) setSelected(undefined);
-    }, [selected, gone]);
-
-    if (!result || !heading) return null;
+    if (!result || !heading) return;
 
     const select = (path?: string) => {
         if (!path) return;
@@ -135,7 +132,7 @@ export const GroupsScreen = () => {
 
     const applyRules = (rules: Rule[]) => {
         useSettingsStore.getState().update({ autoSelectRules: rules });
-        // From the rules themselves, so the marks land in the same render as the badges the memo moves.
+        // From the rules themselves, so the marks land in the same render as the badges the new rules move.
         setMarks(autoSelect(pickBest(visible, rules)));
         setRulesOpen(false);
     };
@@ -219,9 +216,9 @@ export const GroupsScreen = () => {
                                 number={index + 1}
                                 group={group}
                                 media={media}
-                                marks={marks}
                                 onToggle={toggleMark}
-                                onKeepBestOnly={() => setMarks(keepBestOnly(marks, group))}
+                                // Read at the click, so a mark toggled elsewhere doesn't re-render every card.
+                                onKeepBestOnly={() => setMarks(keepBestOnly(useScanStore.getState().marks, group))}
                                 {...(selected && { selected })}
                                 {...(tabbable && { tabbable })}
                                 onSelect={setSelected}

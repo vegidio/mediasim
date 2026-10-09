@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { route, type Slot } from "@/features/home/routePairDrop";
 import { describeMedia, type MediaFile } from "@/ipc/thumbs";
+import { route, type Slot } from "@/lib/slots";
 
 /** State of the "Compare two files" card, kept for as long as the application runs. */
 type PairStore = {
@@ -9,8 +9,8 @@ type PairStore = {
 
     /** Put the file at `path` in `slot`, as the slot's picker does. */
     place: (slot: Slot, path: string) => Promise<void>;
-    /** Place the files dropped onto the card, `target` being the slot under the drop or `undefined` outside both. */
-    drop: (paths: string[], target: Slot | undefined) => Promise<void>;
+    /** Place the files dropped onto the card, `target` being the slot under the drop, absent outside both. */
+    drop: (paths: string[], target?: Slot) => Promise<void>;
     /** Empty `slot`. */
     remove: (slot: Slot) => void;
     /** Put `file` back in `slot`, as after a restore from the Trash, only if the slot is empty. */
@@ -64,7 +64,7 @@ export const usePairStore = create<PairStore>()((set, get) => {
 
                 // Claimed only now: until the files are described, which slots this drop writes is unknown, and one
                 // that writes none must not cancel an action still in flight.
-                const placed = route(files.length, target, { a: !!a, b: !!b })
+                const placed = route(files.length, { a: !!a, b: !!b }, target)
                     .map((slot, index) => ({ slot, file: files[index] }))
                     .filter(({ slot }) => owners[slot] < action);
                 for (const { slot } of placed) owners[slot] = action;

@@ -6,6 +6,7 @@ import { type GroupFile, type ScanGroup, startScan } from "@/ipc/scan";
 import type { SourceView } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { restoreMedia, trashMedia } from "@/ipc/trash";
+import { DEFAULT_RULES, moveRule, type Rule } from "@/lib/rules";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
@@ -13,7 +14,6 @@ import { useScreenStore } from "@/stores/screen";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { GroupsDeletionNotice } from "./GroupsDeletionNotice";
 import { GroupsScreen } from "./GroupsScreen";
-import { DEFAULT_RULES, moveRule, type Rule } from "./rules";
 
 vi.mock("@/ipc/os", () => ({ isMacOs: vi.fn(() => false) }));
 vi.mock("@/ipc/dragDrop", () => ({ onDragDrop: vi.fn(() => () => {}) }));

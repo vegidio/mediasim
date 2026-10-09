@@ -4,8 +4,9 @@
 const FREQUENCY: f64 = 18.0;
 /// The damping ratio; `1` is critically damped, so the spring settles without oscillating.
 const DAMPING: f64 = 1.0;
-/// The time step: one frame at 60 fps.
-const STEP: f64 = 1.0 / 60.0;
+/// The time step: one frame of the display.
+#[allow(clippy::cast_precision_loss, reason = "the frame rate is a small integer, exact as an `f64`")]
+const STEP: f64 = 1.0 / super::FPS as f64;
 
 /// Within these distances of the target and of rest, the spring snaps to the target.
 const POSITION_EPSILON: f64 = 0.001;

@@ -3,8 +3,8 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { describe, expect, it, vi } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Details } from "@/lib/mediaInfo";
 import type { GoneKind } from "@/stores/pairResult";
-import type { Details } from "./details";
 import { MediaPane } from "./MediaPane";
 
 vi.mock("@/ipc/thumbs", () => ({

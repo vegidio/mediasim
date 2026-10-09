@@ -1,9 +1,9 @@
 //! Videos: how an admitted video's bytes reach the window's `<video>` element.
 //!
-//! The window loads `video://localhost/<identity>`, with an identity from the same registry as `thumbs`, and
-//! [`serve`] answers each byte range the player asks for, at most [`range::CAP`] bytes at a time, so a file of any size
-//! is played with bounded memory. A request names an identity, never a path, so the window can only reach files that
-//! were admitted.
+//! The window loads `video://localhost/<identity>`, with an identity from the [`admission`](crate::admission)
+//! registry, and [`serve`] answers each byte range the player asks for, at most [`range::CAP`] bytes at a time, so a
+//! file of any size is played with bounded memory. A request names an identity, never a path, so the window can only
+//! reach files that were admitted.
 //!
 //! A video the window can't play from its own bytes is played through Media Source Extensions instead: [`probe`] tells
 //! the window what the file holds, and a session in [`sessions`] copies or encodes its main streams into fragmented
@@ -53,7 +53,7 @@ mod tests {
     use tauri::http::Uri;
 
     use super::*;
-    use crate::thumbs::parse_identity;
+    use crate::scheme::parse_identity;
 
     /// The identity a `video` request asks for: its path, as the `thumb` scheme reads it, with the query ignored.
     fn asked(url: &str) -> Option<String> {

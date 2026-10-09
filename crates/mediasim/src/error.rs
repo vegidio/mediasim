@@ -114,6 +114,13 @@ pub enum CompareError {
         /// The type of `right`.
         right_type: MediaType,
     },
+
+    /// One of the media has no frames to compare, such as a [`Media`](crate::Media) built without a file behind it.
+    #[error("{} has no frames to compare", path.display())]
+    NoFrames {
+        /// The media without frames.
+        path: PathBuf,
+    },
 }
 
 #[cfg(test)]
@@ -174,5 +181,12 @@ mod tests {
         };
 
         assert_eq!(err.to_string(), "cannot compare image a.png with video b.mp4");
+    }
+
+    #[test]
+    fn no_frames_names_the_path() {
+        let err = CompareError::NoFrames { path: "a.png".into() };
+
+        assert_eq!(err.to_string(), "a.png has no frames to compare");
     }
 }

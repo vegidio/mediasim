@@ -35,7 +35,7 @@ export const useScreenStore = create<ScreenStore>()((set, get) => ({
     takePrevious: () => {
         const { previous } = get();
         // Replaced whole, since an optional property is left out rather than set to `undefined`.
-        if (previous !== undefined) set(({ previous: _, ...rest }) => rest, true);
+        if (previous) set(({ previous: _, ...rest }) => rest, true);
 
         return previous;
     },

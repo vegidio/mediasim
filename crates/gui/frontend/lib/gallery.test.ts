@@ -10,7 +10,7 @@ import {
     inclusion,
     isIncluded,
     ordered,
-} from "./derive";
+} from "./gallery";
 
 const files = (images: number, videos: number) => [
     ...Array.from({ length: images }, () => ({ type: "image" as MediaType })),

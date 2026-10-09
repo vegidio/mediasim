@@ -5,11 +5,15 @@
 
 #![warn(clippy::pedantic)]
 
+mod admission;
+mod dialog;
 mod formats;
 mod open;
 mod pair;
+mod roots;
 mod run;
 mod scan;
+mod scheme;
 mod set;
 mod thumbs;
 mod trash;
@@ -20,10 +24,13 @@ use serde::{Serialize, Serializer};
 use tauri::Manager;
 
 /// A command failed for a reason other than its input, which commands report per item instead: its blocking task
-/// panicked or was cancelled. Crosses to the window as its message.
+/// panicked or was cancelled. Crosses to the window as its message, [`task_message`]'s.
+///
+/// The commands whose errors are objects tagged by `kind` report the same failure as `{ kind: "task", message }`,
+/// with the same message.
 #[derive(Debug, thiserror::Error)]
 pub enum TaskError {
-    #[error("the background task did not finish: {0}")]
+    #[error("{}", task_message(.0))]
     Task(#[from] tauri::Error),
 }
 
@@ -33,9 +40,10 @@ impl Serialize for TaskError {
     }
 }
 
-/// What a comparison or scan reports when its blocking task panicked or was cancelled by the runtime.
-fn task_message(err: &tauri::Error) -> String {
-    format!("the comparison task did not finish: {err}")
+/// What every command reports when its background task panicked or was cancelled by the runtime: a [`TaskError`]'s
+/// message, and the `message` of every `kind: "task"` error.
+fn task_message(err: &impl std::fmt::Display) -> String {
+    format!("the background task did not finish: {err}")
 }
 
 /// Build and run the application. Blocks until it exits.
@@ -47,9 +55,11 @@ pub fn run() {
     tauri::Builder::default()
         // Injects the platform into the webview so the frontend can read it synchronously at first render.
         .plugin(tauri_plugin_os::init())
-        // The native file and folder pickers behind the "Add to set" menu.
+        // The native file and folder pickers, opened from Rust by `dialog`; the window has no access to its JS API.
         .plugin(tauri_plugin_dialog::init())
         .manage(set::commands::SetState::default())
+        .manage(admission::Admissions::default())
+        .manage(roots::AllowedRoots::default())
         .manage(thumbs::ThumbState::default())
         .manage(pair::PairState::default())
         .manage(scan::ScanState::default())
@@ -61,6 +71,18 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::serve)
         // Byte ranges of admitted videos, by identity like `thumb`; see `video`.
         .register_asynchronous_uri_scheme_protocol(video::SCHEME, video::serve)
+        // What the user drops on the window counts as chosen; see `roots`. A window with a single webview reports a
+        // drop as a window event, one with several as a webview event.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::DragDrop(drop) = event {
+                roots::record_drop(window.app_handle(), drop);
+            }
+        })
+        .on_webview_event(|webview, event| {
+            if let tauri::WebviewEvent::DragDrop(drop) = event {
+                roots::record_drop(webview.app_handle(), drop);
+            }
+        })
         .setup(|app| {
             // Off the main thread so a slow cache open never delays the window; thumbnail requests wait for it.
             let handle = app.handle().clone();
@@ -80,6 +102,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             window::window_ready,
             formats::supported_formats,
+            dialog::pick_files,
+            dialog::pick_file,
+            dialog::pick_folders,
             set::commands::add_to_set,
             set::commands::remove_from_set,
             set::commands::clear_set,

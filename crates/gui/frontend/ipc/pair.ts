@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { MediaType } from "./formats";
-import { invokeOr, isRecord } from "./wire";
+import { invokeOr, isRecord, withoutNulls } from "./wire";
 
 /** A file's details, read from its header by `probe_media` in `crates/gui/src/pair.rs`. */
 export type MediaInfo = {
@@ -39,23 +39,8 @@ type OptionalKey = "duration" | "created" | "modified" | "format" | "colorProfil
 type WireMediaInfo = Omit<MediaInfo, OptionalKey> & { [K in OptionalKey]-?: NonNullable<MediaInfo[K]> | null };
 
 /** Read one file's details from its header, without decoding it. Rejects with a {@link PairFailure}. */
-export const probeMedia = async (path: string): Promise<MediaInfo> => {
-    const info = await call<WireMediaInfo>("probe_media", { path });
-
-    // Rust's `None` arrives as JSON `null`, which this project spells as an absent property.
-    const { duration, created, modified, format, colorProfile, bitDepth, frameRate, ...always } = info;
-
-    return {
-        ...always,
-        ...(duration !== null && { duration }),
-        ...(created !== null && { created }),
-        ...(modified !== null && { modified }),
-        ...(format !== null && { format }),
-        ...(colorProfile !== null && { colorProfile }),
-        ...(bitDepth !== null && { bitDepth }),
-        ...(frameRate !== null && { frameRate }),
-    };
-};
+export const probeMedia = async (path: string): Promise<MediaInfo> =>
+    withoutNulls(await call<WireMediaInfo>("probe_media", { path }));
 
 /**
  * Load both files and resolve to their similarity, from 0 (completely different) to 1 (identical). Starting a

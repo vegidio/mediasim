@@ -3,27 +3,18 @@ import { type MediaInfo, probeMedia } from "@/ipc/pair";
 import { displayPath } from "@/ipc/set";
 import type { MediaFile } from "@/ipc/thumbs";
 import { probeVideo } from "@/ipc/video";
+import { createLru, readOnce } from "@/lib/lru";
 import type { FileDetails } from "./rows";
 
+/** How many files' details are kept. */
+const KEPT = 500;
+
 /**
- * Each file's details and display path, by path. A file shown again, as when stepping back, isn't read again, and
- * holding → reads each file once.
+ * The details of the files shown last, by identity, which changes when the file does, and their display paths, by
+ * path. A file shown again, as when stepping back, isn't read again, and holding → reads each file once.
  */
-const probes = new Map<string, Promise<MediaInfo>>();
-const paths = new Map<string, Promise<string>>();
-
-/** `load(key)`, read once per key into `cache`. A read that failed isn't kept, so the next call reads again. */
-const cached = <T>(cache: Map<string, Promise<T>>, key: string, load: (key: string) => Promise<T>) => {
-    const known = cache.get(key);
-    if (known) return known;
-
-    const read = load(key);
-    cache.set(key, read);
-    read.catch(() => {
-        if (cache.get(key) === read) cache.delete(key);
-    });
-    return read;
-};
+const probes = createLru<string, Promise<MediaInfo>>(KEPT);
+const paths = createLru<string, Promise<string>>(KEPT);
 
 /** Forget every file's details read so far, so each test starts with none. */
 export const forgetFileDetails = () => {
@@ -38,11 +29,11 @@ const LOADING: FileDetails = { status: "loading" };
  * can't be had falls back to the full path, and a video's streams that can't be read leave only their rows unknown.
  */
 const read = async ({ path, type, identity }: MediaFile): Promise<FileDetails> => {
-    const shown = cached(paths, path, displayPath).catch(() => path);
+    const shown = readOnce(paths, path, displayPath).catch(() => path);
     const streams = type === "video" ? probeVideo(identity).catch(() => undefined) : undefined;
 
     try {
-        const info = await cached(probes, path, probeMedia);
+        const info = await readOnce(probes, identity, () => probeMedia(path));
         const [display, probe] = await Promise.all([shown, streams]);
         return { status: "ready", info, path: display, ...(probe && { streams: probe }) };
     } catch (error) {

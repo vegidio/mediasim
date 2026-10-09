@@ -1,7 +1,7 @@
 import type { MediaType } from "@/ipc/formats";
 import type { SourceView } from "@/ipc/set";
-import { formatCount, formatSize, totalSize } from "@/lib/format";
 import type { GalleryFilter } from "@/stores/gallery";
+import { formatCount, formatSize, totalSize } from "./format";
 
 /** How many files each filter includes. */
 export type FilterCounts = Record<GalleryFilter, number>;
@@ -81,7 +81,7 @@ export const identity = (
     files?: readonly { size: number }[],
 ): Identity => {
     const size = files && formatSize(totalSize(files));
-    const withSize = (text: string) => (size === undefined ? text : `${text} · ${size}`);
+    const withSize = (text: string) => (size ? `${text} · ${size}` : text);
     const [only] = sources;
 
     if (sources.length === 1 && only?.kind === "folder") {

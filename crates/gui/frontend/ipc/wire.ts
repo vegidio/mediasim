@@ -4,6 +4,16 @@ import { invoke } from "@tauri-apps/api/core";
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null;
 
+/** `T` with each property that can be `null` made optional and never `null`. */
+export type WithoutNulls<T> = { [K in keyof T as null extends T[K] ? never : K]: T[K] } & {
+    [K in keyof T as null extends T[K] ? K : never]?: Exclude<T[K], null>;
+};
+
+/** `value` without its `null` properties: Rust's `None` arrives as JSON `null`, which this project spells as absent. */
+export const withoutNulls = <T extends object>(value: T): WithoutNulls<T> =>
+    // `fromEntries` loses the keys' types, which the filter above keeps true to `WithoutNulls`.
+    Object.fromEntries(Object.entries(value).filter(([, field]) => field !== null)) as WithoutNulls<T>;
+
 /** Whether `value` is one of `values`. */
 const isOneOf = <T>(values: readonly T[], value: unknown): value is T => (values as readonly unknown[]).includes(value);
 
@@ -35,7 +45,7 @@ export const outcomeReader =
     (value: unknown): Done | FailedOutcome<Reason> => {
         if (isRecord(value)) {
             const success = done(value);
-            if (success !== undefined) return success;
+            if (success) return success;
 
             const { status, reason, message } = value;
             if (status === "failed" && isOneOf(reasons, reason) && typeof message === "string") {

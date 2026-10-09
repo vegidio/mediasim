@@ -1,11 +1,17 @@
 /** A tile's width, in pixels. */
 export const TILE_WIDTH = 160;
+/** The height of a tile's picture, in pixels. */
+export const PICTURE_HEIGHT = 120;
+/** The space between a tile's picture and its name row, in pixels. */
+export const NAME_GAP = 8;
+/** The height of a tile's name row, in pixels. */
+const NAME_HEIGHT = 16;
 /** The space between columns, in pixels. */
-export const COLUMN_GAP = 12;
+const COLUMN_GAP = 12;
 /** The space between rows, in pixels. */
 export const ROW_GAP = 20;
-/** A row's height with the gap below it: the 120 px picture, an 8 px gap, the 16 px name row, then the row gap. */
-export const ROW_HEIGHT = 120 + 8 + 16 + ROW_GAP;
+/** A row's height with the gap below it: the picture, the gap below it, the name row, then the row gap. */
+export const ROW_HEIGHT = PICTURE_HEIGHT + NAME_GAP + NAME_HEIGHT + ROW_GAP;
 /** The grid's padding on every side, in pixels. */
 export const PADDING = 24;
 

@@ -1,9 +1,7 @@
 import type { MediaType } from "@/ipc/formats";
 import type { MediaInfo } from "@/ipc/pair";
 import { formatCreated, formatDuration, formatFrameRate, formatSize } from "@/lib/format";
-
-/** What is known of a file's details: still being read, read, or unreadable. */
-export type Details = { status: "loading" } | { status: "ready"; info: MediaInfo } | { status: "failed" };
+import { type Details, formatResolution, rowsFor, shortProfile, UNKNOWN } from "@/lib/mediaInfo";
 
 /** The mark a row gets on the file whose value stands out of the two: higher, bigger, older or longer. */
 export type Badge = "Higher" | "Bigger" | "Older" | "Longer";
@@ -16,20 +14,13 @@ export type DetailRow = {
     badge?: Badge;
 };
 
-const UNKNOWN = "Unknown";
-
-/** The sRGB profile almost every camera and phone embeds, whose full name would break the row. */
-const SRGB = "sRGB IEC61966-2.1";
-
 /** An image format, followed by its color profile when it declares one: `JPEG · Display P3`, `PNG`. */
 export const formatFormat = (format: string, colorProfile?: string) =>
-    colorProfile === undefined ? format : `${format} · ${colorProfile === SRGB ? "sRGB" : colorProfile}`;
-
-const formatResolution = ({ width, height }: MediaInfo) => `${width} × ${height}`;
+    colorProfile ? `${format} · ${shortProfile(colorProfile)}` : format;
 
 const pixels = ({ width, height }: MediaInfo) => width * height;
 
-const createdAt = ({ created }: MediaInfo) => (created === undefined ? undefined : Date.parse(created));
+const createdAt = ({ created }: MediaInfo) => (created ? Date.parse(created) : undefined);
 
 /** The duration in whole seconds, as the row shows it, so a difference too small to read earns no badge. */
 const shownDuration = ({ duration }: MediaInfo) => (duration === undefined ? undefined : Math.floor(duration));
@@ -85,13 +76,12 @@ const VIDEO_ROWS: readonly RowSpec[] = [
  * has the higher, bigger, older or longer value carry a badge.
  */
 export const detailRows = (type: MediaType, details: Details, other?: Details): DetailRow[] =>
-    (type === "image" ? IMAGE_ROWS : VIDEO_ROWS).map(({ key, value, badge }) => {
-        if (details.status === "loading") return { key };
-        if (details.status === "failed") return { key, value: UNKNOWN };
-
-        return {
-            key,
-            value: value(details.info),
-            ...(badge && other?.status === "ready" && badge(details.info, other.info)),
-        };
-    });
+    rowsFor(
+        type === "image" ? IMAGE_ROWS : VIDEO_ROWS,
+        details,
+        ({ key }): DetailRow => ({ key }),
+        ({ value, badge }, { info }) => ({
+            value: value(info),
+            ...(badge && other?.status === "ready" && badge(info, other.info)),
+        }),
+    );

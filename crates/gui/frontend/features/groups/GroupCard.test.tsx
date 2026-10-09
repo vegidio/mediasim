@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
-import { GroupCard, type GroupView } from "./GroupCard";
+import type { GroupView } from "@/lib/marks";
+import { useScanStore } from "@/stores/scan";
+import { GroupCard } from "./GroupCard";
 
 vi.mock("@/ipc/thumbs", () => ({
     renditionUrl: (identity: string, bound: number) => `thumb://localhost/${identity}?size=${bound}`,
@@ -39,13 +41,13 @@ const renderCard = (
     group: GroupView,
     number = 1,
     { marks = new Set<string>(), onToggle = () => {}, onKeepBestOnly = () => {} } = {},
-) =>
-    render(
+) => {
+    useScanStore.setState({ marks });
+    return render(
         <GroupCard
             number={number}
             group={group}
             media={mediaOf(group.files)}
-            marks={marks}
             onToggle={onToggle}
             onKeepBestOnly={onKeepBestOnly}
             onSelect={() => {}}
@@ -53,6 +55,7 @@ const renderCard = (
             onKey={() => {}}
         />,
     );
+};
 
 /** The tile of the file at `path`. */
 const tile = (path: string) => {
@@ -62,6 +65,10 @@ const tile = (path: string) => {
 };
 
 describe("GroupCard", () => {
+    beforeEach(() => {
+        useScanStore.setState(useScanStore.getInitialState(), true);
+    });
+
     it("names an image group and reads each file's details", () => {
         const files = [
             image("IMG_2041.jpg"),
@@ -134,7 +141,6 @@ describe("GroupCard", () => {
                 number={2}
                 group={{ files, best: 0 }}
                 media={new Map()}
-                marks={new Set()}
                 onToggle={() => {}}
                 onKeepBestOnly={() => {}}
                 onSelect={() => {}}

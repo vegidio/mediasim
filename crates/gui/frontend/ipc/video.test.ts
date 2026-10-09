@@ -121,7 +121,11 @@ describe("video commands", () => {
             { kind: "unreadable", message: "bad file" },
             { kind: "unreadable", message: "bad file" },
         ],
-        ["command video_next not found", { kind: "unreadable", message: "command video_next not found" }],
+        [
+            { kind: "task", message: "the background task did not finish" },
+            { kind: "task", message: "the background task did not finish" },
+        ],
+        ["command video_next not found", { kind: "task", message: "command video_next not found" }],
     ])("rejects %j as a refusal that narrows by kind", async (rejection, expected) => {
         mockedInvoke.mockRejectedValue(rejection);
 

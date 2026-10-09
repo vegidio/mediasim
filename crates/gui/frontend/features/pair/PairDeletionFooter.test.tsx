@@ -5,7 +5,7 @@ import type { MediaFile } from "@/ipc/thumbs";
 import { deleteMedia, trashMedia } from "@/ipc/trash";
 import { usePairResultStore } from "@/stores/pairResult";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
-import { DeletionFooter } from "./DeletionFooter";
+import { PairDeletionFooter } from "./PairDeletionFooter";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), deleteMedia: vi.fn() }));
@@ -26,7 +26,7 @@ const status = () => screen.getByRole("status");
 const move = () => screen.getByRole("button", { name: /^Move \d to Trash…$/ });
 const toggle = (slot: "a" | "b") => act(() => usePairResultStore.getState().toggleMark(slot));
 
-describe("DeletionFooter", () => {
+describe("PairDeletionFooter", () => {
     beforeEach(() => {
         usePairResultStore.setState({ ...usePairResultStore.getInitialState(), files: { a: A, b: B } }, true);
         useSettingsStore.setState(SETTINGS_DEFAULTS);
@@ -34,7 +34,7 @@ describe("DeletionFooter", () => {
     });
 
     it("says nothing is marked, with Move 0 to Trash… disabled", () => {
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         expect(status()).toHaveTextContent("Nothing marked yet. Mark the file you don't need.");
         expect(move()).toHaveTextContent("Move 0 to Trash…");
@@ -42,18 +42,18 @@ describe("DeletionFooter", () => {
     });
 
     it("counts one marked file and the space it frees, with the button enabled", () => {
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         toggle("b");
 
         expect(status()).toHaveTextContent("1 file marked for deletion · 48.0 MB will be freed");
         expect(move()).toHaveTextContent("Move 1 to Trash…");
         expect(move()).toBeEnabled();
-        expect(move()).toHaveClass("bg-[#DC2626]");
+        expect(move()).toHaveClass("bg-danger");
     });
 
     it("counts both marked files", () => {
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         toggle("a");
         toggle("b");
@@ -63,7 +63,7 @@ describe("DeletionFooter", () => {
     });
 
     it("goes back to the empty text after an undo", () => {
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         toggle("b");
         toggle("b");
@@ -73,7 +73,7 @@ describe("DeletionFooter", () => {
     });
 
     it("opens the confirmation when the enabled button is activated, moving nothing", () => {
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
         toggle("b");
 
         fireEvent.click(move());
@@ -90,7 +90,7 @@ describe("DeletionFooter", () => {
     it("says nothing is marked for deletion once a file is moved, with Move 0 to Trash… disabled", () => {
         usePairResultStore.setState({ gone: { b: "trash" } });
 
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         expect(status()).toHaveTextContent(/^Nothing marked for deletion\.$/);
         expect(move()).toHaveTextContent("Move 0 to Trash…");
@@ -99,7 +99,7 @@ describe("DeletionFooter", () => {
 
     it("says nothing is marked yet once the moved file is restored", () => {
         usePairResultStore.setState({ gone: { b: "trash" } });
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         act(() => usePairResultStore.setState({ gone: {} }));
 
@@ -109,14 +109,14 @@ describe("DeletionFooter", () => {
     it("says nothing is marked for deletion once a file is deleted", () => {
         usePairResultStore.setState({ gone: { b: "permanent" } });
 
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         expect(status()).toHaveTextContent(/^Nothing marked for deletion\.$/);
     });
 
     it("counts only the file still there once the other is moved", () => {
         usePairResultStore.setState({ gone: { b: "trash" } });
-        render(<DeletionFooter />);
+        render(<PairDeletionFooter />);
 
         toggle("a");
 
@@ -124,7 +124,7 @@ describe("DeletionFooter", () => {
     });
 
     it("keeps its text inside the status region and the badge's icon hidden", () => {
-        const { container } = render(<DeletionFooter />);
+        const { container } = render(<PairDeletionFooter />);
         toggle("a");
 
         expect(status()).toHaveTextContent("1 file");
@@ -142,7 +142,7 @@ describe("DeletionFooter", () => {
             ["permanent", false, "Delete 1 permanently"],
         ] as const)("reads, in %s mode with confirm %s, %s", (deletionMode, confirmDeletion, label) => {
             useSettingsStore.setState({ deletionMode, confirmDeletion });
-            render(<DeletionFooter />);
+            render(<PairDeletionFooter />);
 
             toggle("b");
 
@@ -161,7 +161,7 @@ describe("DeletionFooter", () => {
                 const dismiss = document.createElement("button");
                 dismiss.id = "deletion-notice-dismiss";
                 document.body.append(dismiss);
-                render(<DeletionFooter />);
+                render(<PairDeletionFooter />);
                 toggle("b");
 
                 fireEvent.click(button());
@@ -184,7 +184,7 @@ describe("DeletionFooter", () => {
             const dismiss = document.createElement("button");
             dismiss.id = "deletion-notice-dismiss";
             document.body.append(dismiss);
-            render(<DeletionFooter />);
+            render(<PairDeletionFooter />);
             toggle("b");
             act(() => usePairResultStore.setState({ deletion: { status: "restoring" } }));
             act(() => button().focus());

@@ -5,6 +5,7 @@ resolver = "2"
 [workspace.dependencies]
 clap = { version = "4.6", features = ["derive"] }
 csv = "1.4"
+ctrlc = "3.5"
 image = "0.25.10"
 # Only `Timestamp` and its RFC 3339 `Display` are used, so the time zone database is left out.
 jiff = { version = "0.2", default-features = false, features = ["std"] }

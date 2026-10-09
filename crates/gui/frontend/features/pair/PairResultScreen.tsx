@@ -3,7 +3,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { focusDismiss } from "@/components/deletion/DeletionNotice";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Slot } from "@/features/home/routePairDrop";
+import type { Slot } from "@/lib/slots";
 import { usePairResultStore } from "@/stores/pairResult";
 import { usePairViewStore } from "@/stores/pairView";
 import { useScreenStore } from "@/stores/screen";

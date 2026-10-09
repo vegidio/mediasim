@@ -6,15 +6,14 @@ use std::path::Path;
 
 use image::DynamicImage;
 use rust_sak::image::{EncodeOptions, ImageFormat};
-use tauri::http::{Request, Response, StatusCode, Uri, header, response};
+use tauri::http::{Request, Response, StatusCode, Uri, header};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 
-use super::cache::{Rendition, RenditionType};
+use super::ThumbState;
+use super::cache::{Rendition, RenditionType, Unrendered};
 use super::preview::{PreviewError, preview};
-use super::{Admitted, ThumbState};
-
-/// Length of an identity: XXH3-64 as 16 lowercase hex characters.
-const IDENTITY_LENGTH: usize = 16;
+use crate::admission::{Admissions, still_admitted};
+use crate::scheme::{Refusal, digits_only, parse_identity, refusal_response};
 
 /// The bounds a request may ask for, in pixels of the longer edge.
 const BOUNDS: std::ops::RangeInclusive<u32> = 16..=2048;
@@ -27,33 +26,6 @@ const JPEG_QUALITY: u8 = 85;
 struct Asked {
     identity: String,
     bound: NonZeroU32,
-}
-
-/// Why a request was not answered with a picture. Shared with the `video` scheme, which refuses the same way.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Refusal {
-    /// A malformed request, or an identity that was never admitted.
-    NotFound,
-    /// An admitted file that has been removed or changed since, or that can't be decoded.
-    Gone,
-}
-
-/// The identity `uri`'s path names, or `None` if it isn't exactly one. Shared with the `video` scheme.
-///
-/// Only the path is read, so `thumb://localhost/…` and `http://thumb.localhost/…` read the same. It must be exactly
-/// [`IDENTITY_LENGTH`] lowercase hex characters, so a filesystem path is refused before the registry is consulted.
-pub(crate) fn parse_identity(uri: &Uri) -> Option<&str> {
-    let identity = uri.path().strip_prefix('/')?;
-    let well_formed =
-        identity.len() == IDENTITY_LENGTH && identity.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'));
-
-    well_formed.then_some(identity)
-}
-
-/// Whether `text` is only ASCII digits, which a number in a request must be: `parse` alone accepts a leading `+`, which
-/// no URL or header this application builds has. Shared with the `video` scheme.
-pub(crate) fn digits_only(text: &str) -> bool {
-    text.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// What `<path>?size=<bound>` asked for, or `None` if it asked for nothing that can be served.
@@ -70,20 +42,6 @@ fn parse(uri: &Uri) -> Option<Asked> {
     let bound = size.parse().ok().filter(|bound| BOUNDS.contains(bound))?;
 
     Some(Asked { identity: identity.to_owned(), bound: NonZeroU32::new(bound)? })
-}
-
-/// The admitted file behind `identity`, if it is still the file that was admitted.
-///
-/// Runs before the cache, so a file that was removed or changed stops being served even while a rendition of it is
-/// still cached. Shared with the `video` scheme, which re-checks it on every range.
-pub(crate) fn locate(state: &ThumbState, identity: &str) -> Result<Admitted, Refusal> {
-    let admitted = state.lookup(identity).ok_or(Refusal::NotFound)?;
-    let metadata = std::fs::metadata(&admitted.path).map_err(|_| Refusal::Gone)?;
-
-    let unchanged =
-        metadata.is_file() && metadata.len() == admitted.size && metadata.modified().ok() == Some(admitted.modified);
-
-    if unchanged { Ok(admitted) } else { Err(Refusal::Gone) }
 }
 
 /// Why a rendition could not be produced from a file that was located.
@@ -129,34 +87,39 @@ fn is_opaque(picture: &DynamicImage) -> bool {
 /// The rendition a request asked for, or why not: locate, then the cache, then `render` on a miss. Split from
 /// [`serve`] so it can be tested without a webview, and generic over `render` so the cache can be tested without
 /// decoding.
-fn produce<F, E>(state: &ThumbState, asked: &Asked, render: F) -> Result<Rendition, Refusal>
+///
+/// Only the check that the file is unchanged, a few `stat`s, holds a thread of the blocking pool, and only briefly: a
+/// slow disk must not stall the async runtime. It also waits there for the cache to open, which only the first requests
+/// of a run can find unfinished.
+async fn produce<F, E>(
+    registry: &Admissions,
+    thumbs: &ThumbState,
+    asked: &Asked,
+    render: F,
+) -> Result<Rendition, Refusal>
 where
-    F: FnOnce(&Path, NonZeroU32) -> Result<Rendition, E>,
-    E: std::error::Error + Send + Sync + 'static,
+    F: FnOnce(&Path, NonZeroU32) -> Result<Rendition, E> + Send + 'static,
+    E: std::error::Error,
 {
-    let admitted = locate(state, &asked.identity)?;
+    let admitted = registry.lookup(&asked.identity).ok_or(Refusal::NotFound)?;
+    let opening = thumbs.opening();
+    let admitted = tauri::async_runtime::spawn_blocking(move || {
+        opening.wait();
+        still_admitted(&admitted).then_some(admitted)
+    })
+    .await
+    .map_err(|_| Refusal::Failed)?
+    .ok_or(Refusal::Gone)?;
 
-    state
+    let bound = asked.bound;
+    thumbs
         .renditions()
-        .get_or_render(&asked.identity, asked.bound, || render(&admitted.path, asked.bound))
-        .ok_or(Refusal::Gone)
-}
-
-/// The plain-text response `refusal` crosses as, from `builder`, which may carry headers already: `what` names what
-/// was not found, such as `media`. Shared with the `video` scheme.
-pub(crate) fn refusal_response(builder: response::Builder, refusal: Refusal, what: &str) -> Response<Vec<u8>> {
-    let (status, body) = match refusal {
-        Refusal::NotFound => (StatusCode::NOT_FOUND, format!("no {what} with that identity has been admitted")),
-        Refusal::Gone => {
-            (StatusCode::GONE, "that file has changed or can no longer be read; admit it again".to_owned())
-        }
-    };
-
-    builder
-        .status(status)
-        .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
-        .body(body.into_bytes())
-        .expect("the response is built from constants and cannot be malformed")
+        .get_or_render(&asked.identity, bound, move || render(&admitted.path, bound))
+        .await
+        .map_err(|unrendered| match unrendered {
+            Unrendered::Undecodable => Refusal::Gone,
+            Unrendered::Failed => Refusal::Failed,
+        })
 }
 
 /// The response a rendition or a refusal crosses as.
@@ -175,8 +138,11 @@ fn respond(outcome: Result<Rendition, Refusal>) -> Response<Vec<u8>> {
 
 /// Serves a thumbnail to the window. The handler registered under [`SCHEME`](super::SCHEME) in `src/lib.rs`.
 ///
-/// A malformed request is answered at once; anything else is produced on the blocking pool, so a large decode never
-/// holds up the window.
+/// A malformed request is answered at once; anything else is produced asynchronously, as [`produce`] says, so neither a
+/// large decode nor a queue of them holds up the window or the blocking pool.
+///
+/// The responder answers nothing when dropped, so a request whose work panicked would never settle. The work runs in a
+/// task of its own, whose panic its join reports, and is then answered with a 500.
 #[allow(clippy::needless_pass_by_value, reason = "Tauri passes the handler's arguments by value")]
 pub fn serve<R: Runtime>(context: UriSchemeContext<'_, R>, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let Some(asked) = parse(request.uri()) else {
@@ -185,14 +151,18 @@ pub fn serve<R: Runtime>(context: UriSchemeContext<'_, R>, request: Request<Vec<
     };
 
     let app = context.app_handle().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let outcome = produce(&app.state::<ThumbState>(), &asked, render);
+    let producing = tauri::async_runtime::spawn(async move {
+        produce(&app.state::<Admissions>(), &app.state::<ThumbState>(), &asked, render).await
+    });
+    tauri::async_runtime::spawn(async move {
+        let outcome = producing.await.unwrap_or(Err(Refusal::Failed));
         responder.respond(respond(outcome));
     });
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::{Duration, SystemTime};
 
@@ -200,8 +170,27 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::{fixture, state};
+    use crate::admission::tests::fixture;
+    use crate::thumbs::tests::state;
     use crate::video::fixtures::admit;
+
+    /// An empty registry, and a cache in memory.
+    fn states() -> (Admissions, ThumbState) {
+        (Admissions::default(), state())
+    }
+
+    /// What [`produce`] answers `asked` with, waited for.
+    fn produce_now<F, E>(
+        (registry, thumbs): &(Admissions, ThumbState),
+        asked: &Asked,
+        render: F,
+    ) -> Result<Rendition, Refusal>
+    where
+        F: FnOnce(&Path, NonZeroU32) -> Result<Rendition, E> + Send + 'static,
+        E: std::error::Error,
+    {
+        tauri::async_runtime::block_on(produce(registry, thumbs, asked, render))
+    }
 
     fn asked(url: &str) -> Option<Asked> {
         parse(&url.parse::<Uri>().unwrap())
@@ -281,61 +270,61 @@ mod tests {
 
     #[test]
     fn an_identity_never_admitted_is_not_found() {
-        let state = state();
+        let state = states();
 
-        assert_eq!(produce(&state, &asking("0123456789abcdef", 96), render).map(|_| ()), Err(Refusal::NotFound));
+        assert_eq!(produce_now(&state, &asking("0123456789abcdef", 96), render).map(|_| ()), Err(Refusal::NotFound));
     }
 
     #[test]
     fn a_removed_file_is_gone() {
-        let state = state();
+        let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("a.png");
         std::fs::copy(fixture("test1.png"), &path).unwrap();
-        let identity = admit(&state, &path);
+        let identity = admit(&state.0, &path);
 
         std::fs::remove_file(&path).unwrap();
 
-        assert_eq!(produce(&state, &asking(&identity, 96), render).map(|_| ()), Err(Refusal::Gone));
+        assert_eq!(produce_now(&state, &asking(&identity, 96), render).map(|_| ()), Err(Refusal::Gone));
     }
 
     #[test]
     fn a_file_changed_after_admission_is_gone_even_when_cached() {
-        let state = state();
+        let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("a.png");
         std::fs::copy(fixture("test1.png"), &path).unwrap();
-        let identity = admit(&state, &path);
-        assert!(produce(&state, &asking(&identity, 96), render).is_ok());
+        let identity = admit(&state.0, &path);
+        assert!(produce_now(&state, &asking(&identity, 96), render).is_ok());
 
         let file = std::fs::File::options().write(true).open(&path).unwrap();
         file.set_modified(SystemTime::now() + Duration::from_secs(60)).unwrap();
 
-        assert_eq!(produce(&state, &asking(&identity, 96), render).map(|_| ()), Err(Refusal::Gone));
+        assert_eq!(produce_now(&state, &asking(&identity, 96), render).map(|_| ()), Err(Refusal::Gone));
     }
 
     #[test]
     fn an_admitted_file_that_will_not_decode_is_gone() {
-        let state = state();
+        let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("corrupt.png");
         std::fs::write(&path, b"not a png").unwrap();
-        let identity = admit(&state, &path);
+        let identity = admit(&state.0, &path);
 
-        assert_eq!(produce(&state, &asking(&identity, 96), render).map(|_| ()), Err(Refusal::Gone));
+        assert_eq!(produce_now(&state, &asking(&identity, 96), render).map(|_| ()), Err(Refusal::Gone));
     }
 
     #[test]
     fn an_opaque_image_answer_is_a_bounded_jpeg_cacheable_indefinitely() {
-        let state = state();
+        let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("photo.jpg");
         DynamicImage::ImageRgb8(image::RgbImage::from_pixel(1200, 900, image::Rgb([90, 120, 150])))
             .save(&path)
             .unwrap();
-        let identity = admit(&state, &path);
+        let identity = admit(&state.0, &path);
 
-        let response = respond(produce(&state, &asking(&identity, 384), render));
+        let response = respond(produce_now(&state, &asking(&identity, 384), render));
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()[header::CONTENT_TYPE], "image/jpeg");
@@ -346,10 +335,10 @@ mod tests {
     #[test]
     fn a_fixture_with_transparent_pixels_is_answered_as_png() {
         // test1.png is a palette PNG whose transparent entry is used, so its thumbnail has to keep alpha.
-        let state = state();
-        let identity = admit(&state, &fixture("test1.png"));
+        let state = states();
+        let identity = admit(&state.0, &fixture("test1.png"));
 
-        let response = respond(produce(&state, &asking(&identity, 384), render));
+        let response = respond(produce_now(&state, &asking(&identity, 384), render));
 
         assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
         // 1440×3098: 1440 * 384 / 3098 = 178.5.
@@ -358,10 +347,10 @@ mod tests {
 
     #[test]
     fn the_largest_bound_caps_the_longer_edge() {
-        let state = state();
-        let identity = admit(&state, &fixture("test1.png"));
+        let state = states();
+        let identity = admit(&state.0, &fixture("test1.png"));
 
-        let response = respond(produce(&state, &asking(&identity, 2048), render));
+        let response = respond(produce_now(&state, &asking(&identity, 2048), render));
 
         assert_eq!(response.status(), StatusCode::OK);
         let (width, height) = image::load_from_memory(response.body()).unwrap().dimensions();
@@ -370,10 +359,10 @@ mod tests {
 
     #[test]
     fn a_video_answer_is_its_frame_fitted_to_the_bound() {
-        let state = state();
-        let identity = admit(&state, &fixture("test3.mp4"));
+        let state = states();
+        let identity = admit(&state.0, &fixture("test3.mp4"));
 
-        let response = respond(produce(&state, &asking(&identity, 384), render));
+        let response = respond(produce_now(&state, &asking(&identity, 384), render));
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()[header::CONTENT_TYPE], "image/jpeg");
@@ -382,15 +371,15 @@ mod tests {
 
     #[test]
     fn a_transparent_image_answer_is_a_png_that_keeps_its_transparency() {
-        let state = state();
+        let state = states();
         let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
         let path = dir.path().join("transparent.png");
         let mut source = RgbaImage::from_pixel(200, 100, Rgba([255, 0, 0, 255]));
         source.put_pixel(150, 50, Rgba([0, 0, 0, 0]));
         DynamicImage::ImageRgba8(source).save(&path).unwrap();
-        let identity = admit(&state, &path);
+        let identity = admit(&state.0, &path);
 
-        let response = respond(produce(&state, &asking(&identity, 1024), render));
+        let response = respond(produce_now(&state, &asking(&identity, 1024), render));
 
         assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
         let picture = image::load_from_memory(response.body()).unwrap();
@@ -409,7 +398,11 @@ mod tests {
 
     #[test]
     fn a_refusal_is_plain_text_and_not_cacheable() {
-        for (refusal, status) in [(Refusal::NotFound, StatusCode::NOT_FOUND), (Refusal::Gone, StatusCode::GONE)] {
+        for (refusal, status) in [
+            (Refusal::NotFound, StatusCode::NOT_FOUND),
+            (Refusal::Gone, StatusCode::GONE),
+            (Refusal::Failed, StatusCode::INTERNAL_SERVER_ERROR),
+        ] {
             let response = respond(Err(refusal));
 
             assert_eq!(response.status(), status);
@@ -421,18 +414,34 @@ mod tests {
 
     #[test]
     fn a_second_request_is_served_from_the_cache() {
-        let state = state();
-        let identity = admit(&state, &fixture("test1.png"));
-        let calls = AtomicUsize::new(0);
-        let counting = |path: &Path, bound| {
-            calls.fetch_add(1, Ordering::SeqCst);
-            render(path, bound)
+        let state = states();
+        let identity = admit(&state.0, &fixture("test1.png"));
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counting = |calls: &Arc<AtomicUsize>| {
+            let calls = Arc::clone(calls);
+            move |path: &Path, bound| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                render(path, bound)
+            }
         };
 
-        let first = produce(&state, &asking(&identity, 96), counting).unwrap();
-        let second = produce(&state, &asking(&identity, 96), counting).unwrap();
+        let first = produce_now(&state, &asking(&identity, 96), counting(&calls)).unwrap();
+        let second = produce_now(&state, &asking(&identity, 96), counting(&calls)).unwrap();
 
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn a_panicking_render_is_answered_with_a_server_error_and_retried_next_time() {
+        let state = states();
+        let identity = admit(&state.0, &fixture("test1.png"));
+
+        let panicked = produce_now(&state, &asking(&identity, 96), |_: &Path, _| -> Result<Rendition, RenderError> {
+            panic!("the decoder panicked")
+        });
+
+        assert_eq!(respond(panicked).status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(produce_now(&state, &asking(&identity, 96), render).is_ok());
     }
 }

@@ -1,4 +1,4 @@
-import { StrictMode, useEffect } from "react";
+import { type ReactNode, StrictMode, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { windowReady } from "@/ipc/window";
 import App from "./App";
@@ -12,7 +12,7 @@ if (!container) {
 }
 
 /** Reports to Rust that the tree is in the DOM, so the hidden window can be shown. */
-const RevealWindow = () => {
+const RevealWindow = (): ReactNode => {
     // A mount effect rather than waiting for a paint: a hidden window does not render, so a paint never comes and the
     // window would only appear after Rust's grace period. Effects run on React's commit, which needs no frames.
     useEffect(() => {
@@ -22,7 +22,8 @@ const RevealWindow = () => {
         });
     }, []);
 
-    return null;
+    // Renders nothing.
+    return;
 };
 
 ReactDOM.createRoot(container).render(

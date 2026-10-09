@@ -7,3 +7,8 @@ export { cn } from "cn";
  * the selection. Clicks still activate the button, and Tab still reaches it.
  */
 export const keepFocus = (event: MouseEvent) => event.preventDefault();
+
+/** Move focus to the element with `id`, once React has rendered what was just set, as a screen just shown. */
+export const focusById = (id: string) => {
+    requestAnimationFrame(() => document.getElementById(id)?.focus());
+};

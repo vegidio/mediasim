@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MediaInfo } from "@/ipc/pair";
-import { type Details, detailRows, formatFormat } from "./details";
+import type { Details } from "@/lib/mediaInfo";
+import { detailRows, formatFormat } from "./details";
 
 /** An RFC 3339 time for a local wall-clock time, so the expectations hold in any time zone. */
 const local = (year: number, month: number, day: number, hours = 0, minutes = 0) =>

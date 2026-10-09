@@ -1,6 +1,6 @@
 import { Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Slot } from "@/features/home/routePairDrop";
+import type { Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 
 type MarkButtonProps = {
@@ -24,10 +24,10 @@ export const MarkButton = ({ slot, marked, onToggle, variant }: MarkButtonProps)
             variant="outline"
             onClick={onToggle}
             className={cn(
-                "h-8 gap-1.5 rounded-lg px-2.5 font-medium text-[#FCA5A5] text-[13px] hover:text-[#FCA5A5] [&_svg:not([class*='size-'])]:size-3.5",
+                "h-8 gap-1.5 rounded-lg px-2.5 font-medium text-danger-soft text-[13px] hover:text-danger-soft [&_svg:not([class*='size-'])]:size-3.5",
                 marked
-                    ? "border-[#DC2626] bg-[rgba(220,38,38,.16)] hover:bg-[rgba(220,38,38,.24)] dark:border-[#DC2626] dark:bg-[rgba(220,38,38,.16)] dark:enabled:hover:bg-[rgba(220,38,38,.24)]"
-                    : "border-[#7F1D1D] bg-transparent hover:bg-[rgba(220,38,38,.08)] dark:border-[#7F1D1D] dark:bg-transparent dark:enabled:hover:bg-[rgba(220,38,38,.08)]",
+                    ? "border-danger bg-[rgba(220,38,38,.16)] hover:bg-[rgba(220,38,38,.24)] dark:border-danger dark:bg-[rgba(220,38,38,.16)] dark:enabled:hover:bg-[rgba(220,38,38,.24)]"
+                    : "border-danger-border bg-transparent hover:bg-[rgba(220,38,38,.08)] dark:border-danger-border dark:bg-transparent dark:enabled:hover:bg-[rgba(220,38,38,.08)]",
             )}
         >
             <Trash2Icon aria-hidden="true" />

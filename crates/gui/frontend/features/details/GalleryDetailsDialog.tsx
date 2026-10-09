@@ -1,9 +1,9 @@
 import { CircleMinusIcon, CirclePlusIcon } from "lucide-react";
 import type { MediaType } from "@/ipc/formats";
 import type { MediaFile } from "@/ipc/thumbs";
+import { type Inclusion, inclusion } from "@/lib/gallery";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
-import { type Inclusion, inclusion } from "../gallery/derive";
 import { DetailsDialog } from "./DetailsDialog";
 import { ACTION, Chip, kindLabel } from "./DetailsSidebar";
 import { indexOfPath, position } from "./navigate";

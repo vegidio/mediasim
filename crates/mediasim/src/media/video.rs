@@ -5,14 +5,17 @@ use std::path::Path;
 use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
-use media::{FrameExtractor, Interval};
+use media::{FrameExtractor, Interval, Resolution};
 
 use super::{Decoded, check};
+use crate::core::RESIZED_IMG_SIZE;
 use crate::{CancelToken, Icon, MediaError};
 
 /// Probes the video at `path` for its metadata, then turns one frame per second into an [`Icon`].
 ///
-/// Frames are converted as they are decoded, so only one full-resolution frame is held at a time. Once `cancel` is
+/// Each sampled frame is scaled by `media-rs` straight to the square the icon pipeline resizes every image to, so no
+/// full-resolution RGB frame is ever converted or copied, and the pipeline's own resize leaves it as it is. Frames are
+/// converted as they are decoded, so only one is held at a time. Once `cancel` is
 /// cancelled, the next sampled frame stops the extraction.
 pub(super) fn load(path: &Path, cancel: Option<&CancelToken>) -> Result<Decoded, MediaError> {
     load_observed(path, cancel, || {})
@@ -43,6 +46,7 @@ fn load_observed(
     let extracted = FrameExtractor::builder()
         .input(input)
         .interval(Interval::EverySeconds(1.0))
+        .resolution(Resolution::Fixed(ICON_INPUT, ICON_INPUT))
         .to_callback(move |frame| {
             observe();
             // The error only ends the extraction; it is reported as `Cancelled` below, never as itself.
@@ -66,6 +70,10 @@ fn load_observed(
 
     Ok(Decoded { width, height, duration: Some(info.duration()), frames })
 }
+
+/// The side of the square each sampled frame is scaled to: the size [`Icon::from_image`] resizes every image to.
+#[allow(clippy::cast_possible_truncation, reason = "the resize target is a few hundred pixels")]
+const ICON_INPUT: u32 = RESIZED_IMG_SIZE as u32;
 
 /// Rejects an extraction that finished without error but sampled nothing, since there is nothing to compare.
 fn require_frames(path: &Path, frames: Vec<Icon>) -> Result<Vec<Icon>, MediaError> {

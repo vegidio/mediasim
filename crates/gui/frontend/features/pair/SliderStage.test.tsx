@@ -1,8 +1,8 @@
 import { act, type ReactNode, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Slot } from "@/lib/slots";
 import { SliderStage } from "./SliderStage";
 
 vi.mock("@/ipc/thumbs", () => ({

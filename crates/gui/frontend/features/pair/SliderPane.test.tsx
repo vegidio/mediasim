@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Details } from "@/lib/mediaInfo";
 import { type GoneKind, NONE_GONE } from "@/stores/pairResult";
-import type { Details } from "./details";
 import { SliderPane } from "./SliderPane";
 
 vi.mock("@/ipc/thumbs", () => ({

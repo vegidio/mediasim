@@ -45,14 +45,14 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
     const newComparison = useNewComparison();
 
     return (
-        <div className="flex h-[68px] shrink-0 items-center gap-5 border-[#1F1F23] border-b px-6">
+        <div className="flex h-[68px] shrink-0 items-center gap-5 border-border-subtle border-b px-6">
             <Button
                 variant="outline"
                 onClick={() => {
                     leave();
                     focusCompare();
                 }}
-                className="h-9 shrink-0 gap-1.5 rounded-lg border-[#27272A] bg-transparent pr-3 pl-2 text-[#E4E4E7] text-sm dark:border-[#27272A] dark:bg-transparent [&_svg:not([class*='size-'])]:size-4"
+                className="h-9 shrink-0 gap-1.5 rounded-lg border-border bg-transparent pr-3 pl-2 text-text-label text-sm dark:border-border dark:bg-transparent [&_svg:not([class*='size-'])]:size-4"
             >
                 <ArrowLeftIcon aria-hidden="true" />
                 Back
@@ -60,13 +60,13 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
             <Button
                 variant="ghost"
                 onClick={newComparison}
-                className="h-9 shrink-0 gap-1.5 rounded-lg px-3 text-[#A1A1AA] text-sm [&_svg:not([class*='size-'])]:size-[15px]"
+                className="h-9 shrink-0 gap-1.5 rounded-lg px-3 text-muted-foreground text-sm [&_svg:not([class*='size-'])]:size-[15px]"
             >
                 <HouseIcon aria-hidden="true" />
                 New comparison
             </Button>
-            <span aria-hidden="true" className="h-7 w-px shrink-0 bg-[#27272A]" />
-            <span title={summary} className="min-w-0 flex-1 truncate text-[#A1A1AA] text-[13px]">
+            <span aria-hidden="true" className="h-7 w-px shrink-0 bg-border" />
+            <span title={summary} className="min-w-0 flex-1 truncate text-muted-foreground text-[13px]">
                 {summary}
             </span>
             {marking && (
@@ -75,7 +75,7 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
                         variant="ghost"
                         onClick={marking.onClear}
                         onMouseDown={keepFocus}
-                        className="h-[38px] shrink-0 rounded-lg px-3.5 font-medium text-[#A1A1AA] text-sm"
+                        className="h-[38px] shrink-0 rounded-lg px-3.5 font-medium text-muted-foreground text-sm"
                     >
                         Clear marks
                     </Button>
@@ -84,7 +84,7 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
                             disabled={marking.autoSelectDisabled}
                             onClick={marking.onAutoSelect}
                             onMouseDown={keepFocus}
-                            className="h-[38px] gap-2 rounded-lg rounded-r-none px-4 font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90 disabled:bg-primary disabled:text-[#1A2E05] [&_svg:not([class*='size-'])]:size-4"
+                            className="h-[38px] gap-2 rounded-lg rounded-r-none px-4 font-semibold text-primary-foreground text-sm hover:bg-primary/90 disabled:bg-primary disabled:text-primary-foreground [&_svg:not([class*='size-'])]:size-4"
                         >
                             <SparklesIcon aria-hidden="true" />
                             Auto-select

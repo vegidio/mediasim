@@ -31,10 +31,10 @@ const BODY_HEIGHT = "calc(var(--fit-h) + 116px)";
 
 /** Whether a key pressed on `target` belongs to it, as an arrow key or Space on the seek bar does. */
 const ownsKeys = (target: EventTarget) =>
-    target instanceof Element && target.closest('[role="slider"], input, textarea, select') !== null;
+    target instanceof Element && !!target.closest('[role="slider"], input, textarea, select');
 
 const ICON_BUTTON =
-    "flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#27272A] bg-transparent p-0 text-[#E4E4E7] outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default disabled:opacity-40";
+    "flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-transparent p-0 text-text-label outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default disabled:opacity-40";
 
 type DetailsDialogProps = {
     /** The files Previous, Next and the strip step through, in order. */
@@ -139,15 +139,15 @@ export const DetailsDialog = ({
                     if (performance.now() - openedAt.current < DOUBLE_CLICK_MS) event.preventDefault();
                 }}
                 style={{ "--ratio": ratio, "--fit-h": FIT_HEIGHT } as CSSProperties}
-                className="flex flex-col overflow-hidden rounded-[14px] border border-[#27272A] bg-[#0C0C0E] text-[#FAFAFA] shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+                className="flex flex-col overflow-hidden rounded-[14px] border border-border bg-surface-sunken text-foreground shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
             >
                 <DialogTitle className="sr-only">Media details: {file.name}</DialogTitle>
 
-                <div className="box-border flex h-[52px] shrink-0 items-center gap-2.5 border-[#1F1F23] border-b pr-2.5 pl-[18px]">
+                <div className="box-border flex h-[52px] shrink-0 items-center gap-2.5 border-border-subtle border-b pr-2.5 pl-[18px]">
                     <span aria-hidden="true" className="truncate font-medium font-mono text-sm">
                         {file.name}
                     </span>
-                    <span className="grow whitespace-nowrap text-[#A1A1AA] text-xs">{position}</span>
+                    <span className="grow whitespace-nowrap text-muted-foreground text-xs">{position}</span>
                     <button
                         type="button"
                         aria-label="Previous file"
@@ -166,8 +166,11 @@ export const DetailsDialog = ({
                     >
                         <ChevronRightIcon aria-hidden="true" className="size-4" />
                     </button>
-                    <span aria-hidden="true" className="mx-1 h-5 w-px bg-[#27272A]" />
-                    <DialogClose aria-label="Close" className={cn(ICON_BUTTON, "border-transparent text-[#A1A1AA]")}>
+                    <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+                    <DialogClose
+                        aria-label="Close"
+                        className={cn(ICON_BUTTON, "border-transparent text-muted-foreground")}
+                    >
                         <XIcon aria-hidden="true" className="size-4" />
                     </DialogClose>
                 </div>

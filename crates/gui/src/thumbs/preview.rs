@@ -101,7 +101,7 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::fixture;
+    use crate::admission::tests::fixture;
 
     fn bound(value: u32) -> NonZeroU32 {
         NonZeroU32::new(value).unwrap()

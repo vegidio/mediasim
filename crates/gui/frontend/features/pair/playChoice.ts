@@ -65,8 +65,8 @@ const withCodecs = (type: string, codecs: string[]) => `${type}; codecs="${codec
 const planFor = (
     video: VideoMode,
     videoCodec: string,
-    sound: StreamProbe | undefined,
     isTypeSupported: (type: string) => boolean,
+    sound?: StreamProbe,
 ): MsePlan => {
     const mime = (codecs: string[]) => withCodecs("video/mp4", codecs);
     if (!sound) return { video, audio: "none", mime: mime([videoCodec]), noSound: false };
@@ -99,16 +99,16 @@ export const playChoice = (probe: VideoProbe, webview: Webview): PlayChoice => {
     if (isTypeSupported) {
         const copied = codecOf(video);
         if (copied && isTypeSupported(withCodecs("video/mp4", [copied]))) {
-            plans.push(planFor("copy", copied, audio, isTypeSupported));
+            plans.push(planFor("copy", copied, isTypeSupported, audio));
         }
         if (video.decodable && isTypeSupported(withCodecs("video/mp4", [H264_STAND_IN]))) {
-            plans.push(planFor("encode", H264_STAND_IN, audio, isTypeSupported));
+            plans.push(planFor("encode", H264_STAND_IN, isTypeSupported, audio));
         }
     }
 
     const videoCodec = codecOf(video);
     const audioCodec = audio && codecOf(audio);
-    const playable = videoCodec !== undefined && (!audio || audioCodec !== undefined);
+    const playable = !!videoCodec && (!audio || !!audioCodec);
     const codecs = [videoCodec, audioCodec].filter((codec) => codec !== undefined);
     const direct = playable && candidates(probe.format).some((type) => webview.canPlayType(withCodecs(type, codecs)));
     if (direct) return { kind: "direct", fallbacks: plans };

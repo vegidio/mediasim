@@ -3,7 +3,7 @@
 use serde::Serialize;
 
 use super::transcode::EncodeError;
-use crate::thumbs::Refusal;
+use crate::scheme::Refusal;
 
 /// Why the window's probe or session request was refused: an object tagged by `kind`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize)]
@@ -22,6 +22,12 @@ pub enum VideoError {
         /// What went wrong.
         message: String,
     },
+    /// The background task panicked or was cancelled by the runtime, which says nothing about the file.
+    #[error("{message}")]
+    Task {
+        /// What went wrong, as [`task_message`](crate::task_message) says it.
+        message: String,
+    },
 }
 
 impl From<Refusal> for VideoError {
@@ -29,6 +35,7 @@ impl From<Refusal> for VideoError {
         match refusal {
             Refusal::NotFound => Self::NotFound,
             Refusal::Gone => Self::Gone,
+            Refusal::Failed => Self::Task { message: crate::task_message(&"it panicked") },
         }
     }
 }
@@ -41,7 +48,7 @@ impl From<media::Error> for VideoError {
 
 impl From<tauri::Error> for VideoError {
     fn from(err: tauri::Error) -> Self {
-        Self::Unreadable { message: format!("the video task did not finish: {err}") }
+        Self::Task { message: crate::task_message(&err) }
     }
 }
 
@@ -52,5 +59,24 @@ impl From<EncodeError> for VideoError {
             EncodeError::Cancelled => Self::NotFound,
             EncodeError::Media(err) | EncodeError::Encoder(err) => err.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_task_that_did_not_finish_is_a_task_error_not_an_unreadable_file() {
+        let err = VideoError::from(tauri::Error::FailedToReceiveMessage);
+
+        assert_eq!(
+            serde_json::to_value(&err).unwrap(),
+            serde_json::json!({
+                "kind": "task",
+                "message": crate::task_message(&tauri::Error::FailedToReceiveMessage),
+            })
+        );
+        assert!(matches!(VideoError::from(Refusal::Failed), VideoError::Task { .. }));
     }
 }

@@ -41,6 +41,13 @@ impl Icon {
         Self { pixels }
     }
 
+    /// Whether the icon holds exactly its three channels of `ICON_SIZE * ICON_SIZE` values, as every icon built here
+    /// does. One read back from a cache may not, and comparing it would panic.
+    #[cfg(feature = "cache")]
+    pub(crate) fn is_well_formed(&self) -> bool {
+        self.pixels.len() == 3 * NUM_PIX
+    }
+
     /// The raw channel-major pixel buffer (`3 * ICON_SIZE * ICON_SIZE` values).
     pub(crate) fn pixels(&self) -> &[u16] {
         &self.pixels
@@ -131,13 +138,21 @@ where
     I: GenericImageView,
     I::Pixel: Pixel<Subpixel = u8>,
 {
-    let (width, height) = img.dimensions();
+    blur_to_ycbcr(&block_average(&resize(img)))
+}
 
-    // --- Nearest-neighbour resize to RESIZED_IMG_SIZE². ---
-    // Stored row-major as 8-bit (premultiplied) RGB; a second premultiplied read would be the identity on
-    // these opaque 8-bit values, so it is folded away here.
+/// Nearest-neighbour resizes `img` to `RESIZED_IMG_SIZE²`, stored row-major as 8-bit (premultiplied) RGB.
+///
+/// A second premultiplied read would be the identity on these opaque 8-bit values, so it is folded away here.
+fn resize<I>(img: &I) -> Vec<[u8; 3]>
+where
+    I: GenericImageView,
+    I::Pixel: Pixel<Subpixel = u8>,
+{
+    let (width, height) = img.dimensions();
     let x_scale = f64::from(width) / RESIZED_IMG_SIZE as f64;
     let y_scale = f64::from(height) / RESIZED_IMG_SIZE as f64;
+
     // Each target pixel samples the centre of its cell, which makes the resize commute with flips and quarter turns: a
     // mirrored image samples exactly the mirrored pixels, except where a centre falls on a pixel boundary.
     let mut resized = vec![[0u8; 3]; RESIZED_IMG_SIZE * RESIZED_IMG_SIZE];
@@ -152,7 +167,12 @@ where
         }
     }
 
-    // --- Large icon: average each SAMPLES×SAMPLES block (still RGB). ---
+    resized
+}
+
+/// The large icon: the average of each `SAMPLES × SAMPLES` block of the resized image, still RGB, in the channel-major
+/// layout of [`arr_index`].
+fn block_average(resized: &[[u8; 3]]) -> Vec<u16> {
     let mut large = vec![0u16; LARGE_ICON_SIZE * LARGE_ICON_SIZE * 3];
     for x in 0..LARGE_ICON_SIZE {
         for y in 0..LARGE_ICON_SIZE {
@@ -179,7 +199,11 @@ where
         }
     }
 
-    // --- Box blur (3×3, stride 2) down to the final icon, converting to YCbCr. ---
+    large
+}
+
+/// Box-blurs the large icon (3×3, stride 2) down to the final icon, converting it to YCbCr.
+fn blur_to_ycbcr(large: &[u16]) -> Vec<u16> {
     let mut pixels = vec![0u16; NUM_PIX * 3];
     for x in (1..LARGE_ICON_SIZE - 1).step_by(2) {
         let xd = x / 2;
@@ -190,7 +214,7 @@ where
             // (x, y >= 1, so no underflow).
             for n in 0..3 {
                 for m in 0..3 {
-                    let (c1, c2, c3) = get(&large, LARGE_ICON_SIZE, x - 1 + n, y - 1 + m);
+                    let (c1, c2, c3) = get(large, LARGE_ICON_SIZE, x - 1 + n, y - 1 + m);
                     s1 += c1;
                     s2 += c2;
                     s3 += c3;

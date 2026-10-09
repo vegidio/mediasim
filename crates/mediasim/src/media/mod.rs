@@ -107,6 +107,32 @@ impl Media {
         u64::from(self.width) * u64::from(self.height)
     }
 
+    /// Orders two media best first, the ranking a front end shows a group of duplicates in: the longer duration first
+    /// (an image counts as zero), then more [`pixels`](Self::pixels), then the larger file, with the path as the
+    /// tie-break, so no two distinct paths compare equal.
+    ///
+    /// It is a comparator for [`slice::sort_by`]:
+    ///
+    /// ```no_run
+    /// use mediasim::{Grouper, Media};
+    ///
+    /// let mut grouper = Grouper::new(0.8);
+    /// grouper.extend(Media::from_files(vec!["a.png", "b.png"]).filter_map(Result::ok));
+    /// for mut group in grouper.finish() {
+    ///     group.sort_by(Media::best_first);
+    ///     println!("keep {}", group[0].path.display());
+    /// }
+    /// ```
+    #[must_use]
+    pub fn best_first(a: &Media, b: &Media) -> std::cmp::Ordering {
+        b.duration
+            .unwrap_or_default()
+            .cmp(&a.duration.unwrap_or_default())
+            .then_with(|| b.pixels().cmp(&a.pixels()))
+            .then_with(|| b.size.cmp(&a.size))
+            .then_with(|| a.path.cmp(&b.path))
+    }
+
     /// Loads one image or video file.
     ///
     /// An image yields one frame; a video yields one frame per second of playback, starting at the beginning.
@@ -380,6 +406,52 @@ pub(crate) mod tests {
             height: 1,
             duration: None,
             frames,
+        }
+    }
+
+    mod best_first {
+        use super::*;
+
+        fn ranked(mut group: Vec<Media>) -> Vec<PathBuf> {
+            group.sort_by(Media::best_first);
+            group.into_iter().map(|m| m.path).collect()
+        }
+
+        fn sized(path: &str, width: u32, height: u32, size: u64, secs: Option<u64>) -> Media {
+            let media_type = if secs.is_some() { MediaType::Video } else { MediaType::Image };
+            Media { width, height, size, duration: secs.map(Duration::from_secs), ..media(path, media_type, vec![]) }
+        }
+
+        fn paths(names: &[&str]) -> Vec<PathBuf> {
+            names.iter().map(PathBuf::from).collect()
+        }
+
+        #[test]
+        fn resolution_decides() {
+            let group = vec![sized("a.png", 500, 500, 0, None), sized("b.png", 1000, 1000, 0, None)];
+
+            assert_eq!(ranked(group), paths(&["b.png", "a.png"]));
+        }
+
+        #[test]
+        fn duration_decides_before_resolution() {
+            let group = vec![sized("a.mp4", 1920, 1080, 0, Some(30)), sized("b.mp4", 1280, 720, 0, Some(60))];
+
+            assert_eq!(ranked(group), paths(&["b.mp4", "a.mp4"]));
+        }
+
+        #[test]
+        fn file_size_breaks_a_tie() {
+            let group = vec![sized("a.png", 200, 50, 10, None), sized("b.png", 100, 100, 20, None)];
+
+            assert_eq!(ranked(group), paths(&["b.png", "a.png"]));
+        }
+
+        #[test]
+        fn path_breaks_a_full_tie() {
+            let group = vec![sized("b.png", 100, 100, 10, None), sized("a.png", 100, 100, 10, None)];
+
+            assert_eq!(ranked(group), paths(&["a.png", "b.png"]));
         }
     }
 

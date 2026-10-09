@@ -14,18 +14,16 @@ import { dropTargetClassName, ModeCard } from "@/features/home/ModeCard";
 import { SetList } from "@/features/home/SetList";
 import { useDropTarget } from "@/features/home/useDropTarget";
 import { formatCount } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, focusById } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
 
 /** The Continue button's id, which focus is sent to on coming back from the gallery. */
-export const CONTINUE_BUTTON_ID = "set-continue";
+const CONTINUE_BUTTON_ID = "set-continue";
 
 /** Move focus to the set card's Continue button, once React has rendered the Home screen. */
-export const focusContinue = () => {
-    requestAnimationFrame(() => document.getElementById(CONTINUE_BUTTON_ID)?.focus());
-};
+export const focusContinue = () => focusById(CONTINUE_BUTTON_ID);
 
 /** The "Find similar in a set" mode card: an empty drop area, or the list of what the set holds. */
 export const SetCard = () => {
@@ -58,7 +56,7 @@ export const SetCard = () => {
                         ref={dropAreaRef}
                         type="button"
                         aria-haspopup="menu"
-                        aria-expanded={menuAnchor !== undefined}
+                        aria-expanded={!!menuAnchor}
                         onClick={(event) => setMenuAnchor(anchorFor(event))}
                         className={cn(
                             dropTargetClassName,

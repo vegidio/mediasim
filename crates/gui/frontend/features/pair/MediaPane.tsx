@@ -1,11 +1,12 @@
 import { Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
 import { formatSize } from "@/lib/format";
+import type { Details } from "@/lib/mediaInfo";
+import type { Slot } from "@/lib/slots";
 import type { GoneKind } from "@/stores/pairResult";
 import { DetailValue } from "./DetailValue";
-import { type Details, detailRows } from "./details";
+import { detailRows } from "./details";
 import { MarkButton } from "./MarkButton";
 import { MarkWash } from "./MarkWash";
 import { Picture } from "./Picture";
@@ -38,15 +39,15 @@ type GonePaneProps = Pick<MediaPaneProps, "slot" | "file" | "onRestore" | "resto
 const GonePane = ({ slot, file, gone, onRestore, restoring = false }: GonePaneProps) => (
     <article
         aria-label={`File ${slot.toUpperCase()}`}
-        className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-2.5 rounded-[14px] border-[1.5px] border-[#3F3F46] border-dashed bg-[rgba(17,17,19,.6)] p-6 text-center"
+        className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-2.5 rounded-[14px] border-[1.5px] border-border-strong border-dashed bg-[rgba(17,17,19,.6)] p-6 text-center"
     >
-        <span className="flex size-12 items-center justify-center rounded-full border border-[#27272A] bg-[#18181B]">
-            <Trash2Icon aria-hidden="true" className="size-[22px] text-[#A1A1AA]" />
+        <span className="flex size-12 items-center justify-center rounded-full border border-border bg-muted">
+            <Trash2Icon aria-hidden="true" className="size-[22px] text-muted-foreground" />
         </span>
-        <span title={file.name} className="max-w-full truncate font-mono text-[#E4E4E7] text-[13px]">
+        <span title={file.name} className="max-w-full truncate font-mono text-text-label text-[13px]">
             {file.name}
         </span>
-        <span className="text-[#A1A1AA] text-[13px]">
+        <span className="text-muted-foreground text-[13px]">
             {gone === "trash" ? "Moved to Trash" : "Deleted permanently"} · {formatSize(file.size)} freed
         </span>
         {gone === "trash" && (
@@ -55,7 +56,7 @@ const GonePane = ({ slot, file, gone, onRestore, restoring = false }: GonePanePr
                 aria-label={`Undo moving ${file.name} to Trash`}
                 disabled={restoring}
                 onClick={onRestore}
-                className="mt-1.5 h-[34px] rounded-[8px] border-[#3F3F46] bg-transparent px-3.5 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"
+                className="mt-1.5 h-[34px] rounded-[8px] border-border-strong bg-transparent px-3.5 font-medium text-foreground text-[13px] dark:border-border-strong dark:bg-transparent"
             >
                 Undo
             </Button>
@@ -103,7 +104,7 @@ export const MediaPane = (props: MediaPaneProps) => {
                                 {/* The button already states the mark. */}
                                 <span
                                     aria-hidden="true"
-                                    className="absolute top-3 right-3 flex h-[22px] items-center gap-1 rounded-full bg-[#DC2626] px-2 font-semibold text-[11px] text-white"
+                                    className="absolute top-3 right-3 flex h-[22px] items-center gap-1 rounded-full bg-danger px-2 font-semibold text-[11px] text-white"
                                 >
                                     <Trash2Icon className="size-[11px]" />
                                     Delete

@@ -5,7 +5,7 @@ import { openMedia, revealMedia } from "@/ipc/open";
 import type { MediaInfo } from "@/ipc/pair";
 import type { MediaFile } from "@/ipc/thumbs";
 import type { VideoProbe } from "@/ipc/video";
-import type { Inclusion } from "../gallery/derive";
+import type { Inclusion } from "@/lib/gallery";
 import { DetailsSidebar } from "./DetailsSidebar";
 import { InclusionButton, InclusionChips } from "./GalleryDetailsDialog";
 import type { FileDetails } from "./rows";

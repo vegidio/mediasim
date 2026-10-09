@@ -97,7 +97,7 @@ describe("Scan progress", () => {
         running({ done: 48, etaSeconds: 0 });
         render(<ScanScreen />);
 
-        expect(screen.getByText("Done")).toHaveClass("text-[#A1A1AA]");
+        expect(screen.getByText("Done")).toHaveClass("text-muted-foreground");
         expect(screen.getByTestId("phase-done")).toBeInTheDocument();
         expect(screen.queryByTestId("spinner")).not.toBeInTheDocument();
     });

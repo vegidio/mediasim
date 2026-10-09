@@ -1,10 +1,10 @@
 import { Trash2Icon } from "lucide-react";
-import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Details } from "@/lib/mediaInfo";
+import type { Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import type { GoneKind } from "@/stores/pairResult";
 import { DetailsTable } from "./DetailsTable";
-import type { Details } from "./details";
 import { MarkButton } from "./MarkButton";
 import { SliderPlayer } from "./SliderPlayer";
 import { SliderStage } from "./SliderStage";
@@ -34,7 +34,7 @@ const Name = ({ file, gone }: { file: MediaFile; gone: boolean }) => (
 
 /** Stands in for a gone file's mark button, saying how it went: there is nothing left to mark. */
 const GonePill = ({ gone }: { gone: GoneKind }) => (
-    <span className="flex h-[22px] shrink-0 items-center gap-1 rounded-full border border-[#3F3F46] bg-[#18181B] px-2 font-medium text-[#A1A1AA] text-[11px]">
+    <span className="flex h-[22px] shrink-0 items-center gap-1 rounded-full border border-border-strong bg-muted px-2 font-medium text-muted-foreground text-[11px]">
         <Trash2Icon aria-hidden="true" className="size-[11px]" />
         {gone === "trash" ? "In Trash" : "Deleted"}
     </span>
@@ -75,13 +75,13 @@ export const SliderPane = ({
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-border"
     >
         <div className="flex h-[52px] shrink-0 items-center gap-2.5 border-border border-b bg-card px-4">
-            <SlotBadge slot="a" gone={gone.a !== undefined} />
-            <Name file={files.a} gone={gone.a !== undefined} />
+            <SlotBadge slot="a" gone={!!gone.a} />
+            <Name file={files.a} gone={!!gone.a} />
             <Mark slot="a" marked={marked} gone={gone} onToggleMark={onToggleMark} />
             <span className="flex-1" />
             <Mark slot="b" marked={marked} gone={gone} onToggleMark={onToggleMark} />
-            <Name file={files.b} gone={gone.b !== undefined} />
-            <SlotBadge slot="b" gone={gone.b !== undefined} />
+            <Name file={files.b} gone={!!gone.b} />
+            <SlotBadge slot="b" gone={!!gone.b} />
         </div>
 
         {/* Two videos still in place play in step; anything else is stills, or one file's own player. */}

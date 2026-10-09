@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_RULES } from "@/features/groups/rules";
+import { DEFAULT_RULES } from "@/lib/rules";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "./settings";
 
 const KEY = "settings-storage";

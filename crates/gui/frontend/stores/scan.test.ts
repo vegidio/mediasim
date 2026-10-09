@@ -549,21 +549,28 @@ describe("removing marked files", () => {
         ]);
     });
 
-    it("drops a result that arrives after Back", async () => {
-        await finish();
-        const pending = deferred<unknown[]>();
-        mockedTrash.mockReturnValue(pending.promise);
-        await state().requestDeletion();
-        const run = state().removeMarked();
+    it.each([
+        ["Back", () => state().leave()],
+        ["New comparison", () => state().newComparison()],
+    ])(
+        "drops the screen state of a result that arrives after %s, but still withdraws the files removed",
+        async (_, end) => {
+            await finish();
+            const pending = deferred<unknown[]>();
+            mockedTrash.mockReturnValue(pending.promise);
+            await state().requestDeletion();
+            const run = state().removeMarked();
 
-        state().leave();
-        pending.resolve([{ status: "trashed" }, { status: "trashed" }]);
-        await run;
+            end();
+            pending.resolve([{ status: "trashed" }, { status: "failed", reason: "changed", message: "changed" }]);
+            await run;
 
-        expect(state().gone.size).toBe(0);
-        expect(state().notice).toBeUndefined();
-        expect(listed()).toHaveLength(4);
-    });
+            expect(state().gone.size).toBe(0);
+            expect(state().notice).toBeUndefined();
+            expect(state().deletion).toEqual({ status: "idle" });
+            expect(listed().map((file) => file.name)).toEqual(["a.jpg", "c.mp4", "d.jpg"]);
+        },
+    );
 
     it.each([
         ["a new scan", () => state().start()],
@@ -645,6 +652,21 @@ describe("removing marked files", () => {
             expect([...state().marks]).toEqual([path("b.jpg")]);
             expect(state().notice?.failed).toEqual([{ key: path("d.jpg"), message: "path taken" }]);
             expect(listed().map((file) => file.name)).toEqual(["a.jpg", "b.jpg", "c.mp4"]);
+        });
+
+        it("reinstates the files restored in the gallery even after Back", async () => {
+            await trashBoth();
+            const pending = deferred<unknown[]>();
+            mockedRestore.mockReturnValue(pending.promise);
+            const run = state().restore([path("b.jpg")]);
+
+            state().leave();
+            pending.resolve([{ status: "restored", identity: "b-new" }]);
+            await run;
+
+            expect(state().notice).toBeUndefined();
+            expect(state().deletion).toEqual({ status: "idle" });
+            expect(listed().map((file) => file.identity)).toEqual([id("a.jpg"), "b-new", id("c.mp4")]);
         });
 
         it("starts no removal while restoring", async () => {

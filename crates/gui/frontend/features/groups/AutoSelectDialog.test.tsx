@@ -2,9 +2,9 @@ import { act, useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupFile } from "@/ipc/scan";
+import { DEFAULT_RULES, moveRule, type Rule } from "@/lib/rules";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { AutoSelectDialog } from "./AutoSelectDialog";
-import { DEFAULT_RULES, moveRule, type Rule } from "./rules";
 
 const image = (path: string, size: number, created: string): GroupFile => ({
     path,

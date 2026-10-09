@@ -2,7 +2,7 @@ import { position } from "@/features/details/navigate";
 import type { MediaType } from "@/ipc/formats";
 import type { GroupFile } from "@/ipc/scan";
 import { formatCount, formatSize, plural } from "@/lib/format";
-import type { Preview } from "./marks";
+import type { Preview } from "@/lib/marks";
 
 type SummaryCounts = {
     /** The number of files in the groups. */
@@ -16,15 +16,17 @@ type SummaryCounts = {
     unreadable: number;
 };
 
+/** What the summary goes on with when `unreadable` files were skipped: " · N couldn't be read", or nothing. */
+const skippedPart = (unreadable: number) => (unreadable > 0 ? ` · ${unreadable} couldn't be read` : "");
+
 /**
  * The groups toolbar's summary: "18 similar files in 7 groups · 48 scanned · threshold 85%", or "No similar files found
  * · …" with no group, going on with " · N couldn't be read" when files were skipped.
  */
 export const summary = ({ files, groups, scanned, threshold, unreadable }: SummaryCounts) => {
     const found = groups === 0 ? "No similar files found" : `${files} similar files in ${plural(groups, "group")}`;
-    const skipped = unreadable > 0 ? ` · ${unreadable} couldn't be read` : "";
 
-    return `${found} · ${scanned} scanned · threshold ${threshold}%${skipped}`;
+    return `${found} · ${scanned} scanned · threshold ${threshold}%${skippedPart(unreadable)}`;
 };
 
 /** The counts the summary reads once no group is left. */
@@ -41,11 +43,8 @@ type LeftCounts = {
  * The groups toolbar's summary once removals left no group: "No similar files left · 37 files remaining · threshold
  * 85%", going on with " · N couldn't be read" when files were skipped.
  */
-export const leftSummary = ({ remaining, threshold, unreadable }: LeftCounts) => {
-    const skipped = unreadable > 0 ? ` · ${unreadable} couldn't be read` : "";
-
-    return `No similar files left · ${formatCount(remaining)} remaining · threshold ${threshold}%${skipped}`;
-};
+export const leftSummary = ({ remaining, threshold, unreadable }: LeftCounts) =>
+    `No similar files left · ${formatCount(remaining)} remaining · threshold ${threshold}%${skippedPart(unreadable)}`;
 
 /** A group's size: "3 images", "2 videos", or "1 image" for one. */
 export const groupSize = (count: number, type: MediaType) => plural(count, type);
@@ -56,9 +55,8 @@ export const detailsLine = ({ width, height, size }: GroupFile) => `${width}×${
 /** What the "No similar files found" state says of the `read` files compared at `threshold` percent. */
 export const uniqueLine = (read: number, threshold: number) => {
     if (read === 0) return "None of the files could be read.";
-    if (read === 1) return `The 1 file compared is unique at the ${threshold}% threshold.`;
 
-    return `The ${read} files compared are unique at the ${threshold}% threshold.`;
+    return `The ${plural(read, "file")} compared ${read === 1 ? "is" : "are"} unique at the ${threshold}% threshold.`;
 };
 
 /**
@@ -70,9 +68,7 @@ export const resolvedLine = (groups: number, remaining: number, threshold: numbe
     const left =
         remaining === 0
             ? "No files remain."
-            : remaining === 1
-              ? `The 1 remaining file is unique at the ${threshold}% threshold.`
-              : `The ${remaining} remaining files are unique at the ${threshold}% threshold.`;
+            : `The ${plural(remaining, "remaining file")} ${remaining === 1 ? "is" : "are"} unique at the ${threshold}% threshold.`;
 
     return `${resolved} ${left}`;
 };

@@ -1,4 +1,4 @@
-import { type SyntheticEvent, useId, useRef } from "react";
+import { useId } from "react";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePointerOpened } from "@/lib/usePointerOpened";
 import { useGalleryStore } from "@/stores/gallery";
 import { useScreenStore } from "@/stores/screen";
 import { FRAME_OPTIONS } from "@/stores/settings";
@@ -37,11 +38,11 @@ const OptionItem = ({ label, hint, checked, onCheckedChange }: OptionItemProps) 
             onSelect={(event) => event.preventDefault()}
             aria-labelledby={labelId}
             aria-describedby={hintId}
-            className="group/option items-start gap-3 rounded-lg p-2.5 focus:bg-[#18181B] [&_[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
+            className="group/option items-start gap-3 rounded-lg p-2.5 focus:bg-accent [&_[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
         >
             <span
                 aria-hidden="true"
-                className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border-[#52525B] border-[1.5px] group-data-[state=checked]/option:border-[#BEF264] group-data-[state=checked]/option:bg-[#BEF264]"
+                className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border-border-hover border-[1.5px] group-data-[state=checked]/option:border-primary group-data-[state=checked]/option:bg-primary"
             >
                 {/*
                   A concrete stroke, not `currentColor`: the shared item's focus colour reaches the icon's path too, and
@@ -54,11 +55,11 @@ const OptionItem = ({ label, hint, checked, onCheckedChange }: OptionItemProps) 
                 />
             </span>
             <span className="flex flex-col gap-0.5">
-                <span id={labelId} className="font-medium text-[#FAFAFA] text-sm">
+                <span id={labelId} className="font-medium text-foreground text-sm">
                     {label}
                 </span>
                 {/* Important, so the shared item's focus colour, forced on every descendant, leaves the hint grey. */}
-                <span id={hintId} className="text-[#A1A1AA]! text-xs">
+                <span id={hintId} className="text-muted-foreground! text-xs">
                     {hint}
                 </span>
             </span>
@@ -79,24 +80,16 @@ export const ComparisonOptionsMenu = () => {
     const setFrameFlip = useGalleryStore((state) => state.setFrameFlip);
     const returnToGrid = useGalleryStore((state) => state.returnToGrid);
     const openSettings = useScreenStore((state) => state.openSettings);
-    // Whether the menu was opened by a click rather than from the keyboard. Only a press that opens the menu counts, so
-    // closing it from the chevron keeps the way it was opened. The trigger's `data-state` is still the one before the
-    // press, since Radix has not re-rendered yet.
-    const byPointer = useRef(false);
-    const opening = (event: SyntheticEvent<HTMLButtonElement>) => event.currentTarget.dataset.state !== "open";
+    // Whether the menu was opened by a click rather than from the keyboard.
+    const { byPointer, triggerProps } = usePointerOpened();
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
                     aria-label="Comparison options"
-                    onPointerDown={(event) => {
-                        if (opening(event)) byPointer.current = true;
-                    }}
-                    onKeyDown={(event) => {
-                        if (opening(event)) byPointer.current = false;
-                    }}
-                    className="h-[38px] w-9 rounded-l-none border-l-[#65A30D] bg-[#A3E635] p-0 text-[#1A2E05] hover:bg-[#A3E635]/90 data-[state=open]:bg-[#84CC16]"
+                    {...triggerProps}
+                    className="h-[38px] w-9 rounded-l-none border-l-split-divider bg-split p-0 text-primary-foreground hover:bg-split/90 data-[state=open]:bg-split-active"
                 >
                     <ChevronDownIcon aria-hidden="true" />
                 </Button>
@@ -110,9 +103,9 @@ export const ComparisonOptionsMenu = () => {
                     event.preventDefault();
                     returnToGrid();
                 }}
-                className="w-[340px] rounded-xl border border-[#27272A] bg-[#111113] p-1.5 text-[#FAFAFA] shadow-[0_16px_40px_rgba(0,0,0,0.55)] ring-0"
+                className="w-[340px] rounded-xl border border-border bg-card p-1.5 text-foreground shadow-[0_16px_40px_rgba(0,0,0,0.55)] ring-0"
             >
-                <DropdownMenuLabel className="px-2.5 pt-2 pb-1.5 font-semibold text-[#A1A1AA] text-[11px] uppercase tracking-[0.06em]">
+                <DropdownMenuLabel className="px-2.5 pt-2 pb-1.5 font-semibold text-muted-foreground text-[11px] uppercase tracking-[0.06em]">
                     Also compare each frame
                 </DropdownMenuLabel>
                 <OptionItem
@@ -127,15 +120,15 @@ export const ComparisonOptionsMenu = () => {
                     checked={frameFlip}
                     onCheckedChange={setFrameFlip}
                 />
-                <DropdownMenuSeparator className="mx-0 my-1.5 bg-[#27272A]" />
-                <p className="px-2.5 pt-1 pb-2 text-[#A1A1AA] text-xs leading-relaxed">
+                <DropdownMenuSeparator className="mx-0 my-1.5 bg-border" />
+                <p className="px-2.5 pt-1 pb-2 text-muted-foreground text-xs leading-relaxed">
                     Finds copies that were rotated or mirrored. Each option adds comparisons, so scans take longer. The
                     defaults can be changed in{" "}
                     {/* Styled on the item, not the button, so `cn` drops the shared item's flex layout and padding. */}
                     <DropdownMenuItem
                         asChild
                         onSelect={openSettings}
-                        className="inline cursor-pointer rounded-sm p-0 font-medium text-[#BEF264] text-xs underline-offset-2 hover:underline focus:bg-transparent focus:text-[#BEF264] focus:underline"
+                        className="inline cursor-pointer rounded-sm p-0 font-medium text-primary text-xs underline-offset-2 hover:underline focus:bg-transparent focus:text-primary focus:underline"
                     >
                         <button type="button">Settings</button>
                     </DropdownMenuItem>

@@ -63,8 +63,22 @@
     --color-text-disabled: #71717a;
     --color-text-faint: #52525b;
     --color-text-label: #e4e4e7;
+    /* Panels set into a dialog's body. */
+    --color-surface-inset: #0f0f11;
+    /* The lime chevron half of a split button: its face, its face while its menu is open, and the line between halves. */
+    --color-split: #a3e635;
+    --color-split-active: #84cc16;
+    --color-split-divider: #65a30d;
     /* Amber, for fixable input states; the destructive red stays reserved for deletion. */
     --color-warning: #fbbf24;
+    /* The reds of deletion: a remove button and badge, its hover, a muted border, light and lighter text. */
+    --color-danger: #dc2626;
+    --color-danger-hover: #b91c1c;
+    --color-danger-border: #7f1d1d;
+    --color-danger-bright: #f87171;
+    --color-danger-soft: #fca5a5;
+    /* The ring of a file marked for deletion. */
+    --color-mark: #ef4444;
 
     /* A highlight 30% of its track wide, sliding across it, for progress with no known end. */
     --animate-slide: slide 1.2s ease-in-out infinite;

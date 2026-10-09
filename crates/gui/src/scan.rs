@@ -306,7 +306,7 @@ mod tests {
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::thumbs::tests::fixture;
+    use crate::admission::tests::fixture;
 
     fn processing(path: &str) -> ScanMessage {
         ScanMessage::Processing { path: path.into(), display: path.into() }

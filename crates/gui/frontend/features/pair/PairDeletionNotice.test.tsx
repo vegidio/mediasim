@@ -4,7 +4,7 @@ import { HIDE_AFTER } from "@/components/deletion/DeletionNotice";
 import type { MediaFile } from "@/ipc/thumbs";
 import { type RestoreOutcome, restoreMedia } from "@/ipc/trash";
 import { type Notice, usePairResultStore } from "@/stores/pairResult";
-import { DeletionNotice } from "./DeletionNotice";
+import { PairDeletionNotice } from "./PairDeletionNotice";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), restoreMedia: vi.fn() }));
@@ -25,19 +25,19 @@ const mockedRestore = restoreMedia as Mock;
 const status = () => screen.getByRole("status");
 const show = (notice: Notice) => act(() => usePairResultStore.setState({ notice }));
 
-describe("DeletionNotice", () => {
+describe("PairDeletionNotice", () => {
     beforeEach(() => {
         usePairResultStore.setState({ ...usePairResultStore.getInitialState(), files: { a: A, b: B } }, true);
     });
 
     it("keeps an empty status region with no notice", () => {
-        render(<DeletionNotice />);
+        render(<PairDeletionNotice />);
 
         expect(status()).toBeEmptyDOMElement();
     });
 
     it("reports one file moved with the space freed, a check icon and Dismiss, inside the status region", () => {
-        const { container } = render(<DeletionNotice />);
+        const { container } = render(<PairDeletionNotice />);
 
         show({ action: "trash", done: ["b"], failed: [] });
 
@@ -49,7 +49,7 @@ describe("DeletionNotice", () => {
     });
 
     it("reports two files moved", () => {
-        render(<DeletionNotice />);
+        render(<PairDeletionNotice />);
 
         show({ action: "trash", done: ["a", "b"], failed: [] });
 
@@ -57,7 +57,7 @@ describe("DeletionNotice", () => {
     });
 
     it("reports a mixed result on two lines", () => {
-        render(<DeletionNotice />);
+        render(<PairDeletionNotice />);
 
         show({ action: "trash", done: ["b"], failed: [{ key: "a", message: "the folder is read-only" }] });
 
@@ -69,7 +69,7 @@ describe("DeletionNotice", () => {
     });
 
     it("shows the error icon and no moved line when nothing moved", () => {
-        const { container } = render(<DeletionNotice />);
+        const { container } = render(<PairDeletionNotice />);
 
         show({ action: "trash", done: [], failed: [{ key: "b", message: "it has changed since it was opened" }] });
 
@@ -81,7 +81,7 @@ describe("DeletionNotice", () => {
 
     it("closes on Dismiss, keeping the file gone", () => {
         usePairResultStore.setState({ gone: { b: "trash" } });
-        render(<DeletionNotice />);
+        render(<PairDeletionNotice />);
         show({ action: "trash", done: ["b"], failed: [] });
 
         fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -101,7 +101,7 @@ describe("DeletionNotice", () => {
 
         it("offers Undo between the text and Dismiss, named with the count", () => {
             usePairResultStore.setState({ gone: { a: "trash", b: "trash" } });
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
             const button = screen.getByRole("button", { name: "Undo moving 2 files to Trash" });
@@ -113,7 +113,7 @@ describe("DeletionNotice", () => {
         it("restores every file the move moved, and moves focus to Dismiss", async () => {
             usePairResultStore.setState({ gone: { a: "trash", b: "trash" } });
             mockedRestore.mockResolvedValue([restored(A.identity), restored(B.identity)]);
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
             fireEvent.click(screen.getByRole("button", { name: "Undo moving 2 files to Trash" }));
@@ -126,7 +126,7 @@ describe("DeletionNotice", () => {
         it("restores only the files the move moved that are still in the Trash", async () => {
             usePairResultStore.setState({ gone: { b: "trash" } });
             mockedRestore.mockResolvedValue([restored(B.identity)]);
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
             fireEvent.click(screen.getByRole("button", { name: "Undo moving 1 file to Trash" }));
@@ -137,7 +137,7 @@ describe("DeletionNotice", () => {
 
         it("hides Undo once every file the move moved is back", () => {
             usePairResultStore.setState({ gone: {} });
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
             expect(undo()).not.toBeInTheDocument();
@@ -145,7 +145,7 @@ describe("DeletionNotice", () => {
 
         it("disables Undo while restoring", () => {
             usePairResultStore.setState({ gone: { b: "trash" }, deletion: { status: "restoring" } });
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["b"], failed: [] });
 
             expect(undo()).toBeDisabled();
@@ -153,7 +153,7 @@ describe("DeletionNotice", () => {
 
         it("offers no Undo for a move where nothing moved", () => {
             usePairResultStore.setState({ gone: {} });
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: [], failed: [{ key: "b", message: "no Trash" }] });
 
             expect(undo()).not.toBeInTheDocument();
@@ -163,7 +163,7 @@ describe("DeletionNotice", () => {
     describe("delete", () => {
         it("reports one file deleted with the space freed, Dismiss and no Undo", () => {
             usePairResultStore.setState({ gone: { b: "permanent" } });
-            const { container } = render(<DeletionNotice />);
+            const { container } = render(<PairDeletionNotice />);
 
             show({ action: "permanent", done: ["b"], failed: [] });
 
@@ -175,7 +175,7 @@ describe("DeletionNotice", () => {
         });
 
         it("reports a file that couldn't be deleted, with the reason and the error icon", () => {
-            const { container } = render(<DeletionNotice />);
+            const { container } = render(<PairDeletionNotice />);
 
             show({
                 action: "permanent",
@@ -191,7 +191,7 @@ describe("DeletionNotice", () => {
 
         it("offers Undo only for the trashed file of a mixed pair", () => {
             usePairResultStore.setState({ gone: { a: "trash", b: "permanent" } });
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
 
             show({ action: "trash", done: ["a", "b"], failed: [] });
 
@@ -202,7 +202,7 @@ describe("DeletionNotice", () => {
     describe("restore", () => {
         it("reports one file restored with a check icon, Dismiss and no Undo", () => {
             usePairResultStore.setState({ gone: { a: "trash" } });
-            const { container } = render(<DeletionNotice />);
+            const { container } = render(<PairDeletionNotice />);
 
             show({ action: "restore", done: ["b"], failed: [] });
 
@@ -214,7 +214,7 @@ describe("DeletionNotice", () => {
         });
 
         it("reports a mixed restore on two lines", () => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
 
             show({
                 action: "restore",
@@ -230,7 +230,7 @@ describe("DeletionNotice", () => {
         });
 
         it("shows the error icon and no restored line when nothing was restored", () => {
-            const { container } = render(<DeletionNotice />);
+            const { container } = render(<PairDeletionNotice />);
 
             show({ action: "restore", done: [], failed: [{ key: "b", message: "it is no longer in the Trash" }] });
 
@@ -253,7 +253,7 @@ describe("DeletionNotice", () => {
         const box = () => screen.getByRole("button", { name: "Dismiss" }).parentElement as HTMLElement;
 
         it("hides a notice of files all moved after six seconds, keeping the file gone", () => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["b"], failed: [] });
 
             wait(HIDE_AFTER - 1);
@@ -275,7 +275,7 @@ describe("DeletionNotice", () => {
                 },
             ],
         ])("keeps %s until dismissed", (_, notice) => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show(notice);
 
             wait(60_000);
@@ -284,7 +284,7 @@ describe("DeletionNotice", () => {
         });
 
         it("hides a notice of files all restored after six seconds", () => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "restore", done: ["b"], failed: [] });
 
             wait(HIDE_AFTER - 1);
@@ -295,7 +295,7 @@ describe("DeletionNotice", () => {
         });
 
         it("keeps a failed restore until dismissed", () => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "restore", done: [], failed: [{ key: "b", message: "it is no longer in the Trash" }] });
 
             wait(60_000);
@@ -304,7 +304,7 @@ describe("DeletionNotice", () => {
         });
 
         it("holds while the pointer is over it, then hides six seconds after it leaves", () => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["b"], failed: [] });
 
             fireEvent.pointerEnter(box());
@@ -325,7 +325,7 @@ describe("DeletionNotice", () => {
             ) {
                 return selector === ":focus-visible" ? keyboard : original.call(this, selector);
             });
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["b"], failed: [] });
             const dismiss = screen.getByRole("button", { name: "Dismiss" });
 
@@ -342,7 +342,7 @@ describe("DeletionNotice", () => {
         });
 
         it("times a new notice afresh after one dismissed under the pointer", () => {
-            render(<DeletionNotice />);
+            render(<PairDeletionNotice />);
             show({ action: "trash", done: ["b"], failed: [] });
             fireEvent.pointerEnter(box());
             fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));

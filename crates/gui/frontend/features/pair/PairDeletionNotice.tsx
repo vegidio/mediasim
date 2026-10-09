@@ -1,13 +1,9 @@
 import { useMemo } from "react";
-import {
-    focusDismiss,
-    type NoticeView,
-    DeletionNotice as SharedDeletionNotice,
-} from "@/components/deletion/DeletionNotice";
+import { DeletionNotice, focusDismiss, type NoticeView } from "@/components/deletion/DeletionNotice";
 import { undoable as undoableOf } from "@/lib/deletion";
 import { usePairResultStore } from "@/stores/pairResult";
 
-type DeletionNoticeProps = {
+type PairDeletionNoticeProps = {
     className?: string;
 };
 
@@ -15,7 +11,7 @@ type DeletionNoticeProps = {
  * The deletion notice for the pair result store's last move, deletion or restore. Undo puts back the files that move
  * moved that are still in the Trash.
  */
-export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
+export const PairDeletionNotice = ({ className }: PairDeletionNoticeProps) => {
     const files = usePairResultStore((state) => state.files);
     const notice = usePairResultStore((state) => state.notice);
     const dismissNotice = usePairResultStore((state) => state.dismissNotice);
@@ -39,7 +35,7 @@ export const DeletionNotice = ({ className }: DeletionNoticeProps) => {
     const undoable = undoableOf(notice, (slot) => gone[slot] === "trash");
 
     return (
-        <SharedDeletionNotice
+        <DeletionNotice
             {...(view && { notice: view })}
             undoCount={undoable.length}
             restoring={restoring}

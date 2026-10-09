@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import type { Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Slot } from "@/lib/slots";
 import { PlayerBar } from "./PlayerBar";
 import { PlayerVideo } from "./PlayerVideo";
 import { SliderStage } from "./SliderStage";

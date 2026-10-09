@@ -1,9 +1,10 @@
-import { SLOTS, type Slot } from "@/features/home/routePairDrop";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { Details } from "@/lib/mediaInfo";
+import { SLOTS, type Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import type { GoneKind } from "@/stores/pairResult";
 import { DetailValue } from "./DetailValue";
-import { type Details, detailRows } from "./details";
+import { detailRows } from "./details";
 import { SlotBadge } from "./SlotBadge";
 
 type DetailsTableProps = {

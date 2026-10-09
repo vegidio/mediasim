@@ -14,6 +14,13 @@ use crate::{Icon, euc_metric};
 #[must_use]
 pub fn calculate_diff(icon1: &Icon, icon2: &Icon) -> f64 {
     let (m1, m2, m3) = euc_metric(icon1, icon2);
+    combine(m1, m2, m3)
+}
+
+/// Folds the three per-channel distances of [`euc_metric`] into the difference [`calculate_diff`] reports. Every step
+/// is monotone in floating point (sums of non-negative values, a root, a division by a positive constant and a
+/// clamp), so it never decreases as any of its arguments grows.
+pub(super) fn combine(m1: f64, m2: f64, m3: f64) -> f64 {
     // `.min(1.0)` clamps the rare all-three-channel extreme (which reaches ~sqrt(2)) back into [0, 1].
     ((m1 + m2 / 2.0 + m3 / 2.0).sqrt() / MAX_EUC_DIST).min(1.0)
 }

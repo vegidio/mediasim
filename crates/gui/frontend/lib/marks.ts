@@ -1,7 +1,13 @@
 import type { GroupFile, ScanGroup } from "@/ipc/scan";
-import { totalSize } from "@/lib/format";
-import type { GroupView } from "./GroupCard";
+import { totalSize } from "./format";
 import { bestIndex, type Rule } from "./rules";
+
+/** A group as its card shows it. */
+export type GroupView = {
+    files: readonly GroupFile[];
+    /** The index of the best file in `files`. */
+    best: number;
+};
 
 /**
  * The groups of `groups` still shown once the files in `gone` have left: each one's files minus those, in order, and

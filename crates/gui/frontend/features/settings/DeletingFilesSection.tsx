@@ -9,14 +9,14 @@ const OPTIONS: Record<DeletionMode, { name: string; hint: string; ring: string; 
     trash: {
         name: "Move to Trash",
         hint: "Files can be restored from the Trash.",
-        ring: "data-checked:border-[#BEF264]",
-        dot: "bg-[#BEF264]",
+        ring: "data-checked:border-primary",
+        dot: "bg-primary",
     },
     permanent: {
         name: "Delete permanently",
         hint: "Frees space immediately. This cannot be undone.",
-        ring: "data-checked:border-[#F87171]",
-        dot: "bg-[#F87171]",
+        ring: "data-checked:border-danger-bright",
+        dot: "bg-danger-bright",
     },
 };
 
@@ -39,7 +39,7 @@ const ModeOption = ({ mode }: { mode: DeletionMode }) => {
                     value={mode}
                     aria-labelledby={`${id}-name`}
                     aria-describedby={`${id}-hint`}
-                    className={`size-[18px] border-[1.5px] border-[#52525B] bg-transparent dark:bg-transparent data-checked:bg-transparent dark:data-checked:bg-transparent ${ring}`}
+                    className={`size-[18px] border-[1.5px] border-border-hover bg-transparent dark:bg-transparent data-checked:bg-transparent dark:data-checked:bg-transparent ${ring}`}
                     indicatorClassName={dot}
                 />
             }
@@ -61,7 +61,7 @@ export const DeletingFilesSection = () => {
                 onValueChange={(value) => {
                     if (isDeletionMode(value)) update({ deletionMode: value });
                 }}
-                className="gap-0 [&>*+*]:border-[#1F1F23] [&>*+*]:border-t"
+                className="gap-0 [&>*+*]:border-border-subtle [&>*+*]:border-t"
             >
                 {DELETION_MODES.map((mode) => (
                     <ModeOption key={mode} mode={mode} />

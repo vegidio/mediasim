@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { rankedRules } from "@/features/groups/rules";
+import { rankedRules } from "@/lib/rules";
 import { useSettingsStore } from "@/stores/settings";
 import { DefaultRulesDialog } from "./DefaultRulesDialog";
 import { SettingsSection } from "./SettingsSection";
@@ -11,7 +11,7 @@ import { SettingsSection } from "./SettingsSection";
  */
 export const AutoSelectSection = () => {
     const saved = useSettingsStore((state) => state.autoSelectRules);
-    const rules = useMemo(() => rankedRules(saved), [saved]);
+    const rules = rankedRules(saved);
     const [open, setOpen] = useState(false);
     const edit = useRef<HTMLButtonElement>(null);
 
@@ -25,13 +25,13 @@ export const AutoSelectSection = () => {
                         <ol aria-label="Default rules" className="flex flex-wrap items-center gap-1.5 text-xs">
                             {rules.map(({ id, rank, label }, index) => (
                                 <li key={id} className="flex items-center gap-1.5">
-                                    <span className="flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-md border border-[#27272A] bg-[#18181B] px-2 text-[#E4E4E7]">
-                                        <span className="font-mono text-[#A1A1AA]">{rank}</span>
+                                    <span className="flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-muted px-2 text-text-label">
+                                        <span className="font-mono text-muted-foreground">{rank}</span>
                                         {/* Dropped by the flex layout, but read between the rank and the label. */}{" "}
                                         <span>{label}</span>
                                     </span>
                                     {index < rules.length - 1 && (
-                                        <span aria-hidden="true" className="text-[#52525B]">
+                                        <span aria-hidden="true" className="text-text-faint">
                                             ›
                                         </span>
                                     )}
@@ -39,14 +39,14 @@ export const AutoSelectSection = () => {
                             ))}
                         </ol>
                     ) : (
-                        <span className="text-[#A1A1AA] text-xs">All rules are off</span>
+                        <span className="text-muted-foreground text-xs">All rules are off</span>
                     )}
                 </div>
                 <Button
                     ref={edit}
                     variant="outline"
                     onClick={() => setOpen(true)}
-                    className="h-[34px] shrink-0 whitespace-nowrap rounded-lg border-[#3F3F46] bg-transparent px-3 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"
+                    className="h-[34px] shrink-0 whitespace-nowrap rounded-lg border-border-strong bg-transparent px-3 font-medium text-foreground text-[13px] dark:border-border-strong dark:bg-transparent"
                 >
                     Edit rules
                 </Button>

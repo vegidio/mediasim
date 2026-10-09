@@ -1,10 +1,13 @@
 //! The Tauri commands that open an admitted file in the system's default application, or show it in the system file
 //! manager.
 //!
-//! Like [`trash`](crate::trash), the window names files by the identity [`thumbs`](crate::thumbs) gave it, never by
-//! path, so it can only open a file it was shown, and only while the file on disk is still the one admitted. The
-//! opener plugin's free functions are called from here; the plugin itself and its JS API are not registered, so the
-//! webview has no way to open an arbitrary path.
+//! Like [`trash`](crate::trash), the window names files by the identity [`admission`](crate::admission) gave it,
+//! never by path, so it can only open a file that is in the registry, and only while the file on disk is still the
+//! one admitted: same size, modification time and canonical path. Unlike moving to the Trash or deleting, which also
+//! require a file the user chose ([`roots`](crate::roots)), nothing here checks that: admission takes any media file
+//! the window names, and opening or revealing one destroys nothing. The opener plugin's free functions are called
+//! from here; the plugin itself and its JS API are not registered, so the webview has no way to open a path it hasn't
+//! admitted.
 
 use std::path::Path;
 
@@ -13,7 +16,7 @@ use serde::{Serialize, Serializer};
 use tauri::State;
 use tauri::async_runtime::spawn_blocking;
 
-use crate::thumbs::{Mismatch, ThumbState, check_admitted};
+use crate::admission::{Admissions, Mismatch, check_admitted};
 
 /// Why a file was not opened or shown. Crosses to the window as `{ kind, message }`.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
@@ -30,8 +33,8 @@ pub enum OpenError {
     /// The operating system refused to open or show it.
     #[error("{0}")]
     Failed(String),
-    /// The blocking task panicked or was cancelled by the runtime.
-    #[error("the background task did not finish: {0}")]
+    /// The blocking task panicked or was cancelled by the runtime, as [`task_message`](crate::task_message) says.
+    #[error("{0}")]
     Task(String),
 }
 
@@ -72,8 +75,8 @@ impl From<Mismatch> for OpenError {
 /// If the identity was never admitted, the file is gone or has changed, the operating system refuses, or the blocking
 /// task fails to finish.
 #[tauri::command]
-pub async fn open_media(thumbs: State<'_, ThumbState>, identity: String) -> Result<(), OpenError> {
-    act(&thumbs, &identity, |path| tauri_plugin_opener::open_path(path, None::<&str>)).await
+pub async fn open_media(registry: State<'_, Admissions>, identity: String) -> Result<(), OpenError> {
+    act(&registry, &identity, |path| tauri_plugin_opener::open_path(path, None::<&str>)).await
 }
 
 /// Opens the folder of the admitted file named by `identity` in the system file manager, with the file selected where
@@ -83,16 +86,16 @@ pub async fn open_media(thumbs: State<'_, ThumbState>, identity: String) -> Resu
 ///
 /// As [`open_media`].
 #[tauri::command]
-pub async fn reveal_media(thumbs: State<'_, ThumbState>, identity: String) -> Result<(), OpenError> {
-    act(&thumbs, &identity, |path| tauri_plugin_opener::reveal_item_in_dir(path)).await
+pub async fn reveal_media(registry: State<'_, Admissions>, identity: String) -> Result<(), OpenError> {
+    act(&registry, &identity, |path| tauri_plugin_opener::reveal_item_in_dir(path)).await
 }
 
 /// Runs `opener` on the blocking pool with the path admitted as `identity`, once it is checked to still be that file.
-async fn act<F>(thumbs: &ThumbState, identity: &str, opener: F) -> Result<(), OpenError>
+async fn act<F>(registry: &Admissions, identity: &str, opener: F) -> Result<(), OpenError>
 where
     F: FnOnce(&Path) -> Result<(), tauri_plugin_opener::Error> + Send + 'static,
 {
-    let admitted = thumbs.lookup(identity).ok_or(OpenError::Unknown)?;
+    let admitted = registry.lookup(identity).ok_or(OpenError::Unknown)?;
     let identity = identity.to_owned();
 
     spawn_blocking(move || {
@@ -100,7 +103,7 @@ where
         opener(&admitted.path).map_err(|err| OpenError::Failed(err.to_string()))
     })
     .await
-    .map_err(|err| OpenError::Task(err.to_string()))?
+    .map_err(|err| OpenError::Task(crate::task_message(&err)))?
 }
 
 #[cfg(test)]
@@ -111,7 +114,7 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::{fixture, state};
+    use crate::admission::tests::fixture;
 
     fn block_on<F: Future>(future: F) -> F::Output {
         tauri::async_runtime::block_on(future)
@@ -126,13 +129,13 @@ mod tests {
     }
 
     /// Admits `path` into `state` and returns its identity.
-    fn admit(state: &ThumbState, path: PathBuf) -> String {
+    fn admit(state: &Admissions, path: PathBuf) -> String {
         let identities = block_on(crate::thumbs::commands::admit(state, vec![path])).unwrap();
         identities.into_iter().next().flatten().unwrap()
     }
 
     /// Runs [`act`] with an opener that only records the path it was given, so no test reaches the OS.
-    fn act(state: &ThumbState, identity: &str) -> (Result<(), OpenError>, Option<PathBuf>) {
+    fn act(state: &Admissions, identity: &str) -> (Result<(), OpenError>, Option<PathBuf>) {
         let (tx, rx) = mpsc::channel();
         let result = block_on(super::act(state, identity, move |path| {
             tx.send(path.to_path_buf()).unwrap();
@@ -143,7 +146,7 @@ mod tests {
 
     #[test]
     fn an_admitted_unchanged_file_reaches_the_opener() {
-        let state = state();
+        let state = Admissions::default();
         let (_dir, path) = temp_image();
         let identity = admit(&state, path.clone());
 
@@ -152,12 +155,12 @@ mod tests {
 
     #[test]
     fn an_unknown_identity_is_unknown() {
-        assert_eq!(act(&state(), "0123456789abcdef"), (Err(OpenError::Unknown), None));
+        assert_eq!(act(&Admissions::default(), "0123456789abcdef"), (Err(OpenError::Unknown), None));
     }
 
     #[test]
     fn a_deleted_file_is_missing() {
-        let state = state();
+        let state = Admissions::default();
         let (_dir, path) = temp_image();
         let identity = admit(&state, path.clone());
         std::fs::remove_file(&path).unwrap();
@@ -167,7 +170,7 @@ mod tests {
 
     #[test]
     fn a_rewritten_file_is_changed() {
-        let state = state();
+        let state = Admissions::default();
         let (_dir, path) = temp_image();
         let identity = admit(&state, path.clone());
         std::fs::write(&path, b"rewritten").unwrap();
@@ -177,7 +180,7 @@ mod tests {
 
     #[test]
     fn an_opener_failure_is_failed() {
-        let state = state();
+        let state = Admissions::default();
         let (_dir, path) = temp_image();
         let identity = admit(&state, path);
 

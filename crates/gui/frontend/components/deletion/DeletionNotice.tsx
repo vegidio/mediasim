@@ -2,16 +2,14 @@ import { useEffect, useState } from "react";
 import { CircleCheckIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCount, formatSize, totalSize } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, focusById } from "@/lib/utils";
 import type { DeletionMode } from "@/stores/settings";
 
 /** The Dismiss button's id, which focus is sent to after a move, a deletion or a restore. */
-export const DISMISS_ID = "deletion-notice-dismiss";
+const DISMISS_ID = "deletion-notice-dismiss";
 
 /** Move focus to the notice's Dismiss, once React has rendered the notice a move or a restore just set. */
-export const focusDismiss = () => {
-    requestAnimationFrame(() => document.getElementById(DISMISS_ID)?.focus());
-};
+export const focusDismiss = () => focusById(DISMISS_ID);
 
 /** How long a notice with no failure stays, in milliseconds, while nothing holds it open. */
 export const HIDE_AFTER = 6000;
@@ -90,12 +88,12 @@ export const DeletionNotice = ({ notice, undoCount, restoring, onUndo, onDismiss
                     onBlur={(event) => {
                         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
                     }}
-                    className="flex items-start gap-3 rounded-xl border border-[#3F3F46] bg-[#18181B] py-2.5 pr-2.5 pl-3.5 shadow-[0_12px_32px_rgba(0,0,0,.5)]"
+                    className="flex items-start gap-3 rounded-xl border border-border-strong bg-muted py-2.5 pr-2.5 pl-3.5 shadow-[0_12px_32px_rgba(0,0,0,.5)]"
                 >
                     {done.length > 0 ? (
-                        <CircleCheckIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-[#BEF264]" />
+                        <CircleCheckIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary" />
                     ) : (
-                        <TriangleAlertIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-[#F87171]" />
+                        <TriangleAlertIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-danger-bright" />
                     )}
                     <div className="flex min-w-0 flex-1 flex-col gap-1 py-1 text-sm">
                         {done.length > 0 &&
@@ -103,7 +101,10 @@ export const DeletionNotice = ({ notice, undoCount, restoring, onUndo, onDismiss
                                 <p className="whitespace-nowrap">
                                     <span className="font-semibold">{formatCount(done.length)}</span>{" "}
                                     {notice.action === "trash" ? "moved to Trash" : "deleted"}
-                                    <span className="text-[#A1A1AA]"> · {formatSize(totalSize(done))} freed</span>
+                                    <span className="text-muted-foreground">
+                                        {" "}
+                                        · {formatSize(totalSize(done))} freed
+                                    </span>
                                 </p>
                             ) : (
                                 <p className="whitespace-nowrap">
@@ -113,7 +114,7 @@ export const DeletionNotice = ({ notice, undoCount, restoring, onUndo, onDismiss
                         {notice.failed.map(({ key, name, message }) => (
                             <p key={key} className="break-words">
                                 Couldn't {failedVerb} <span className="font-mono">{name}</span>
-                                <span className="text-[#A1A1AA]">: {message}</span>
+                                <span className="text-muted-foreground">: {message}</span>
                             </p>
                         ))}
                     </div>
@@ -123,7 +124,7 @@ export const DeletionNotice = ({ notice, undoCount, restoring, onUndo, onDismiss
                             aria-label={`Undo moving ${formatCount(undoable)} to Trash`}
                             disabled={restoring}
                             onClick={onUndo}
-                            className="h-[30px] shrink-0 self-center rounded-[6px] border-[#3F3F46] bg-transparent px-3 font-medium text-[#FAFAFA] text-[13px] dark:border-[#3F3F46] dark:bg-transparent"
+                            className="h-[30px] shrink-0 self-center rounded-[6px] border-border-strong bg-transparent px-3 font-medium text-foreground text-[13px] dark:border-border-strong dark:bg-transparent"
                         >
                             Undo
                         </Button>
@@ -134,7 +135,7 @@ export const DeletionNotice = ({ notice, undoCount, restoring, onUndo, onDismiss
                         size="icon"
                         aria-label="Dismiss"
                         onClick={onDismiss}
-                        className="size-7 shrink-0 text-[#A1A1AA] [&_svg:not([class*='size-'])]:size-3.5"
+                        className="size-7 shrink-0 text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
                     >
                         <XIcon aria-hidden="true" />
                     </Button>

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  * The longer edge of a pair's pictures. A maximized pane on a 2560-wide display at 2× is about 2460×1600 device px,
  * which this covers within 20%; asking one size always keeps one cached rendition per file whatever the window's size.
  */
-export const PICTURE_BOUND = 2048;
+const PICTURE_BOUND = 2048;
 
 type PictureProps = {
     file: MediaFile;

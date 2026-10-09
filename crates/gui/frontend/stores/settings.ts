@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEFAULT_RULES, isRules, type Rule } from "@/features/groups/rules";
+import { DEFAULT_RULES, isRules, type Rule } from "@/lib/rules";
 
 /** How the marked files are removed: moved to the platform's Trash, or deleted from disk. */
 export type DeletionMode = "trash" | "permanent";

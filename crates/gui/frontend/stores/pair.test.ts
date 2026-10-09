@@ -78,7 +78,7 @@ describe("usePairStore", () => {
         usePairStore.setState({ a: media("a.jpg") });
         mockedDescribe.mockResolvedValue([media("b.jpg")]);
 
-        await state().drop(["/media/b.jpg"], undefined);
+        await state().drop(["/media/b.jpg"]);
 
         expect(state().a).toEqual(media("a.jpg"));
         expect(state().b).toEqual(media("b.jpg"));
@@ -200,7 +200,7 @@ describe("usePairStore", () => {
         usePairStore.setState({ a: media("a.jpg") });
         mockedDescribe.mockRejectedValue(new Error("task failed"));
 
-        await state().drop(["/media/x.jpg", "/media/y.jpg"], undefined);
+        await state().drop(["/media/x.jpg", "/media/y.jpg"]);
 
         expect(state().a).toEqual(media("a.jpg"));
         expect(state().b).toBeUndefined();

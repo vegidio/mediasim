@@ -21,14 +21,14 @@ const THUMB_BOUND = 96;
 
 /** One file to delete: its thumbnail, or its kind icon when none can be produced, its name and its size. */
 const Row = ({ file }: { file: MediaFile }) => (
-    <li className="flex items-center gap-3 border-[#1F1F23] border-b px-3 py-2 last:border-b-0">
-        <span className="relative h-9 w-12 shrink-0 overflow-hidden rounded-md bg-[#18181B]">
+    <li className="flex items-center gap-3 border-border-subtle border-b px-3 py-2 last:border-b-0">
+        <span className="relative h-9 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
             <Thumbnail type={file.type} identity={file.identity} bound={THUMB_BOUND} iconClassName="[&_svg]:size-4" />
         </span>
         <span title={file.name} className="min-w-0 flex-1 truncate font-mono text-xs">
             {file.name}
         </span>
-        <span className="shrink-0 font-mono text-[#A1A1AA] text-xs">{formatSize(file.size)}</span>
+        <span className="shrink-0 font-mono text-muted-foreground text-xs">{formatSize(file.size)}</span>
     </li>
 );
 
@@ -111,17 +111,17 @@ export const DeletionDialog = ({
                     event.preventDefault();
                     focusDismiss();
                 }}
-                className="block w-[520px] max-w-[calc(100%-32px)] gap-0 rounded-[16px] border border-[#27272A] bg-[#0F0F11] p-0 shadow-[0_24px_64px_rgba(0,0,0,.6)] ring-0 data-[size=default]:max-w-[calc(100%-32px)] data-[size=default]:sm:max-w-[calc(100%-32px)]"
+                className="block w-[520px] max-w-[calc(100%-32px)] gap-0 rounded-[16px] border border-border bg-surface-inset p-0 shadow-[0_24px_64px_rgba(0,0,0,.6)] ring-0 data-[size=default]:max-w-[calc(100%-32px)] data-[size=default]:sm:max-w-[calc(100%-32px)]"
             >
                 <div className="flex gap-3.5 px-6 pt-6">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(220,38,38,.14)]">
-                        <Trash2Icon aria-hidden="true" className="size-5 text-[#F87171]" />
+                        <Trash2Icon aria-hidden="true" className="size-5 text-danger-bright" />
                     </span>
                     <div className="flex min-w-0 flex-col gap-1">
                         <AlertDialogTitle className="font-semibold text-[18px]">
                             {shownMode === "trash" ? `Move ${counted} to Trash?` : `Delete ${counted} permanently?`}
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="text-[#A1A1AA] text-sm leading-normal">
+                        <AlertDialogDescription className="text-muted-foreground text-sm leading-normal">
                             {shownMode === "trash"
                                 ? `You can restore ${count === 1 ? "it" : "them"} from the Trash until it is emptied.`
                                 : `${count === 1 ? "This file" : "These files"} will be removed from your disk.`}
@@ -132,34 +132,34 @@ export const DeletionDialog = ({
                 <div className="px-6 pt-5">
                     <ul
                         aria-label="Files to delete"
-                        className="max-h-[252px] overflow-y-auto rounded-xl border border-[#27272A] bg-[#111113]"
+                        className="max-h-[252px] overflow-y-auto rounded-xl border border-border bg-card"
                     >
                         {listed.map((file) => (
                             <Row key={file.identity} file={file} />
                         ))}
                     </ul>
-                    <p className="mt-3 flex justify-between text-[#A1A1AA] text-[13px]">
+                    <p className="mt-3 flex justify-between text-muted-foreground text-[13px]">
                         <span>{counted}</span>
                         <span className="inline-flex items-baseline gap-4">
-                            Total <span className="font-semibold text-[#FAFAFA]">{formatSize(totalSize(listed))}</span>
+                            Total <span className="font-semibold text-foreground">{formatSize(totalSize(listed))}</span>
                         </span>
                     </p>
                 </div>
 
                 {shownMode === "permanent" && (
-                    <p className="mx-6 mt-3.5 flex items-start gap-2.5 rounded-[10px] border border-[#7F1D1D] bg-[rgba(220,38,38,.1)] px-3.5 py-3 text-[#FCA5A5] text-[13px]">
+                    <p className="mx-6 mt-3.5 flex items-start gap-2.5 rounded-[10px] border border-danger-border bg-[rgba(220,38,38,.1)] px-3.5 py-3 text-danger-soft text-[13px]">
                         <TriangleAlertIcon aria-hidden="true" className="mt-px size-4 shrink-0" />
                         This cannot be undone. The {count === 1 ? "file" : "files"} won't go to the Trash.
                     </p>
                 )}
 
                 <div className="flex items-center gap-2.5 px-6 pt-5 pb-6">
-                    <span className="flex-1 text-[#71717A] text-xs">
+                    <span className="flex-1 text-text-disabled text-xs">
                         Settings: {shownMode === "trash" ? "move to Trash" : "delete permanently"}
                     </span>
                     <AlertDialogCancel
                         disabled={removing}
-                        className="h-10 rounded-lg border-[#3F3F46] px-4 font-medium text-sm dark:border-[#3F3F46]"
+                        className="h-10 rounded-lg border-border-strong px-4 font-medium text-sm dark:border-border-strong"
                     >
                         Cancel
                     </AlertDialogCancel>
@@ -171,7 +171,7 @@ export const DeletionDialog = ({
                             moved.current = true;
                             onConfirm();
                         }}
-                        className="h-10 gap-2 rounded-lg bg-[#DC2626] px-[18px] font-semibold text-sm text-white hover:bg-[#B91C1C] disabled:bg-[#DC2626] disabled:text-white disabled:opacity-60"
+                        className="h-10 gap-2 rounded-lg bg-danger px-[18px] font-semibold text-sm text-white hover:bg-danger-hover disabled:bg-danger disabled:text-white disabled:opacity-60"
                     >
                         {removing && (
                             <LoaderCircleIcon

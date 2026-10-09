@@ -28,7 +28,7 @@ const Details = ({ row }: { row: SourceRow }) => {
 
     return (
         <span className="flex min-w-0 whitespace-pre font-mono text-muted-foreground text-xs">
-            {location !== undefined && <span className="truncate">{location}</span>}
+            {location && <span className="truncate">{location}</span>}
             <span className="shrink-0">{summary}</span>
         </span>
     );
@@ -103,7 +103,7 @@ export const SetList = ({ ref, highlighted = false, onCleared }: SetListProps) =
                     ref={addMoreRef}
                     type="button"
                     aria-haspopup="menu"
-                    aria-expanded={menuAnchor !== undefined}
+                    aria-expanded={!!menuAnchor}
                     onClick={(event) => setMenuAnchor(anchorFor(event))}
                     className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 text-[13px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:text-foreground [&_svg]:size-3.5"
                 >
@@ -117,7 +117,7 @@ export const SetList = ({ ref, highlighted = false, onCleared }: SetListProps) =
                         void clear();
                         onCleared?.();
                     }}
-                    className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap px-3.5 font-medium text-[#F87171] text-[13px] outline-none transition-colors hover:text-[#FCA5A5] focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3.5"
+                    className="flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap px-3.5 font-medium text-danger-bright text-[13px] outline-none transition-colors hover:text-danger-soft focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3.5"
                 >
                     <Trash2Icon aria-hidden="true" />
                     <span>Clear all</span>

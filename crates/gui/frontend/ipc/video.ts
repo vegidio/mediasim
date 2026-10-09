@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { createLru } from "@/lib/lru";
 import { invokeOr, isRecord } from "./wire";
 
 /** The URI scheme `crates/gui/src/video/mod.rs` serves videos over. */
@@ -51,27 +52,37 @@ export type VideoOpened = {
     start: number;
 };
 
-/** Why a probe or a session request was refused, as `VideoError` in `crates/gui/src/video/error.rs` serializes it. */
-export type VideoError = { kind: "notfound" } | { kind: "gone" } | { kind: "unreadable"; message: string };
+/**
+ * Why a probe or a session request was refused, as `VideoError` in `crates/gui/src/video/error.rs` serializes it.
+ * `task` is a background task that didn't finish, which says nothing about the file.
+ */
+export type VideoError =
+    | { kind: "notfound" }
+    | { kind: "gone" }
+    | { kind: "unreadable"; message: string }
+    | { kind: "task"; message: string };
 
-/** The {@link VideoError} a rejection carries, or an `unreadable` one for anything else, such as a missing command. */
+/** The {@link VideoError} a rejection carries, or a `task` one for anything else, such as a missing command. */
 const toVideoError = (error: unknown): VideoError => {
     if (isRecord(error)) {
         const { kind, message } = error;
         if (kind === "notfound" || kind === "gone") return { kind };
-        if (kind === "unreadable" && typeof message === "string") return { kind, message };
+        if ((kind === "unreadable" || kind === "task") && typeof message === "string") return { kind, message };
     }
 
-    return { kind: "unreadable", message: String(error) };
+    return { kind: "task", message: String(error) };
 };
 
 const call = invokeOr(toVideoError);
 
+/** How many videos' probes are kept. */
+const PROBES_KEPT = 500;
+
 /**
- * Each video's probe, by identity. An identity names one file as it was admitted, unchanged, so its probe never goes
- * stale, and a player mounted again, as on a tab switch, doesn't read the header again.
+ * Each video's probe, by identity, for the videos probed last. An identity names one file as it was admitted, unchanged,
+ * so its probe never goes stale, and a player mounted again, as on a tab switch, doesn't read the header again.
  */
-const probes = new Map<string, Promise<VideoProbe>>();
+const probes = createLru<string, Promise<VideoProbe>>(PROBES_KEPT);
 
 /**
  * What the admitted video behind `identity` holds, read once per identity. Rejects with a {@link VideoError}; a probe

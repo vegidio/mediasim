@@ -1,5 +1,5 @@
 /** How far apart, in seconds, two videos played in step may drift before the follower is brought back. */
-export const SYNC_TOLERANCE = 0.1;
+const SYNC_TOLERANCE = 0.1;
 
 /**
  * How long, in milliseconds, to leave the follower alone after a correction. A seek while playing stalls it for a few

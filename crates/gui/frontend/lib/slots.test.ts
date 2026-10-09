@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { route, type Slot } from "./routePairDrop";
+import { route, type Slot } from "./slots";
 
 const EMPTY = { a: false, b: false };
 const ONLY_A = { a: true, b: false };
@@ -25,6 +25,6 @@ describe("route", () => {
         ["three files onto B", 3, "b", EMPTY, ["a", "b"]],
         ["three files onto the card", 3, undefined, ONLY_B, ["a", "b"]],
     ])("%s", (_, count, target, filled, slots) => {
-        expect(route(count, target, filled)).toEqual(slots);
+        expect(route(count, filled, target)).toEqual(slots);
     });
 });

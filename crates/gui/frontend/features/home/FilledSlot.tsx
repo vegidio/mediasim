@@ -3,9 +3,9 @@ import { XIcon } from "lucide-react";
 import { MediaKindIcon } from "@/components/MediaKindIcon";
 import { Button } from "@/components/ui/button";
 import { slotLabel } from "@/features/home/EmptySlot";
-import type { Slot } from "@/features/home/routePairDrop";
 import { type MediaFile, renditionUrl } from "@/ipc/thumbs";
 import { formatSize } from "@/lib/format";
+import type { Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import { usePairStore } from "@/stores/pair";
 

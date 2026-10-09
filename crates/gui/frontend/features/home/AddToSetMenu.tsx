@@ -78,7 +78,7 @@ const MenuEntry = ({ icon, title, description, onSelect }: MenuEntryProps) => (
  */
 export const AddToSetMenu = ({ anchor, onClose, returnFocusTo, onPickFiles, onPickFolders }: AddToSetMenuProps) => (
     <DropdownMenu
-        open={anchor !== undefined}
+        open={!!anchor}
         onOpenChange={(open) => {
             if (!open) onClose();
         }}

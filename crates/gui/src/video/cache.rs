@@ -24,6 +24,8 @@ const KEY_VERSION: &str = "seg-v1";
 /// An encoded packet as the cache keeps it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct CachedPacket {
+    /// Serialized in one piece, not byte by byte. The cache is in memory alone, so no entry outlives a format change.
+    #[serde(with = "serde_bytes")]
     data: Vec<u8>,
     pts: i64,
     dts: i64,

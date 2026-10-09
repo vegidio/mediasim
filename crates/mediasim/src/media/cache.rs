@@ -7,7 +7,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use rust_sak::memo::{CacheOpts, KeyBuilder, Memo, MemoError};
 
 use super::{Decoded, FileInfo, Media, MediaStream, MediaType, decode_with};
-use crate::{CancelToken, MediaError};
+use crate::{CancelToken, Icon, MediaError};
 
 /// The directory, inside the cached one, that holds the cache.
 const CACHE_DIR: &str = ".mediasim";
@@ -18,8 +18,9 @@ const CACHE_FILE: &str = "cache.redb";
 /// How long an entry lives.
 const TTL: Duration = Duration::from_hours(30 * 24);
 
-/// Leads every key. Bump it when [`Decoded`] or the icon pipeline changes meaning, so old entries are never read.
-const KEY_VERSION: &str = "v1";
+/// Leads every key. Bump it when [`Decoded`] or the icon pipeline changes meaning, so old entries are never read. `v2`:
+/// video frames are scaled by `media-rs` before the pipeline.
+const KEY_VERSION: &str = "v2";
 
 /// How long [`DirCache::finish`] keeps retrying to delete a database that is still open (Windows only).
 const DELETE_RETRY: Duration = Duration::from_secs(1);
@@ -69,23 +70,32 @@ impl DirCache {
     /// A write is made durable at least every this many writes...
     pub const FLUSH_EVERY: u32 = 64;
 
-    /// ...or once this long has passed since the last durable one. Losing the last second's writes on a crash only
-    /// costs decoding those files again.
+    /// ...or, on the first write once this long has passed since the last durable one. The interval is only checked
+    /// when a write arrives, so a crash loses every write since the last durable one, however long ago that was (up
+    /// to [`FLUSH_EVERY`](Self::FLUSH_EVERY) - 1 of them), while dropping the handle makes them durable. Losing them
+    /// only costs decoding those files again.
     pub const FLUSH_INTERVAL: Duration = Duration::from_secs(1);
 
     /// Opens the cache of `dir`, creating `dir/.mediasim/cache.redb` if it does not exist.
     ///
     /// Returns `None` when no cache is available: for example when `dir` is read-only, when `.mediasim` is not a
-    /// directory, when the database is corrupt (it is then left as it is), or when another process holds it. Load
-    /// without a cache then.
+    /// directory or the database not a regular file (a symbolic link is neither, so a link planted in a scanned
+    /// directory can't make the cache write or delete a file elsewhere), when the database is corrupt (it is then left
+    /// as it is), or when another process holds it. Load without a cache then.
     ///
     /// The cache is keyed on paths relative to `dir`, so open it on the directory the paths were listed from. One
     /// cache serves its subdirectories too.
     #[must_use]
     pub fn open(dir: impl AsRef<Path>) -> Option<Self> {
         let root = dir.as_ref().to_path_buf();
+        let cache_dir = root.join(CACHE_DIR);
+        let file = cache_dir.join(CACHE_FILE);
+        if !is_absent_or(&cache_dir, std::fs::FileType::is_dir) || !is_absent_or(&file, std::fs::FileType::is_file) {
+            return None;
+        }
+
         let opts = CacheOpts::new().flush_every(Self::FLUSH_EVERY).flush_interval(Self::FLUSH_INTERVAL);
-        let memo = Memo::disk_file(root.join(CACHE_DIR).join(CACHE_FILE), opts).ok()?;
+        let memo = Memo::disk_file(file, opts).ok()?;
 
         Some(Self { root, memo })
     }
@@ -142,11 +152,27 @@ impl CachedDecoder {
         });
 
         match (cached, failure) {
-            (Ok(decoded), _) => Ok(decoded),
+            (Ok(decoded), _) if decoded.is_well_formed(media_type) => Ok(decoded),
             (Err(MemoError::Compute(_)), Some(err)) => Err(err),
-            // Anything else is the cache's own failure, which is never the reason a file fails.
-            (Err(_), _) => decode_with(path, media_type, cancel),
+            // Anything else is the cache's own failure, which is never the reason a file fails, or an entry that can't
+            // be trusted: the database lives in the scanned directory, so a copied, synced or crafted one can hold an
+            // entry that was never written here, and comparing it would panic. Either way the file is decoded as if it
+            // had no entry. A bad entry stays, since the store can't overwrite it, and is caught again next time.
+            _ => decode_with(path, media_type, cancel),
         }
+    }
+}
+
+impl Decoded {
+    /// Whether this could have come from decoding a file of type `media_type`: an image has one frame and no
+    /// duration, a video at least one frame and a duration, and every frame is a [well-formed](Icon::is_well_formed)
+    /// icon.
+    fn is_well_formed(&self, media_type: MediaType) -> bool {
+        let shape = match media_type {
+            MediaType::Image => self.frames.len() == 1 && self.duration.is_none(),
+            MediaType::Video => !self.frames.is_empty() && self.duration.is_some(),
+        };
+        shape && self.frames.iter().all(Icon::is_well_formed)
     }
 }
 
@@ -222,6 +248,15 @@ fn key(root: &Path, path: &Path, size: u64, modified: Option<SystemTime>) -> Opt
             .part(&(since_epoch.as_secs(), since_epoch.subsec_nanos()))
             .finish(),
     )
+}
+
+/// Whether nothing exists at `path`, or what does, not followed if it is a symbolic link, is of a type that `wanted`
+/// accepts. A path that can't be inspected counts as neither.
+fn is_absent_or(path: &Path, wanted: impl FnOnce(&std::fs::FileType) -> bool) -> bool {
+    match std::fs::symlink_metadata(path) {
+        Ok(meta) => wanted(&meta.file_type()),
+        Err(err) => err.kind() == std::io::ErrorKind::NotFound,
+    }
 }
 
 /// Deletes `path`, ignoring failure. Windows cannot delete a file that is still open, and the store's background
@@ -301,6 +336,31 @@ mod tests {
         std::fs::write(dir.path().join(CACHE_DIR), b"not a directory").unwrap();
 
         assert!(DirCache::open(dir.path()).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_cache_dir_gives_no_cache_and_writes_nothing_through_it() {
+        let dir = mk_temp_dir("mediasim").unwrap();
+        let elsewhere = mk_temp_dir("mediasim").unwrap();
+        std::os::unix::fs::symlink(elsewhere.path(), dir.path().join(CACHE_DIR)).unwrap();
+
+        assert!(DirCache::open(dir.path()).is_none());
+        assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_database_gives_no_cache_and_leaves_its_target_alone() {
+        let dir = mk_temp_dir("mediasim").unwrap();
+        let elsewhere = mk_temp_dir("mediasim").unwrap();
+        let target = elsewhere.path().join("precious.redb");
+        std::fs::write(&target, b"mine").unwrap();
+        std::fs::create_dir(dir.path().join(CACHE_DIR)).unwrap();
+        std::os::unix::fs::symlink(&target, cache_file(dir.path())).unwrap();
+
+        assert!(DirCache::open(dir.path()).is_none());
+        assert_eq!(std::fs::read(&target).unwrap(), b"mine");
     }
 
     #[test]
@@ -466,6 +526,68 @@ mod tests {
 
         assert_eq!(stored, uncached);
         assert_eq!(served, uncached);
+    }
+
+    /// Stores `entry` as the cache's entry for `path` under `dir`, as a cache written elsewhere could have.
+    fn plant(dir: &Path, path: &Path, entry: Decoded) {
+        let cache = DirCache::open(dir).unwrap();
+        let info = FileInfo::read(path).unwrap();
+        let key = key(dir, path, info.size, info.modified).unwrap();
+
+        let stored: Decoded =
+            cache.memo.get_or_compute(&key, TTL, || Ok::<_, std::convert::Infallible>(entry)).unwrap();
+        drop(stored);
+    }
+
+    /// An icon of `len` values, which only a cache entry can hold.
+    fn icon_of_len(len: usize) -> Icon {
+        serde_json::from_value(serde_json::json!({ "pixels": vec![0u16; len] })).unwrap()
+    }
+
+    #[test]
+    fn a_malformed_entry_is_decoded_again() {
+        let image = Media::from_file(fixture("test2.png")).unwrap();
+        let video = Media::from_file(fixture("test4.mp4")).unwrap();
+        let entry = |frames: Vec<Icon>, duration| Decoded { width: 1, height: 1, duration, frames };
+        let second = Some(Duration::from_secs(1));
+
+        for (name, fixture_name, planted) in [
+            ("no-frames.png", "test2.png", entry(Vec::new(), None)),
+            (
+                "two-frames.png",
+                "test2.png",
+                entry(vec![image.frames[0].clone(), image.frames[0].clone()], None),
+            ),
+            ("short-icon.png", "test2.png", entry(vec![icon_of_len(7)], None)),
+            ("long-icon.png", "test2.png", entry(vec![icon_of_len(10_000)], None)),
+            ("timed-image.png", "test2.png", entry(image.frames.clone(), second)),
+            ("no-frames.mp4", "test4.mp4", entry(Vec::new(), second)),
+            ("bad-frame.mp4", "test4.mp4", entry(vec![video.frames[0].clone(), icon_of_len(0)], second)),
+            ("untimed.mp4", "test4.mp4", entry(video.frames.clone(), None)),
+        ] {
+            let dir = directory(&[(fixture_name, name)]);
+            let path = dir.path().join(name);
+            plant(dir.path(), &path, planted);
+
+            let loaded = sorted(load_cached(dir.path(), vec![path.clone()]));
+
+            let fresh = Media::from_file(&path).unwrap();
+            assert_eq!(loaded, [fresh], "{name}");
+        }
+    }
+
+    #[test]
+    fn a_well_formed_planted_entry_is_served() {
+        // The counterpart of `a_malformed_entry_is_decoded_again`: the planted entry really is what a load reads.
+        let dir = directory(&[("test2.png", "a.png")]);
+        let path = dir.path().join("a.png");
+        let other = Media::from_file(fixture("test1.png")).unwrap();
+        plant(dir.path(), &path, Decoded { width: 7, height: 9, duration: None, frames: other.frames.clone() });
+
+        let loaded = sorted(load_cached(dir.path(), vec![path]));
+
+        assert_eq!((loaded[0].width, loaded[0].height), (7, 9));
+        assert_eq!(loaded[0].frames, other.frames);
     }
 
     #[test]

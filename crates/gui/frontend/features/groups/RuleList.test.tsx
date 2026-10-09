@@ -1,8 +1,8 @@
 import { act, useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
+import { DEFAULT_RULES, RULE_INFO, type Rule } from "@/lib/rules";
 import { RuleList } from "./RuleList";
-import { DEFAULT_RULES, RULE_INFO, type Rule } from "./rules";
 
 /** The list, holding its rules as a dialog would, and reporting each change to `onChange`. */
 const Harness = ({ onChange }: { onChange: (rules: Rule[]) => void }) => {
@@ -76,10 +76,10 @@ describe("RuleList", () => {
         expect(screen.getByTitle("Applies to video files only")).toHaveTextContent("Videos only");
         expect(screen.getAllByText("Videos only")).toHaveLength(1);
         expect(screen.getByRole("switch", { name: "Oldest creation date" })).not.toBeChecked();
-        expect(labelOf("Oldest creation date")).toHaveClass("text-[#A1A1AA]");
+        expect(labelOf("Oldest creation date")).toHaveClass("text-muted-foreground");
         for (const name of ["Longest video length", "Highest resolution", "Largest file size", "Cleanest file name"]) {
             expect(screen.getByRole("switch", { name })).toBeChecked();
-            expect(labelOf(name)).toHaveClass("text-[#FAFAFA]");
+            expect(labelOf(name)).toHaveClass("text-foreground");
         }
         for (const { id } of DEFAULT_RULES) {
             expect(screen.getByRole("button", { name: `Reorder ${RULE_INFO[id].label}` })).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("RuleList", () => {
             DEFAULT_RULES.map((rule) => (rule.id === "size" ? { id: "size", on: false } : rule)),
         );
         expect(screen.getByRole("switch", { name: "Largest file size" })).not.toBeChecked();
-        expect(labelOf("Largest file size")).toHaveClass("text-[#A1A1AA]");
+        expect(labelOf("Largest file size")).toHaveClass("text-muted-foreground");
     });
 
     describe("with the pointer", () => {

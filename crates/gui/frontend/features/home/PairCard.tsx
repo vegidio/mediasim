@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { EmptySlot } from "@/features/home/EmptySlot";
 import { FilledSlot } from "@/features/home/FilledSlot";
 import { ModeCard } from "@/features/home/ModeCard";
-import { route, SLOTS, type Slot } from "@/features/home/routePairDrop";
 import { hits, type Point, useDropTarget } from "@/features/home/useDropTarget";
+import { route, SLOTS, type Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import { selectCanCompare, selectMismatch, usePairStore } from "@/stores/pair";
 import { usePairResultStore } from "@/stores/pairResult";
@@ -37,7 +37,7 @@ export const PairCard = () => {
     // The whole card is the one drop target, and resolves which slot the drop landed on itself.
     const { isOver, position, count } = useDropTarget(cardRef, (paths, at) => drop(paths, slotAt(at)));
     // While dragging, every dragged path counts: only the drop itself knows which ones can be placed.
-    const highlighted = isOver && position ? route(count, slotAt(position), { a: !!a, b: !!b }) : [];
+    const highlighted = isOver && position ? route(count, { a: !!a, b: !!b }, slotAt(position)) : [];
     const files = { a, b };
 
     return (

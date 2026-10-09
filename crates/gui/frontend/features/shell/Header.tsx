@@ -2,16 +2,14 @@ import { SlidersHorizontalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type Step, StepIndicator } from "@/features/shell/StepIndicator";
 import { isMacOs } from "@/ipc/os";
-import { cn } from "@/lib/utils";
+import { cn, focusById } from "@/lib/utils";
 import { useScreenStore } from "@/stores/screen";
 
 /** The Settings button's id, which focus is sent to on leaving Settings. */
-export const SETTINGS_BUTTON_ID = "header-settings";
+const SETTINGS_BUTTON_ID = "header-settings";
 
 /** Move focus to the header's Settings button, once React has rendered the screen just shown. */
-export const focusSettings = () => {
-    requestAnimationFrame(() => document.getElementById(SETTINGS_BUTTON_ID)?.focus());
-};
+export const focusSettings = () => focusById(SETTINGS_BUTTON_ID);
 
 type HeaderProps =
     | {
@@ -72,7 +70,7 @@ export const Header = (props: HeaderProps) => {
                     onClick={openSettings}
                     className={cn(
                         onSettings &&
-                            "border-[#3F3F46] bg-[#27272A] text-[#FAFAFA] hover:bg-[#27272A] dark:border-[#3F3F46] dark:bg-[#27272A] dark:enabled:hover:bg-[#27272A]",
+                            "border-border-strong bg-border text-foreground hover:bg-border dark:border-border-strong dark:bg-border dark:enabled:hover:bg-border",
                     )}
                 >
                     <SlidersHorizontalIcon />

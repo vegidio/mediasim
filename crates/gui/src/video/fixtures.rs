@@ -13,13 +13,13 @@ use media::prelude::{
     VideoFilterChain,
 };
 
-use crate::thumbs::tests::fixture;
-use crate::thumbs::{ThumbState, admit_one};
+use crate::admission::tests::fixture;
+use crate::admission::{Admissions, admit_one};
 
-/// Admits `path` into `state` and returns its identity.
-pub(crate) fn admit(state: &ThumbState, path: &Path) -> String {
+/// Admits `path` into `registry` and returns its identity.
+pub(crate) fn admit(registry: &Admissions, path: &Path) -> String {
     let (identity, entry, _) = admit_one(path).unwrap();
-    state.admit([(identity.clone(), entry)]);
+    registry.admit([(identity.clone(), entry)]);
     identity
 }
 

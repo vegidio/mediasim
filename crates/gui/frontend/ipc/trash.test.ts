@@ -29,6 +29,13 @@ describe("trashMedia", () => {
         await expect(trashMedia(["a", "b"])).resolves.toEqual(outcomes);
     });
 
+    it("passes an unchosen failure through", async () => {
+        const outcome = { status: "failed", reason: "unchosen", message: "it isn't in a file or folder you chose" };
+        mockedInvoke.mockResolvedValue([outcome]);
+
+        await expect(trashMedia(["a"])).resolves.toStrictEqual([outcome]);
+    });
+
     it.each([
         [JSON.parse("null")],
         ["trashed"],
@@ -119,7 +126,7 @@ describe("deleteMedia", () => {
         await expect(deleteMedia(["a"])).resolves.toStrictEqual([{ status: "deleted" }]);
     });
 
-    it.each(["unknown", "changed", "missing", "delete"])("passes a %s failure through", async (reason) => {
+    it.each(["unknown", "changed", "missing", "unchosen", "delete"])("passes a %s failure through", async (reason) => {
         const outcome = { status: "failed", reason, message: "why" };
         mockedInvoke.mockResolvedValue([outcome]);
 

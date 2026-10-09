@@ -2,9 +2,9 @@ import { type ReactNode, useRef, useState } from "react";
 import { SparklesIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import type { Rule } from "@/lib/rules";
 import { useSettingsStore } from "@/stores/settings";
 import { RuleList } from "./RuleList";
-import type { Rule } from "./rules";
 
 type RulesDialogProps = {
     open: boolean;
@@ -59,21 +59,21 @@ export const RulesDialog = ({
                     event.preventDefault();
                     onClosed();
                 }}
-                className="flex w-[600px] flex-col rounded-2xl border border-[#27272A] bg-[#0F0F11] text-[#FAFAFA] shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+                className="flex w-[600px] flex-col rounded-2xl border border-border bg-surface-inset text-foreground shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
             >
                 <div className="flex items-start gap-3.5 px-6 pt-6">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(190,242,100,0.12)] text-[#BEF264]">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(190,242,100,0.12)] text-primary">
                         <SparklesIcon aria-hidden="true" className="size-5" />
                     </span>
                     <div className="flex grow flex-col gap-1">
                         <DialogTitle className="font-semibold text-lg tracking-[-0.01em]">{title}</DialogTitle>
-                        <DialogDescription className="text-[#A1A1AA] text-sm leading-normal">
+                        <DialogDescription className="text-muted-foreground text-sm leading-normal">
                             {description}
                         </DialogDescription>
                     </div>
                     <DialogClose
                         aria-label="Close"
-                        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#A1A1AA] outline-none hover:bg-[#18181B] focus-visible:ring-2 focus-visible:ring-primary"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary"
                     >
                         <XIcon aria-hidden="true" className="size-4" />
                     </DialogClose>
@@ -95,14 +95,14 @@ export const RulesDialog = ({
                     <DialogClose asChild>
                         <Button
                             variant="outline"
-                            className="h-10 rounded-lg border-[#3F3F46] bg-transparent px-4 font-medium text-[#FAFAFA] text-sm dark:border-[#3F3F46] dark:bg-transparent"
+                            className="h-10 rounded-lg border-border-strong bg-transparent px-4 font-medium text-foreground text-sm dark:border-border-strong dark:bg-transparent"
                         >
                             Cancel
                         </Button>
                     </DialogClose>
                     <Button
                         onClick={() => onConfirm([...draft])}
-                        className="h-10 whitespace-nowrap rounded-lg px-[18px] font-semibold text-[#1A2E05] text-sm hover:bg-[#BEF264]/90"
+                        className="h-10 whitespace-nowrap rounded-lg px-[18px] font-semibold text-primary-foreground text-sm hover:bg-primary/90"
                     >
                         {confirmLabel}
                     </Button>

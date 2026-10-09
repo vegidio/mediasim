@@ -1,6 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { MediaType } from "./formats";
-import { invokeOr, isRecord } from "./wire";
+import { invokeOr, isRecord, withoutNulls } from "./wire";
 
 /** What to scan, as `start_scan` in `crates/gui/src/scan.rs` takes it. */
 export type ScanRequest = {
@@ -79,12 +79,7 @@ type WireScanResult = Omit<ScanResult, "groups"> & {
 };
 
 /** `file` with Rust's `None` spelled as an absent property. */
-const fileFromWire = ({ duration, created, modified, ...always }: WireGroupFile): GroupFile => ({
-    ...always,
-    ...(duration !== null && { duration }),
-    ...(created !== null && { created }),
-    ...(modified !== null && { modified }),
-});
+const fileFromWire = (file: WireGroupFile): GroupFile => withoutNulls(file);
 
 const resultFromWire = ({ groups, skipped }: WireScanResult): ScanResult => ({
     groups: groups.map(({ files }) => ({ files: files.map(fileFromWire) })),

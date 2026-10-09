@@ -5,6 +5,7 @@
 //! YCbCr icon → per-channel histogram normalization → squared Euclidean distance. Videos are then compared frame by
 //! frame with Dynamic Time Warping, and [`Grouper`] merges media that score above a threshold into groups.
 
+mod bound;
 mod consts;
 mod diff;
 mod dsu;
@@ -16,8 +17,10 @@ mod options;
 mod orientation;
 mod similarity;
 
+pub(crate) use consts::RESIZED_IMG_SIZE;
 pub use diff::calculate_diff;
 pub use group::Grouper;
+pub(crate) use group::check_threshold;
 pub use icon::Icon;
 pub use metric::euc_metric;
 pub use options::CompareOptions;

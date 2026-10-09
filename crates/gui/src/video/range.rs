@@ -2,7 +2,7 @@
 
 use tauri::http::HeaderValue;
 
-use crate::thumbs::digits_only;
+use crate::scheme::digits_only;
 
 /// The most bytes one answer carries, from the range's start: 4 MiB. The player asks again for the rest.
 pub(super) const CAP: u64 = 4 * 1024 * 1024;

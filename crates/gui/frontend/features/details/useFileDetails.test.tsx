@@ -82,6 +82,18 @@ describe("useFileDetails", () => {
         expect(mockedDisplay).toHaveBeenCalledOnce();
     });
 
+    it("probes again once the file changed, as its new identity says", async () => {
+        const first = renderHook(() => useFileDetails(IMAGE));
+        await waitFor(() => expect(first.result.current.status).toBe("ready"));
+        first.unmount();
+
+        const second = renderHook(() => useFileDetails({ ...IMAGE, identity: "changed" }));
+        await waitFor(() => expect(second.result.current.status).toBe("ready"));
+
+        expect(mockedProbe).toHaveBeenCalledTimes(2);
+        expect(mockedDisplay).toHaveBeenCalledOnce();
+    });
+
     it("fails, then probes again on a later read", async () => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         mockedProbe.mockRejectedValueOnce({ kind: "load", path: IMAGE.path, message: "bad" });

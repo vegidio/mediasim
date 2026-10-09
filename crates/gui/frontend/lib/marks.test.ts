@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupFile, ScanGroup } from "@/ipc/scan";
-import type { GroupView } from "./GroupCard";
-import { autoSelect, keepBestOnly, markedFiles, pickBest, preview, visibleGroups } from "./marks";
+import { autoSelect, type GroupView, keepBestOnly, markedFiles, pickBest, preview, visibleGroups } from "./marks";
 import { DEFAULT_RULES, moveRule, type Rule } from "./rules";
 
 const file = (path: string): GroupFile => ({ path, type: "image", width: 1, height: 1, size: 1 });

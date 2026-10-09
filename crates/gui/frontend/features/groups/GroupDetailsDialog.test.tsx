@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { forgetFileDetails } from "@/features/details/useFileDetails";
 import { type MediaInfo, probeMedia } from "@/ipc/pair";
 import type { GroupFile } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
+import type { GroupView } from "@/lib/marks";
 import { useScanStore } from "@/stores/scan";
-import { forgetFileDetails } from "../details/useFileDetails";
-import type { GroupView } from "./GroupCard";
 import { GroupDetailsDialog } from "./GroupDetailsDialog";
 
 vi.mock("@/ipc/open", () => ({ openMedia: vi.fn(), revealMedia: vi.fn() }));

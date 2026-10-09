@@ -2,8 +2,8 @@ import { GalleryScreen } from "@/features/gallery/GalleryScreen";
 import { GroupsDeletionNotice } from "@/features/groups/GroupsDeletionNotice";
 import { GroupsScreen } from "@/features/groups/GroupsScreen";
 import { HomeScreen } from "@/features/home/HomeScreen";
-import { DeletionFooter } from "@/features/pair/DeletionFooter";
-import { DeletionNotice } from "@/features/pair/DeletionNotice";
+import { PairDeletionFooter } from "@/features/pair/PairDeletionFooter";
+import { PairDeletionNotice } from "@/features/pair/PairDeletionNotice";
 import { PairResultScreen } from "@/features/pair/PairResultScreen";
 import { ScanScreen } from "@/features/scan/ScanScreen";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
@@ -55,12 +55,14 @@ const App = () => {
                         <HomeScreen />
                     )}
                 </main>
-                {current === "pair" && <DeletionNotice className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2" />}
+                {current === "pair" && (
+                    <PairDeletionNotice className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2" />
+                )}
                 {current === "groups" && (
                     <GroupsDeletionNotice className="absolute bottom-[88px] left-1/2 z-10 -translate-x-1/2" />
                 )}
             </div>
-            {current === "pair" && <DeletionFooter />}
+            {current === "pair" && <PairDeletionFooter />}
         </div>
     );
 };

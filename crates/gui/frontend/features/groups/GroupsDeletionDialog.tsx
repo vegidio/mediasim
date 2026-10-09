@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { DeletionDialog, deletionDialogProps } from "@/components/deletion/DeletionDialog";
 import type { GroupFile } from "@/ipc/scan";
 import { selectMedia, useScanStore } from "@/stores/scan";
@@ -18,7 +18,7 @@ export const GroupsDeletionDialog = ({ marked, children }: GroupsDeletionDialogP
     const cancelDeletion = useScanStore((state) => state.cancelDeletion);
     const removeMarked = useScanStore((state) => state.removeMarked);
 
-    const files = useMemo(() => marked.flatMap((file) => media.get(file.path) ?? []), [marked, media]);
+    const files = marked.flatMap((file) => media.get(file.path) ?? []);
 
     return (
         <DeletionDialog

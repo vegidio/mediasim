@@ -20,12 +20,19 @@ pub fn euc_metric(a: &Icon, b: &Icon) -> (f64, f64, f64) {
             .zip(&b.pixels()[range])
             .map(|(&pa, &pb)| u64::from(pa.abs_diff(pb)).pow(2))
             .sum();
-        #[allow(clippy::cast_precision_loss)]
-        let sum = sum as f64;
-        sum * ONE_255TH2
+        scaled(sum)
     };
 
     (channel(0), channel(1), channel(2))
+}
+
+/// Scales a channel's exact sum of squared differences to the distance [`euc_metric`] reports for it. It never
+/// decreases as `sum` grows, in floating point too, so a lower bound of the sum gives a lower bound of the distance.
+pub(super) fn scaled(sum: u64) -> f64 {
+    // The sums stay below 2^39 (see `euc_metric`), where the conversion is exact.
+    #[allow(clippy::cast_precision_loss)]
+    let sum = sum as f64;
+    sum * ONE_255TH2
 }
 
 #[cfg(test)]

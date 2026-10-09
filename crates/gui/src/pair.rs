@@ -166,7 +166,7 @@ mod tests {
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::thumbs::tests::fixture;
+    use crate::admission::tests::fixture;
 
     /// Waits until a comparison is registered in `state`.
     fn wait_until_running(state: &PairState) {

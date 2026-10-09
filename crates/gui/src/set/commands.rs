@@ -6,6 +6,7 @@
 //! dropped by [`Set::commit`]. An add reads the set's clear epoch before classifying, so one still classifying when
 //! the set is cleared adds nothing.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -15,7 +16,8 @@ use tauri::async_runtime::spawn_blocking;
 
 use super::{Job, Listing, Set, SetView, classify, display_home, home, list_folder};
 use crate::TaskError;
-use crate::thumbs::ThumbState;
+use crate::admission::Admissions;
+use crate::roots::{AllowedRoots, canonical_roots};
 use crate::thumbs::commands::{MediaFile, describe};
 
 /// The set, as Tauri managed state.
@@ -34,7 +36,7 @@ impl SetState {
 }
 
 /// Adds files and folders to the set, skipping unsupported, missing and already-added paths, and returns the set once
-/// every folder added here has been listed.
+/// every folder added here has been listed. Each path added is recorded as chosen, in [`AllowedRoots`].
 ///
 /// `recursive` is the "Scan subfolders" checkbox as the frontend shows it.
 ///
@@ -44,10 +46,11 @@ impl SetState {
 #[tauri::command]
 pub async fn add_to_set(
     state: State<'_, SetState>,
+    roots: State<'_, AllowedRoots>,
     paths: Vec<PathBuf>,
     recursive: bool,
 ) -> Result<SetView, TaskError> {
-    add(&state, paths, recursive, list_folder).await
+    add(&state, &roots, paths, recursive, list_folder).await
 }
 
 /// Removes the source added as `path` and returns the set.
@@ -100,7 +103,8 @@ pub fn display_path(path: PathBuf) -> String {
 pub struct SetMedia {
     /// The set's revision when its paths were taken.
     pub revision: u64,
-    /// Ordered by path; a file that can no longer be admitted is left out.
+    /// Ordered by path; a file that can no longer be admitted is left out, and so is a second path to a file already
+    /// listed, as overlapping or symlinked sources give.
     pub files: Vec<MediaFile>,
 }
 
@@ -112,28 +116,47 @@ pub struct SetMedia {
 ///
 /// If the blocking admission task fails to finish.
 #[tauri::command]
-pub async fn list_set_media(set: State<'_, SetState>, thumbs: State<'_, ThumbState>) -> Result<SetMedia, TaskError> {
-    list_media(&set, &thumbs).await
+pub async fn list_set_media(set: State<'_, SetState>, registry: State<'_, Admissions>) -> Result<SetMedia, TaskError> {
+    list_media(&set, &registry).await
 }
 
-async fn list_media(set: &SetState, thumbs: &ThumbState) -> Result<SetMedia, TaskError> {
+async fn list_media(set: &SetState, registry: &Admissions) -> Result<SetMedia, TaskError> {
     let (revision, paths) = {
         let set = set.lock();
         (set.revision(), set.media_paths())
     };
 
-    let files = describe(thumbs, paths).await?.into_iter().flatten().collect();
+    // An identity is the window's key for a file, so each one is listed once, under the first of its paths.
+    let mut seen = HashSet::new();
+    let files = describe(registry, paths)
+        .await?
+        .into_iter()
+        .flatten()
+        .filter(|file| seen.insert(file.identity.clone()))
+        .collect();
 
     Ok(SetMedia { revision, files })
 }
 
-async fn add<L>(state: &SetState, paths: Vec<PathBuf>, recursive: bool, list: L) -> Result<SetView, TaskError>
+async fn add<L>(
+    state: &SetState,
+    roots: &AllowedRoots,
+    paths: Vec<PathBuf>,
+    recursive: bool,
+    list: L,
+) -> Result<SetView, TaskError>
 where
     L: Fn(&Path, bool) -> Listing + Clone + Send + 'static,
 {
     let since_clear = state.lock().clears();
-    let classified =
-        spawn_blocking(move || paths.into_iter().filter_map(|p| classify(&p).map(|c| (p, c))).collect()).await?;
+    let (classified, canonical) = spawn_blocking(move || {
+        let classified: Vec<_> = paths.into_iter().filter_map(|p| classify(&p).map(|c| (p, c))).collect();
+        let canonical = canonical_roots(classified.iter().map(|(path, _)| path));
+        (classified, canonical)
+    })
+    .await?;
+    // Recorded even when the set was cleared meanwhile, or already held the path: the user chose it either way.
+    roots.insert(canonical);
     let jobs = state.lock().add(classified, recursive, since_clear);
 
     run(state, jobs, list).await?;
@@ -161,6 +184,9 @@ where
 }
 
 /// Lists every job's folder in parallel and commits each result as it arrives.
+///
+/// Every task is awaited, even after one fails: a folder whose task panicked or was cancelled is committed as
+/// unreadable, so no folder is left pending until the next rescan. The first failure is returned once all are in.
 async fn run<L>(state: &SetState, jobs: Vec<Job>, list: L) -> Result<(), TaskError>
 where
     L: Fn(&Path, bool) -> Listing + Clone + Send + 'static,
@@ -169,19 +195,24 @@ where
         .into_iter()
         .map(|job| {
             let list = list.clone();
-            spawn_blocking(move || {
-                let listing = list(&job.path, job.recursive);
-                (job, listing)
-            })
+            let (path, recursive) = (job.path.clone(), job.recursive);
+            (job, spawn_blocking(move || list(&path, recursive)))
         })
         .collect();
 
-    for task in tasks {
-        let (job, listing) = task.await?;
+    let mut first_error = None;
+    for (job, task) in tasks {
+        let listing = match task.await {
+            Ok(listing) => listing,
+            Err(err) => {
+                first_error.get_or_insert(err);
+                Listing::Unreadable
+            }
+        };
         state.lock().commit(&job, listing);
     }
 
-    Ok(())
+    first_error.map_or(Ok(()), |err| Err(err.into()))
 }
 
 #[cfg(test)]
@@ -196,7 +227,7 @@ mod tests {
     use tauri::test::{mock_builder, mock_context, noop_assets};
 
     use super::*;
-    use crate::thumbs::tests::fixture;
+    use crate::admission::tests::fixture;
 
     #[test]
     fn a_folder_removed_during_a_slow_listing_stays_removed() {
@@ -220,8 +251,9 @@ mod tests {
 
         let handle = app.handle().clone();
         let paths = vec![folder.clone()];
-        let adding =
-            tauri::async_runtime::spawn(async move { add(&handle.state::<SetState>(), paths, true, slow).await });
+        let adding = tauri::async_runtime::spawn(async move {
+            add(&handle.state::<SetState>(), &AllowedRoots::default(), paths, true, slow).await
+        });
 
         started_rx.recv().unwrap();
         let state = app.state::<SetState>();
@@ -261,8 +293,9 @@ mod tests {
 
         let handle = app.handle().clone();
         let paths = vec![dir.path().to_path_buf()];
-        let adding =
-            tauri::async_runtime::spawn(async move { add(&handle.state::<SetState>(), paths, true, slow).await });
+        let adding = tauri::async_runtime::spawn(async move {
+            add(&handle.state::<SetState>(), &AllowedRoots::default(), paths, true, slow).await
+        });
 
         started_rx.recv().unwrap();
         let pending = state.view();
@@ -281,14 +314,37 @@ mod tests {
     }
 
     #[test]
+    fn added_sources_are_recorded_as_chosen_and_skipped_paths_are_not() {
+        let state = SetState::default();
+        let roots = AllowedRoots::default();
+        let dir = mk_temp_dir("mediasim-set-").unwrap();
+        std::fs::create_dir(dir.path().join("album")).unwrap();
+        std::fs::write(dir.path().join("album/a.png"), [0_u8]).unwrap();
+        std::fs::write(dir.path().join("b.png"), [0_u8]).unwrap();
+        std::fs::write(dir.path().join("notes.txt"), [0_u8]).unwrap();
+
+        let paths = vec![dir.path().join("album"), dir.path().join("notes.txt")];
+        block_on(add(&state, &roots, paths, true, list_folder)).unwrap();
+
+        let chosen = roots.snapshot();
+        assert!(chosen.contains(&dir.path().join("album/a.png")));
+        assert!(
+            !chosen.contains(&dir.path().join("notes.txt")),
+            "an unsupported file is not added, so not chosen"
+        );
+        assert!(!chosen.contains(&dir.path().join("b.png")));
+    }
+
+    #[test]
     fn a_folder_added_again_after_a_clear_is_counted() {
         let state = SetState::default();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
         std::fs::write(dir.path().join("a.png"), [0_u8]).unwrap();
 
-        block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+        block_on(add(&state, &AllowedRoots::default(), vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
         clear(&state);
-        let added = block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+        let added =
+            block_on(add(&state, &AllowedRoots::default(), vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
 
         assert_eq!(added.total, 1);
         assert!(!added.sources[0].pending);
@@ -297,16 +353,22 @@ mod tests {
     #[test]
     fn listing_media_returns_the_files_in_display_order_with_the_revision() {
         let state = SetState::default();
-        let thumbs = crate::thumbs::tests::state();
+        let registry = Admissions::default();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
         std::fs::create_dir(dir.path().join("b")).unwrap();
         std::fs::copy(fixture("test3.mp4"), dir.path().join("b/clip.mp4")).unwrap();
         // `c.png` sorts after the subfolder `b` by name, but a folder's own files come before its subfolders.
         std::fs::copy(fixture("test1.png"), dir.path().join("c.png")).unwrap();
 
-        let added =
-            block_on(add(&state, vec![dir.path().join("b"), dir.path().join("c.png")], true, list_folder)).unwrap();
-        let media = block_on(list_media(&state, &thumbs)).unwrap();
+        let added = block_on(add(
+            &state,
+            &AllowedRoots::default(),
+            vec![dir.path().join("b"), dir.path().join("c.png")],
+            true,
+            list_folder,
+        ))
+        .unwrap();
+        let media = block_on(list_media(&state, &registry)).unwrap();
 
         assert_eq!(media.revision, added.revision);
         let described: Vec<_> = media.files.iter().map(|f| (f.name.as_str(), f.r#type, f.size)).collect();
@@ -318,21 +380,22 @@ mod tests {
             ]
         );
         for file in &media.files {
-            assert!(thumbs.lookup(&file.identity).is_some(), "{} was listed but not admitted", file.name);
+            assert!(registry.lookup(&file.identity).is_some(), "{} was listed but not admitted", file.name);
         }
     }
 
     #[test]
     fn a_file_deleted_after_counting_is_left_out() {
         let state = SetState::default();
-        let thumbs = crate::thumbs::tests::state();
+        let registry = Admissions::default();
         let dir = mk_temp_dir("mediasim-set-").unwrap();
         std::fs::copy(fixture("test1.png"), dir.path().join("a.png")).unwrap();
         std::fs::copy(fixture("test1.png"), dir.path().join("b.png")).unwrap();
 
-        let added = block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+        let added =
+            block_on(add(&state, &AllowedRoots::default(), vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
         std::fs::remove_file(dir.path().join("a.png")).unwrap();
-        let media = block_on(list_media(&state, &thumbs)).unwrap();
+        let media = block_on(list_media(&state, &registry)).unwrap();
 
         assert_eq!(added.total, 2);
         let names: Vec<_> = media.files.iter().map(|f| f.name.as_str()).collect();
@@ -361,11 +424,64 @@ mod tests {
         std::fs::write(dir.path().join("a.png"), [0_u8]).unwrap();
         std::fs::write(dir.path().join("sub/b.png"), [0_u8]).unwrap();
 
-        let added = block_on(add(&state, vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
+        let added =
+            block_on(add(&state, &AllowedRoots::default(), vec![dir.path().to_path_buf()], true, list_folder)).unwrap();
         let rescanned = block_on(rescan(&state, false, list_folder)).unwrap();
 
         assert_eq!(added.total, 2);
         assert_eq!(rescanned.total, 1);
         assert!(rescanned.revision > added.revision);
+    }
+
+    #[test]
+    fn a_listing_task_that_panics_leaves_its_folder_unreadable_and_the_others_listed() {
+        let state = SetState::default();
+        let (broken, fine) = (mk_temp_dir("mediasim-set-").unwrap(), mk_temp_dir("mediasim-set-").unwrap());
+        std::fs::write(fine.path().join("a.png"), [0_u8]).unwrap();
+        let panicking = {
+            let broken = broken.path().to_path_buf();
+            move |path: &Path, recursive: bool| {
+                assert!(path != broken, "the listing panicked");
+                list_folder(path, recursive)
+            }
+        };
+
+        let added = block_on(add(
+            &state,
+            &AllowedRoots::default(),
+            vec![broken.path().to_path_buf(), fine.path().to_path_buf()],
+            true,
+            panicking,
+        ));
+
+        assert!(added.is_err(), "the failed task should be reported");
+        let view = state.view();
+        assert!(view.sources.iter().all(|source| !source.pending), "{view:?}");
+        assert!(view.sources[0].unreadable);
+        assert_eq!((view.sources[1].count, view.total), (1, 1));
+    }
+
+    #[test]
+    fn a_file_reached_through_two_sources_is_listed_once() {
+        let state = SetState::default();
+        let registry = Admissions::default();
+        let dir = mk_temp_dir("mediasim-set-").unwrap();
+        std::fs::create_dir(dir.path().join("album")).unwrap();
+        std::fs::copy(fixture("test1.png"), dir.path().join("album/a.png")).unwrap();
+        // The same file, reached as the folder's listing and, spelled another way, as a file added on its own.
+        let roundabout = dir.path().join("album/../album/a.png");
+
+        block_on(add(
+            &state,
+            &AllowedRoots::default(),
+            vec![dir.path().join("album"), roundabout],
+            true,
+            list_folder,
+        ))
+        .unwrap();
+        let media = block_on(list_media(&state, &registry)).unwrap();
+
+        let names: Vec<_> = media.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["a.png"]);
     }
 }

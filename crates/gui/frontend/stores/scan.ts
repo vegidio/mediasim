@@ -1,9 +1,9 @@
 import { create } from "zustand";
-import { identity, includedFiles } from "@/features/gallery/derive";
-import { markedFiles, visibleGroups } from "@/features/groups/marks";
 import { cancelScan, type ScanFailure, type ScanResult, startScan } from "@/ipc/scan";
 import type { MediaFile } from "@/ipc/thumbs";
 import { type Deletion, deletionActions, type Notice, removeFiles, restoreFiles } from "@/lib/deletion";
+import { identity, includedFiles } from "@/lib/gallery";
+import { markedFiles, visibleGroups } from "@/lib/marks";
 import { type GalleryFilter, useGalleryStore } from "@/stores/gallery";
 import { useHomeStore } from "@/stores/home";
 import { useScreenStore } from "@/stores/screen";
@@ -158,6 +158,8 @@ export const useScanStore = create<ScanStore>()((set, get) => {
         set({ deletion: { status: "removing", mode, confirmed } });
 
         const settled = await removeFiles(mode, items);
+        // The disk changed whichever screen is showing now, so the gallery drops the files gone even after a leave.
+        useGalleryStore.getState().withdraw(settled.done);
         forRun(run, () => {
             const notice: ScanNotice = { action: mode, ...settled };
             set((state) => {
@@ -169,7 +171,6 @@ export const useScanStore = create<ScanStore>()((set, get) => {
                 }
                 return { gone, marks, deletion: IDLE.deletion, notice };
             });
-            useGalleryStore.getState().withdraw(notice.done);
         });
     };
 
@@ -271,6 +272,13 @@ export const useScanStore = create<ScanStore>()((set, get) => {
             set({ deletion: { status: "restoring" } });
 
             const { identities, ...settled } = await restoreFiles(items);
+            // A restored file can come back under a new identity, which `thumb://` and a later removal need.
+            const withIdentity = (file: MediaFile) => {
+                const identity = identities.get(file.path);
+                return identity ? { ...file, identity } : file;
+            };
+            // The disk changed whichever screen is showing now, so the gallery takes the files back even after a leave.
+            useGalleryStore.getState().reinstate(files.filter((file) => identities.has(file.path)).map(withIdentity));
             forRun(run, () => {
                 const notice: ScanNotice = { action: "restore", ...settled };
                 const state = get();
@@ -280,14 +288,7 @@ export const useScanStore = create<ScanStore>()((set, get) => {
                     gone.delete(path);
                     marks.add(path);
                 }
-                // A restored file can come back under a new identity, which `thumb://` and a later removal need.
-                const files = state.files.map((file) => {
-                    const identity = identities.get(file.path);
-                    return identity ? { ...file, identity } : file;
-                });
-
-                set({ files, gone, marks, deletion: IDLE.deletion, notice });
-                useGalleryStore.getState().reinstate(files.filter((file) => identities.has(file.path)));
+                set({ files: state.files.map(withIdentity), gone, marks, deletion: IDLE.deletion, notice });
             });
         },
 

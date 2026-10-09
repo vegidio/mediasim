@@ -14,10 +14,10 @@ export const SettingsSection = ({ title, children }: SettingsSectionProps) => {
 
     return (
         <section aria-labelledby={id} className="flex flex-col gap-2">
-            <h2 id={id} className="font-semibold text-[#A1A1AA] text-[11px] uppercase tracking-[0.06em]">
+            <h2 id={id} className="font-semibold text-muted-foreground text-[11px] uppercase tracking-[0.06em]">
                 {title}
             </h2>
-            <div className="overflow-hidden rounded-xl border border-[#27272A] bg-[#111113] [&>*+*]:border-[#1F1F23] [&>*+*]:border-t">
+            <div className="overflow-hidden rounded-xl border border-border bg-card [&>*+*]:border-border-subtle [&>*+*]:border-t">
                 {children}
             </div>
         </section>
@@ -71,7 +71,7 @@ export const SettingRow = ({
             <span id={nameId} className="font-medium text-sm">
                 {name}
             </span>
-            <span id={hintId} className="text-[#A1A1AA] text-xs">
+            <span id={hintId} className="text-muted-foreground text-xs">
                 {hint}
             </span>
         </span>

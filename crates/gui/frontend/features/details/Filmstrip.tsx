@@ -25,7 +25,7 @@ const StripThumb = ({ file, current, marked, dimmed, onShow }: StripThumbProps) 
         {...(current && { "aria-current": "true" })}
         onClick={onShow}
         className={cn(
-            "relative h-[72px] w-24 shrink-0 overflow-hidden rounded-lg bg-[#18181B] outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            "relative h-[72px] w-24 shrink-0 overflow-hidden rounded-lg bg-muted outline-none focus-visible:ring-2 focus-visible:ring-primary",
             current ? "shadow-[0_0_0_2px_#BEF264]" : marked ? "shadow-[0_0_0_2px_#EF4444]" : "opacity-70",
         )}
     >
@@ -53,7 +53,7 @@ const StripThumb = ({ file, current, marked, dimmed, onShow }: StripThumbProps) 
         )}
         {file.type === "video" && (
             <span className="absolute right-1 bottom-1 flex size-[18px] items-center justify-center rounded-full bg-[rgba(9,9,11,0.75)]">
-                <PlayIcon aria-hidden="true" className="size-[9px] fill-[#FAFAFA] stroke-none" />
+                <PlayIcon aria-hidden="true" className="size-[9px] fill-foreground stroke-none" />
             </span>
         )}
     </button>
@@ -78,7 +78,7 @@ export const Filmstrip = ({ files, index, onShow, marks, isDimmed }: FilmstripPr
     const { start, end } = stripWindow(files.length, index);
 
     return (
-        <div className="box-border flex h-[116px] shrink-0 items-center justify-center gap-3 border-[#1F1F23] border-t bg-[#0A0A0C] px-4">
+        <div className="box-border flex h-[116px] shrink-0 items-center justify-center gap-3 border-border-subtle border-t bg-[#0A0A0C] px-4">
             {files.slice(start, end).map((file, offset) => (
                 <StripThumb
                     key={file.path}

@@ -1,7 +1,7 @@
 {
     "$schema": "../gen/schemas/desktop-schema.json",
     "identifier": "default",
-    "description": "Capability for the main window. `core:default`, plus the window permission the header's drag region needs; double-click maximize goes through `internal_toggle_maximize`, which `core:default` already allows. `os:default` for the OS plugin. `dialog:allow-open` for the file and folder pickers, and nothing else of the dialog plugin. Commands this application registers itself need no capability entry.",
+    "description": "Capability for the main window. `core:default`, plus the window permission the header's drag region needs; double-click maximize goes through `internal_toggle_maximize`, which `core:default` already allows. `os:default` for the OS plugin. Nothing of the dialog plugin: the file and folder pickers are opened from Rust, by `pick_files`, `pick_file` and `pick_folders`, so Rust records what the user chose. Commands this application registers itself need no capability entry.",
     "windows": ["main"],
-    "permissions": ["core:default", "core:window:allow-start-dragging", "os:default", "dialog:allow-open"]
+    "permissions": ["core:default", "core:window:allow-start-dragging", "os:default"]
 }

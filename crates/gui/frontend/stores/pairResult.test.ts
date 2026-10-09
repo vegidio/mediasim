@@ -407,7 +407,8 @@ describe("usePairResultStore", () => {
             expect(usePairStore.getState()).toMatchObject({ a: A, b: B });
         });
 
-        it("ignores a move that finishes after the screen was left", async () => {
+        it("keeps the screen as left by a move that finishes after leaving, but still empties the start slot", async () => {
+            usePairStore.setState({ a: A, b: B });
             const pending = deferred<TrashOutcome[]>();
             mockedTrash.mockReturnValue(pending.promise);
             state().toggleMark("b");
@@ -415,11 +416,32 @@ describe("usePairResultStore", () => {
             const run = state().removeMarked();
 
             state().leave();
+            expect(state().deletion).toEqual({ status: "idle" });
             pending.resolve([TRASHED]);
             await run;
 
             expect(state().gone).toEqual({});
             expect(state().notice).toBeUndefined();
+            expect(state().deletion).toEqual({ status: "idle" });
+            expect(usePairStore.getState().a).toEqual(A);
+            expect(usePairStore.getState().b).toBeUndefined();
+        });
+
+        it("empties the start slot for a move that finishes after another pair opened", async () => {
+            usePairStore.setState({ a: A, b: B });
+            const pending = deferred<TrashOutcome[]>();
+            mockedTrash.mockReturnValue(pending.promise);
+            state().toggleMark("b");
+            state().requestDeletion();
+            const run = state().removeMarked();
+
+            state().open(A, B);
+            pending.resolve([TRASHED]);
+            await run;
+
+            expect(state().gone).toEqual({});
+            expect(state().deletion).toEqual({ status: "idle" });
+            expect(usePairStore.getState().b).toBeUndefined();
         });
 
         it("dismisses the notice, keeping the file gone", async () => {
@@ -652,22 +674,26 @@ describe("usePairResultStore", () => {
             it.each([
                 ["leaving", () => state().leave()],
                 ["opening a new pair", () => state().open(A, B)],
-            ])("ignores a restore that finishes after %s", async (_, interrupt) => {
-                await move(["b"], [TRASHED]);
-                const pending = deferred<RestoreOutcome[]>();
-                mockedRestore.mockReturnValue(pending.promise);
-                const run = state().restore(["b"]);
+            ])(
+                "keeps the screen as it is for a restore that finishes after %s, but refills the start slot",
+                async (_, interrupt) => {
+                    await move(["b"], [TRASHED]);
+                    const pending = deferred<RestoreOutcome[]>();
+                    mockedRestore.mockReturnValue(pending.promise);
+                    const run = state().restore(["b"]);
 
-                interrupt();
-                const before = state();
-                pending.resolve([restored("id-new")]);
-                await run;
+                    interrupt();
+                    const before = state();
+                    pending.resolve([restored("id-new")]);
+                    await run;
 
-                expect(state().gone).toEqual(before.gone);
-                expect(state().files).toEqual(before.files);
-                expect(state().notice).toBeUndefined();
-                expect(usePairStore.getState().b).toBeUndefined();
-            });
+                    expect(state().gone).toEqual(before.gone);
+                    expect(state().files).toEqual(before.files);
+                    expect(state().notice).toBeUndefined();
+                    expect(state().deletion).toEqual({ status: "idle" });
+                    expect(usePairStore.getState().b).toEqual({ ...B, identity: "id-new" });
+                },
+            );
 
             it("leaves the details and the comparison as they were", async () => {
                 await move(["b"], [TRASHED]);

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_RULES, type Rule } from "@/features/groups/rules";
+import { DEFAULT_RULES, type Rule } from "@/lib/rules";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { AutoSelectSection } from "./AutoSelectSection";
 

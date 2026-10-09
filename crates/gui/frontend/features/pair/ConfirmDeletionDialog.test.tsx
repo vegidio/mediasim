@@ -5,7 +5,7 @@ import { type DeleteOutcome, deleteMedia, type TrashOutcome, trashMedia } from "
 import { usePairResultStore } from "@/stores/pairResult";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import packageJson from "../../../package.json";
-import { DeletionFooter } from "./DeletionFooter";
+import { PairDeletionFooter } from "./PairDeletionFooter";
 
 vi.mock("@/ipc/pair", () => ({ probeMedia: vi.fn(), comparePair: vi.fn(), cancelComparison: vi.fn() }));
 vi.mock("@/ipc/trash", () => ({ trashMedia: vi.fn(), deleteMedia: vi.fn() }));
@@ -35,7 +35,7 @@ const cancel = () => within(dialog()).getByRole("button", { name: "Cancel" });
 
 /** Marks `slots` and opens the dialog from the footer's button. */
 const open = (...slots: ("a" | "b")[]) => {
-    render(<DeletionFooter />);
+    render(<PairDeletionFooter />);
     for (const slot of slots) act(() => usePairResultStore.getState().toggleMark(slot));
     fireEvent.click(trigger());
 };
@@ -71,7 +71,7 @@ describe("ConfirmDeletionDialog", () => {
         expect(cancel()).toBeInTheDocument();
         expect(primary()).toHaveTextContent("Move to Trash");
         // Red, overriding the button's accent rather than sitting beside it.
-        expect(primary()).toHaveClass("bg-[#DC2626]");
+        expect(primary()).toHaveClass("bg-danger");
         expect(primary()).not.toHaveClass("bg-primary");
     });
 
@@ -217,7 +217,6 @@ describe("ConfirmDeletionDialog", () => {
             "@fontsource-variable/geist-mono",
             "@tanstack/react-virtual",
             "@tauri-apps/api",
-            "@tauri-apps/plugin-dialog",
             "@tauri-apps/plugin-os",
             "class-variance-authority",
             "cn",
@@ -225,7 +224,6 @@ describe("ConfirmDeletionDialog", () => {
             "radix-ui",
             "react",
             "react-dom",
-            "shadcn",
             "tw-animate-css",
             "zustand",
         ]);

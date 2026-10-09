@@ -329,7 +329,7 @@ pub(crate) mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::fixture;
+    use crate::admission::tests::fixture;
     use crate::video::encoder::LIBX264;
     use crate::video::fixtures::{mkv, mkv_two_audio, mkv_video_only, rotated};
 

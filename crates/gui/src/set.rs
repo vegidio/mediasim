@@ -10,6 +10,7 @@
 pub mod commands;
 mod order;
 
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -28,6 +29,9 @@ pub struct Set {
     next_generation: u64,
     /// Bumped on every [`clear`](Self::clear), so an add started before it can tell it is stale.
     clears: u64,
+    /// [`total`](Self::total) as last counted, and the revision it was counted at. Every view asks for it, under the
+    /// lock, and counting hashes every path in the set, so it is counted again only once the set has changed.
+    counted: Cell<Option<(u64, usize)>>,
 }
 
 /// One added file or folder.
@@ -243,7 +247,16 @@ impl Set {
     /// Paths compare as given: a file added directly and found inside an added folder match, because `list_dir`
     /// keeps the folder's prefix as it was added.
     pub fn total(&self) -> usize {
-        self.paths().collect::<HashSet<_>>().len()
+        // Every change bumps the revision, so a count taken at the current one is still right.
+        if let Some((revision, total)) = self.counted.get()
+            && revision == self.revision
+        {
+            return total;
+        }
+
+        let total = self.paths().collect::<HashSet<_>>().len();
+        self.counted.set(Some((self.revision, total)));
+        total
     }
 
     /// The distinct media files across every counted source, the same paths [`total`](Self::total) counts.

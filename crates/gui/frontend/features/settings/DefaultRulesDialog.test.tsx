@@ -1,7 +1,7 @@
 import { act, useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_RULES, moveRule } from "@/features/groups/rules";
+import { DEFAULT_RULES, moveRule } from "@/lib/rules";
 import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
 import { DefaultRulesDialog } from "./DefaultRulesDialog";
 

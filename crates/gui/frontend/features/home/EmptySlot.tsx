@@ -1,9 +1,9 @@
 import { type Ref, useId } from "react";
 import { UploadIcon } from "lucide-react";
 import { dropTargetClassName } from "@/features/home/ModeCard";
-import type { Slot } from "@/features/home/routePairDrop";
 import { pickFile } from "@/ipc/dialog";
 import { supportedFormats } from "@/ipc/formats";
+import type { Slot } from "@/lib/slots";
 import { cn } from "@/lib/utils";
 import { usePairStore } from "@/stores/pair";
 
@@ -14,7 +14,7 @@ export const slotLabel = (slot: Slot) => (slot === "a" ? "File A" : "File B");
 const pickInto = async (slot: Slot) => {
     try {
         const path = await supportedFormats().then(pickFile);
-        if (path !== undefined) await usePairStore.getState().place(slot, path);
+        if (path) await usePairStore.getState().place(slot, path);
     } catch (error) {
         console.error("could not open the picker", error);
     }

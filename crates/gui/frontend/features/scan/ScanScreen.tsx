@@ -5,7 +5,7 @@ import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import type { MediaFile } from "@/ipc/thumbs";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useScanStore } from "@/stores/scan";
+import { selectMedia, useScanStore } from "@/stores/scan";
 import { formatKinds, formatTimeLeft, formatUnreadable, percentDone } from "./format";
 import { groupingPhase, type PhaseState } from "./phases";
 
@@ -13,19 +13,19 @@ import { groupingPhase, type PhaseState } from "./phases";
 const THUMB_BOUND = 96;
 
 const OUTLINE_BUTTON =
-    "h-10 rounded-lg border-[#3F3F46] bg-transparent px-4 text-sm dark:border-[#3F3F46] dark:bg-transparent";
+    "h-10 rounded-lg border-border-strong bg-transparent px-4 text-sm dark:border-border-strong dark:bg-transparent";
 
 /** The heading: how many files are compared, and what, of which kinds, at which threshold. */
 const Heading = () => {
     const heading = useScanStore((state) => state.heading);
-    if (!heading) return null;
+    if (!heading) return;
 
     const { count, set, kinds, threshold } = heading;
 
     return (
         <div className="flex flex-col gap-2">
             <h1 className="font-semibold text-[32px] tracking-[-0.02em]">Comparing {formatCount(count)}</h1>
-            <p className="text-[#A1A1AA] text-[15px]">
+            <p className="text-muted-foreground text-[15px]">
                 {set} · {formatKinds(kinds)} · match threshold {threshold}%
             </p>
         </div>
@@ -44,7 +44,7 @@ const Progress = () => {
                     {percent}
                     <span className="text-2xl">%</span>
                 </span>
-                <span className="text-[#A1A1AA] text-[13px]">{formatTimeLeft(etaSeconds)}</span>
+                <span className="text-muted-foreground text-[13px]">{formatTimeLeft(etaSeconds)}</span>
             </div>
             <div
                 role="progressbar"
@@ -52,7 +52,7 @@ const Progress = () => {
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={percent}
-                className="h-2 overflow-hidden rounded-full bg-[#27272A]"
+                className="h-2 overflow-hidden rounded-full bg-border"
             >
                 <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${percent}%` }} />
             </div>
@@ -74,7 +74,7 @@ const PhaseMark = ({ state }: { state: PhaseState }) => (
             <span
                 data-testid="spinner"
                 aria-hidden="true"
-                className="size-5 animate-spin rounded-full border-[3px] border-[#3F3F46] border-t-primary [animation-duration:0.9s] motion-reduce:animate-none"
+                className="size-5 animate-spin rounded-full border-[3px] border-border-strong border-t-primary [animation-duration:0.9s] motion-reduce:animate-none"
             />
         )}
     </span>
@@ -87,16 +87,18 @@ const PhaseRow = () => {
     const { skipped } = progress;
 
     return (
-        <ol className="flex flex-col border-[#1F1F23] border-t">
+        <ol className="flex flex-col border-border-subtle border-t">
             <li className="flex items-center gap-3.5 py-3.5">
                 <PhaseMark state={state} />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="font-medium text-sm">Grouping similar files</span>
-                    <span className="text-[#A1A1AA] text-xs">
+                    <span className="text-muted-foreground text-xs">
                         Matching media above the threshold{skipped > 0 && ` · ${formatUnreadable(skipped)}`}
                     </span>
                 </div>
-                <span className={cn("font-mono text-xs", state === "active" ? "text-primary" : "text-[#A1A1AA]")}>
+                <span
+                    className={cn("font-mono text-xs", state === "active" ? "text-primary" : "text-muted-foreground")}
+                >
                     {status}
                 </span>
             </li>
@@ -106,7 +108,7 @@ const PhaseRow = () => {
 
 /** A file's 48×36 thumbnail, falling back to the icon of its kind, as gallery tiles do. */
 const FileThumbnail = ({ file }: { file: MediaFile }) => (
-    <span className="relative h-9 w-12 shrink-0 overflow-hidden rounded-md bg-[#27272A]">
+    <span className="relative h-9 w-12 shrink-0 overflow-hidden rounded-md bg-border">
         <Thumbnail type={file.type} identity={file.identity} bound={THUMB_BOUND} iconClassName="[&_svg]:size-4" />
     </span>
 );
@@ -114,15 +116,15 @@ const FileThumbnail = ({ file }: { file: MediaFile }) => (
 /** The file the scan last reported it is processing, once it has reported one. */
 const NowProcessing = () => {
     const current = useScanStore((state) => state.current);
-    const file = useScanStore((state) => state.files.find((candidate) => candidate.path === state.current?.path));
-    if (!current) return null;
+    const file = useScanStore((state) => state.current && selectMedia(state).get(state.current.path));
+    if (!current) return;
 
     return (
-        <div className="flex items-center gap-3 rounded-[10px] bg-[#18181B] p-3">
+        <div className="flex items-center gap-3 rounded-[10px] bg-muted p-3">
             {/* Every scanned file is one of `files`; keyed by file, so a thumbnail that failed doesn't hide the next. */}
             {file && <FileThumbnail key={file.path} file={file} />}
             <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-[#A1A1AA] text-xs">Now processing</span>
+                <span className="text-muted-foreground text-xs">Now processing</span>
                 <span title={current.display} className="truncate font-mono text-[13px]">
                     {current.display}
                 </span>
@@ -136,10 +138,7 @@ const Failure = () => {
     const leave = useScanStore((state) => state.leave);
 
     return (
-        <div
-            role="alert"
-            className="flex flex-col items-start gap-4 rounded-[14px] border border-[#27272A] bg-[#111113] p-7"
-        >
+        <div role="alert" className="flex flex-col items-start gap-4 rounded-[14px] border border-border bg-card p-7">
             <p className="font-medium text-[15px]">The comparison couldn't finish.</p>
             <Button
                 variant="outline"
@@ -172,14 +171,14 @@ export const ScanScreen = () => {
                 <>
                     <section
                         aria-label="Comparison"
-                        className="flex flex-col gap-6 rounded-[14px] border border-[#27272A] bg-[#111113] p-7"
+                        className="flex flex-col gap-6 rounded-[14px] border border-border bg-card p-7"
                     >
                         <Progress />
                         <PhaseRow />
                         <NowProcessing />
                     </section>
                     <div className="flex items-center justify-between gap-6">
-                        <p className="text-[#A1A1AA] text-[13px]">
+                        <p className="text-muted-foreground text-[13px]">
                             Files are only read. Nothing is changed until you review the results.
                         </p>
                         <Button

@@ -65,7 +65,7 @@ describe("GroupsFooter", () => {
         expect(status()).toHaveTextContent(/^2 files marked for deletion · 5\.9 MB will be freed$/);
         const button = screen.getByRole("button", { name: "Move 2 to Trash…" });
         expect(button).toBeEnabled();
-        expect(button).toHaveClass("bg-[#DC2626]");
+        expect(button).toHaveClass("bg-danger");
     });
 
     it("reads 1 file for one", () => {

@@ -3,6 +3,7 @@
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 
 use tauri::http::{HeaderValue, Request, Response, StatusCode, header};
@@ -11,7 +12,8 @@ use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 use super::content_type;
 use super::probe::locate_video;
 use super::range::{Answer, answer};
-use crate::thumbs::{Refusal, ThumbState, parse_identity, refusal_response};
+use crate::admission::Admissions;
+use crate::scheme::{Refusal, parse_identity, refusal_response};
 
 /// What a request is answered with.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,8 +35,8 @@ enum Outcome {
 
 /// The answer to a request for `identity` with `range`: locate, refuse a non-video, then read only the answered range.
 /// Split from [`serve`] so it can be tested without a webview.
-fn produce(state: &ThumbState, identity: &str, range: Option<&HeaderValue>) -> Outcome {
-    let admitted = match locate_video(state, identity) {
+fn produce(registry: &Admissions, identity: &str, range: Option<&HeaderValue>) -> Outcome {
+    let admitted = match locate_video(registry, identity) {
         Ok(admitted) => admitted,
         Err(refusal) => return Outcome::Refused(refusal),
     };
@@ -52,16 +54,26 @@ fn produce(state: &ThumbState, identity: &str, range: Option<&HeaderValue>) -> O
     }
 }
 
-/// Bytes `start..=end` of `path`, and no others.
+/// Bytes `start..=end` of `path`, and no others; an error if the file now ends before `end`.
 fn read(path: &Path, start: u64, end: u64) -> std::io::Result<Vec<u8>> {
-    let length = usize::try_from(end - start + 1).map_err(std::io::Error::other)?;
+    let length = end - start + 1;
     let mut file = File::open(path)?;
     file.seek(SeekFrom::Start(start))?;
 
-    let mut bytes = vec![0; length];
-    file.read_exact(&mut bytes)?;
+    // Filled straight from the file, without zeroing it first.
+    let wanted = usize::try_from(length).map_err(std::io::Error::other)?;
+    let mut bytes = Vec::with_capacity(wanted);
+    file.take(length).read_to_end(&mut bytes)?;
+    if bytes.len() != wanted {
+        return Err(std::io::ErrorKind::UnexpectedEof.into());
+    }
 
     Ok(bytes)
+}
+
+/// What `produce` answers, or a refusal as [`Refusal::Failed`] if it panics.
+fn guarded(produce: impl FnOnce() -> Outcome) -> Outcome {
+    catch_unwind(AssertUnwindSafe(produce)).unwrap_or(Outcome::Refused(Refusal::Failed))
 }
 
 /// The response an outcome crosses as. None is cacheable: answers are large and cheap to read again.
@@ -91,7 +103,8 @@ fn respond(outcome: Outcome) -> Response<Vec<u8>> {
 /// Serves part of a video to the window. The handler registered under [`SCHEME`](super::SCHEME) in `src/lib.rs`.
 ///
 /// A malformed request is answered at once; anything else is read on the blocking pool, so disk access never holds up
-/// the window.
+/// the window. The responder answers nothing when dropped, so a panic while producing the answer is caught and
+/// answered with a 500, rather than leaving the request to never settle.
 #[allow(clippy::needless_pass_by_value, reason = "Tauri passes the handler's arguments by value")]
 pub fn serve<R: Runtime>(context: UriSchemeContext<'_, R>, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let Some(identity) = parse_identity(request.uri()).map(str::to_owned) else {
@@ -102,7 +115,7 @@ pub fn serve<R: Runtime>(context: UriSchemeContext<'_, R>, request: Request<Vec<
 
     let app = context.app_handle().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let outcome = produce(&app.state::<ThumbState>(), &identity, range.as_ref());
+        let outcome = guarded(|| produce(&app.state::<Admissions>(), &identity, range.as_ref()));
         responder.respond(respond(outcome));
     });
 }
@@ -114,12 +127,12 @@ mod tests {
     use rust_sak::fs::mk_temp_dir;
 
     use super::*;
-    use crate::thumbs::tests::{fixture, set_modified, state};
+    use crate::admission::tests::{fixture, set_modified};
     use crate::video::fixtures::admit;
     use crate::video::range::CAP;
 
     /// The response to a request for `identity`, with `range` as its `Range` header if any.
-    fn request(state: &ThumbState, identity: &str, range: Option<&str>) -> Response<Vec<u8>> {
+    fn request(state: &Admissions, identity: &str, range: Option<&str>) -> Response<Vec<u8>> {
         let range = range.map(|range| HeaderValue::from_str(range).unwrap());
         respond(produce(state, identity, range.as_ref()))
     }
@@ -148,7 +161,7 @@ mod tests {
 
     #[test]
     fn a_closed_range_is_those_bytes() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let (path, bytes) = patterned(dir.path(), "clip.mp4", 10_000_000);
         let identity = admit(&state, &path);
@@ -161,7 +174,7 @@ mod tests {
 
     #[test]
     fn an_open_range_on_a_large_file_is_capped() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let path = dir.path().join("large.mkv");
         // Sparse where the filesystem allows it, so the test doesn't write a gigabyte.
@@ -176,7 +189,7 @@ mod tests {
 
     #[test]
     fn a_suffix_range_is_the_last_bytes() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let (path, bytes) = patterned(dir.path(), "clip.webm", 10_000_000);
         let identity = admit(&state, &path);
@@ -189,7 +202,7 @@ mod tests {
 
     #[test]
     fn no_range_is_the_file_from_its_start() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let (path, bytes) = patterned(dir.path(), "clip.mov", 1_000);
         let identity = admit(&state, &path);
@@ -202,7 +215,7 @@ mod tests {
 
     #[test]
     fn a_range_past_the_end_is_unsatisfiable() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let (path, _) = patterned(dir.path(), "clip.avi", 1_000);
         let identity = admit(&state, &path);
@@ -216,7 +229,7 @@ mod tests {
 
     #[test]
     fn a_fixture_is_served_unchanged() {
-        let state = state();
+        let state = Admissions::default();
         let path = fixture("test3.mp4");
         let bytes = std::fs::read(&path).unwrap();
         let identity = admit(&state, &path);
@@ -231,7 +244,7 @@ mod tests {
 
     #[test]
     fn an_admitted_image_is_not_found() {
-        let state = state();
+        let state = Admissions::default();
         let identity = admit(&state, &fixture("test1.png"));
 
         assert_eq!(request(&state, &identity, None).status(), StatusCode::NOT_FOUND);
@@ -239,14 +252,14 @@ mod tests {
 
     #[test]
     fn an_identity_never_admitted_is_not_found() {
-        let state = state();
+        let state = Admissions::default();
 
         assert_eq!(request(&state, "0123456789abcdef", Some("bytes=0-")).status(), StatusCode::NOT_FOUND);
     }
 
     #[test]
     fn a_removed_file_is_gone() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let (path, _) = patterned(dir.path(), "clip.mp4", 1_000);
         let identity = admit(&state, &path);
@@ -259,7 +272,7 @@ mod tests {
 
     #[test]
     fn a_rewritten_file_is_gone() {
-        let state = state();
+        let state = Admissions::default();
         let dir = mk_temp_dir("mediasim-video-").unwrap();
         let (path, _) = patterned(dir.path(), "clip.mp4", 1_000);
         set_modified(&path, SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000));
@@ -273,7 +286,11 @@ mod tests {
 
     #[test]
     fn a_refusal_is_plain_text_and_not_cacheable() {
-        for (refusal, status) in [(Refusal::NotFound, StatusCode::NOT_FOUND), (Refusal::Gone, StatusCode::GONE)] {
+        for (refusal, status) in [
+            (Refusal::NotFound, StatusCode::NOT_FOUND),
+            (Refusal::Gone, StatusCode::GONE),
+            (Refusal::Failed, StatusCode::INTERNAL_SERVER_ERROR),
+        ] {
             let response = respond(Outcome::Refused(refusal));
 
             assert_eq!(response.status(), status);
@@ -281,5 +298,21 @@ mod tests {
             assert_eq!(header(&response, header::CACHE_CONTROL), "no-store");
             assert!(!response.body().is_empty());
         }
+    }
+
+    #[test]
+    fn a_panic_while_producing_is_a_server_error() {
+        let outcome = guarded(|| panic!("the read panicked"));
+
+        assert_eq!(respond(outcome).status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn a_file_shorter_than_the_range_is_an_error() {
+        let dir = mk_temp_dir("mediasim-video-").unwrap();
+        let (path, bytes) = patterned(dir.path(), "clip.mp4", 100);
+
+        assert_eq!(read(&path, 90, 99).unwrap(), bytes[90..]);
+        assert_eq!(read(&path, 90, 100).unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
     }
 }

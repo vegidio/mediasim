@@ -23,8 +23,8 @@ export const GroupsFooter = ({ marked }: GroupsFooterProps) => {
             requestDeletion={requestDeletion}
             disabled={deletion.status === "restoring"}
             dialog={(button) => <GroupsDeletionDialog marked={marked}>{button}</GroupsDeletionDialog>}
-            className="border-[#27272A] bg-[#0C0C0E] px-6"
-            hintClassName="text-[#A1A1AA]"
+            className="border-border bg-surface-sunken px-6"
+            hintClassName="text-muted-foreground"
         />
     );
 };
