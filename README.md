@@ -3,7 +3,7 @@
 <p align="center">
 <img src="docs/images/icon.avif" width="240" alt="mediasim"/>
 <br/>
-<strong>MediaSim</strong> is a CLI tool and Go library to calculate the similarity of images & videos.
+<strong>MediaSim</strong> is an app to calculate the similarity of images & videos.
 
 ## ⬇️ Installation
 
@@ -27,9 +27,9 @@ By default both the CLI and the GUI are installed. To install only one of them, 
 
 ## 🖼️ Usage
 
-You can use **mediasim** in two ways: as a command-line interface (CLI) tool or a Go library.
+There are two ways to use MediaSim: using the GUI or the CLI.
 
-The CLI tool is a standalone application that can be used to compare the similarity between media files, while the library can be integrated into your own Go projects.
+The GUI is the easiest way to use the app, with an intuitive interface that allows you compare files with just a few clicks. The CLI is more advanced and allows you to compare files in a more automated way.
 
 ### CLI
 
