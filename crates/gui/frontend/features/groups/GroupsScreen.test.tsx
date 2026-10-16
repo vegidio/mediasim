@@ -728,6 +728,16 @@ describe("Best files from the saved rules", () => {
         expect([...useScanStore.getState().marks]).toEqual(["/p/DSC_0193.HEIC"]);
     });
 
+    it("shows each group's best file first, moving it there when the rules change", () => {
+        const order = () => [...document.querySelectorAll<HTMLElement>("[data-path]")].map((tile) => tile.dataset.path);
+        show(DSC);
+        expect(order()).toEqual(["/p/DSC_0193.HEIC", "/p/DSC_0193.jpg"]);
+
+        act(() => useSettingsStore.getState().update({ autoSelectRules: CREATED_FIRST }));
+
+        expect(order()).toEqual(["/p/DSC_0193.jpg", "/p/DSC_0193.HEIC"]);
+    });
+
     it("moves the details dialog's Recommended keep with the best file", () => {
         show(DSC);
         fireEvent.doubleClick(thumb("/p/DSC_0193.jpg"));

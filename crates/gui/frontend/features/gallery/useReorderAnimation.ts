@@ -3,9 +3,9 @@ import { type Offset, ROW_HEIGHT, tileOffset } from "./layout";
 
 /** How long the tiles take to slide to their new places, in milliseconds. */
 export const REORDER_MS = 300;
-const EASING = "cubic-bezier(0.2, 0, 0, 1)";
+export const EASING = "cubic-bezier(0.2, 0, 0, 1)";
 
-const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Each tile's index in `tiles`, by key. */
 const indexByKey = <T>(tiles: readonly T[], keyOf: (tile: T) => string) =>

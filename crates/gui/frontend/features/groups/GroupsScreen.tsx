@@ -221,7 +221,8 @@ export const GroupsScreen = () => {
                     >
                         {groups.map((group, index) => (
                             <GroupCard
-                                key={group.files[0]?.path}
+                                // The first file in scan order: the best file, first on the card, changes with the rules.
+                                key={visible[index]?.files[0]?.path}
                                 number={index + 1}
                                 group={group}
                                 list={layout === "list"}

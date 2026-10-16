@@ -58,10 +58,13 @@ describe("markedFiles", () => {
 });
 
 describe("pickBest", () => {
-    it("picks each group's best file by the rules given", () => {
-        const groups = [{ files: [file("/a/2"), file("/a/1")] }, { files: [file("/b/1"), file("/b/2")] }];
+    it("moves each group's best file by the rules given first, the others left in their order", () => {
+        const groups = [{ files: [file("/a/3"), file("/a/2"), file("/a/1")] }, { files: [file("/b/1"), file("/b/2")] }];
 
-        expect(pickBest(groups, DEFAULT_RULES).map(({ best }) => best)).toEqual([1, 0]);
+        expect(pickBest(groups, DEFAULT_RULES)).toEqual([
+            { files: [file("/a/1"), file("/a/3"), file("/a/2")], best: 0 },
+            { files: [file("/b/1"), file("/b/2")], best: 0 },
+        ]);
     });
 });
 

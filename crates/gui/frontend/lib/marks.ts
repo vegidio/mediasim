@@ -21,9 +21,13 @@ export const visibleGroups = (groups: readonly ScanGroup[], gone: ReadonlyMap<st
         })
         .filter(({ files }) => files.length >= 2);
 
-/** `groups` with each one's best file picked by `rules`. */
+/** `groups` with each one's best file picked by `rules` and moved first, the others left in their order. */
 export const pickBest = (groups: readonly { files: readonly GroupFile[] }[], rules: readonly Rule[]): GroupView[] =>
-    groups.map(({ files }) => ({ files, best: bestIndex(files, rules) }));
+    groups.map(({ files }) => {
+        const best = bestIndex(files, rules);
+        const first = files[best];
+        return { files: first ? [first, ...files.filter((_, index) => index !== best)] : files, best: 0 };
+    });
 
 /** What Auto-select would mark in `groups`. */
 export type Preview = {

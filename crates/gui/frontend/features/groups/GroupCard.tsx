@@ -5,6 +5,7 @@ import type { GroupView } from "@/lib/marks";
 import { cn, keepFocus } from "@/lib/utils";
 import { groupSize } from "./format";
 import { GroupTile } from "./GroupTile";
+import { useBestFirstAnimation } from "./useBestFirstAnimation";
 
 /** The number of files from which a group spans the full width: the fewest whose small tiles overflow a 1280 px window. */
 const LARGE_GROUP = 7;
@@ -52,6 +53,7 @@ export const GroupCard = ({
 }: GroupCardProps) => {
     const large = !list && files.length >= LARGE_GROUP;
     const type = files[0]?.type ?? "image";
+    const tiles = useBestFirstAnimation(list ? "list" : large ? "large" : "row", files[0]?.path);
 
     return (
         <section
@@ -76,6 +78,7 @@ export const GroupCard = ({
                 </Button>
             </div>
             <div
+                ref={tiles}
                 className={cn(
                     large ? "grid grid-cols-8 gap-x-3 gap-y-4" : list ? "flex flex-wrap gap-x-3 gap-y-4" : "flex gap-3",
                 )}
