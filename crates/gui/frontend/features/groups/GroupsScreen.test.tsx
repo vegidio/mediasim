@@ -8,6 +8,7 @@ import type { MediaFile } from "@/ipc/thumbs";
 import { restoreMedia, trashMedia } from "@/ipc/trash";
 import { DEFAULT_RULES, moveRule, type Rule } from "@/lib/rules";
 import { useGalleryStore } from "@/stores/gallery";
+import { useGroupsViewStore } from "@/stores/groupsView";
 import { useHomeStore } from "@/stores/home";
 import { useScanStore } from "@/stores/scan";
 import { useScreenStore } from "@/stores/screen";
@@ -63,6 +64,7 @@ beforeEach(() => {
     useScanStore.setState(useScanStore.getInitialState(), true);
     useScreenStore.setState(useScreenStore.getInitialState(), true);
     useSettingsStore.setState(SETTINGS_DEFAULTS);
+    useGroupsViewStore.setState({ layout: "cards" });
 });
 
 describe("Groups screen", () => {
@@ -149,6 +151,35 @@ describe("Groups screen", () => {
         expect(large?.parentElement).toHaveClass("flex-wrap", "overflow-y-auto");
     });
 
+    it("stacks every group full-width, the large one's tiles wrapping, once List is chosen, and back on Cards", () => {
+        finished([group("a", 19), group("b", 2), group("c", 2)]);
+        render(<GroupsScreen />);
+
+        fireEvent.click(screen.getByRole("radio", { name: "List" }));
+
+        const cards = screen.getAllByRole("region", { name: /^Group \d$/ });
+        expect(useGroupsViewStore.getState().layout).toBe("list");
+        expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute("aria-checked", "true");
+        expect(cards[0]?.parentElement).toHaveClass("flex-col", "overflow-y-auto");
+        expect(cards[0]?.parentElement).not.toHaveClass("flex-wrap");
+        for (const card of cards) expect(card).toHaveClass("w-full");
+        expect(cards[0]?.querySelector(".grid-cols-8")).toBeNull();
+
+        fireEvent.click(screen.getByRole("radio", { name: "Cards" }));
+
+        expect(useGroupsViewStore.getState().layout).toBe("cards");
+        expect(cards[0]?.parentElement).toHaveClass("flex-wrap");
+        expect(screen.getByRole("region", { name: "Group 1" }).querySelector(".grid-cols-8")).not.toBeNull();
+    });
+
+    it("opens in the layout chosen last", () => {
+        useGroupsViewStore.setState({ layout: "list" });
+        finished([group("a", 2)]);
+        render(<GroupsScreen />);
+
+        expect(screen.getByRole("region", { name: "Group 1" }).parentElement).toHaveClass("flex-col");
+    });
+
     it("reads that nothing similar was found, with the files compared and New comparison", () => {
         finished([], { scanned: 48, threshold: 85, unread: 2 });
         render(<GroupsScreen />);
@@ -158,6 +189,7 @@ describe("Groups screen", () => {
         expect(summaryText()).toBe("No similar files found · 48 scanned · threshold 85% · 2 couldn't be read");
         expect(screen.getAllByRole("button", { name: "New comparison" })).toHaveLength(2);
         expect(screen.queryByRole("region")).not.toBeInTheDocument();
+        expect(screen.queryByRole("radiogroup", { name: "Group layout" })).not.toBeInTheDocument();
     });
 });
 

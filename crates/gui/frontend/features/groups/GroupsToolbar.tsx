@@ -1,8 +1,10 @@
-import { ArrowLeftIcon, HouseIcon, SparklesIcon } from "lucide-react";
+import { ArrowLeftIcon, HouseIcon, LayoutGridIcon, type LucideIcon, Rows2Icon, SparklesIcon } from "lucide-react";
+import { ToggleGroup } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { focusCompare } from "@/features/gallery/GalleryToolbar";
 import { focusContinue } from "@/features/home/SetCard";
 import { cn, keepFocus } from "@/lib/utils";
+import type { GroupsLayout } from "@/stores/groupsView";
 import { useScanStore } from "@/stores/scan";
 import { AutoSelectMenu } from "./AutoSelectMenu";
 
@@ -26,9 +28,46 @@ export type GroupsMarking = {
     onChooseRules: () => void;
     /** Focuses the selected tile, returning whether there was one. */
     refocus: () => boolean;
+    /** How the groups are laid out, which the layout toggle shows selected. */
+    layout: GroupsLayout;
+    /** Switches the groups to `layout`. */
+    onLayoutChange: (layout: GroupsLayout) => void;
     /** Shows the Auto-select split button faded, with both its halves disabled, as when no group is left. */
     autoSelectDisabled?: boolean;
 };
+
+/** The layouts the toggle offers, in its order. */
+const LAYOUTS = [
+    { value: "cards", label: "Cards", Icon: LayoutGridIcon },
+    { value: "list", label: "List", Icon: Rows2Icon },
+] as const satisfies readonly { value: GroupsLayout; label: string; Icon: LucideIcon }[];
+
+const isGroupsLayout = (value: string): value is GroupsLayout => LAYOUTS.some((layout) => layout.value === value);
+
+/** The segmented toggle between the cards and list layouts of the groups. */
+const LayoutToggle = ({ layout, onChange }: { layout: GroupsLayout; onChange: (layout: GroupsLayout) => void }) => (
+    <ToggleGroup.Root
+        type="single"
+        value={layout}
+        // A click on the selected layout sends an empty value, which leaves it selected.
+        onValueChange={(value) => isGroupsLayout(value) && onChange(value)}
+        aria-label="Group layout"
+        className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-surface-sunken p-[3px]"
+    >
+        {LAYOUTS.map(({ value, label, Icon }) => (
+            <ToggleGroup.Item
+                key={value}
+                value={value}
+                aria-label={label}
+                title={label}
+                onMouseDown={keepFocus}
+                className="flex h-7 w-8 items-center justify-center rounded-md text-text-disabled outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=on]:bg-border data-[state=on]:text-foreground"
+            >
+                <Icon aria-hidden="true" className="size-[15px]" />
+            </ToggleGroup.Item>
+        ))}
+    </ToggleGroup.Root>
+);
 
 type GroupsToolbarProps = {
     summary: string;
@@ -37,8 +76,8 @@ type GroupsToolbarProps = {
 };
 
 /**
- * Above the groups: Back to the gallery, New comparison, the summary of what the scan found, then Clear marks and
- * the Auto-select split button, with its chevron of other options, while there is something to mark.
+ * Above the groups: Back to the gallery, New comparison, the summary of what the scan found, then the layout toggle,
+ * Clear marks and the Auto-select split button, with its chevron of other options, while there is something to mark.
  */
 export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
     const leave = useScanStore((state) => state.leave);
@@ -71,6 +110,7 @@ export const GroupsToolbar = ({ summary, marking }: GroupsToolbarProps) => {
             </span>
             {marking && (
                 <>
+                    <LayoutToggle layout={marking.layout} onChange={marking.onLayoutChange} />
                     <Button
                         variant="ghost"
                         onClick={marking.onClear}

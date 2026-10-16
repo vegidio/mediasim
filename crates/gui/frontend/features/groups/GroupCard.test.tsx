@@ -40,13 +40,14 @@ const mediaOf = (files: readonly GroupFile[]) =>
 const renderCard = (
     group: GroupView,
     number = 1,
-    { marks = new Set<string>(), onToggle = () => {}, onKeepBestOnly = () => {} } = {},
+    { marks = new Set<string>(), onToggle = () => {}, onKeepBestOnly = () => {}, list = false } = {},
 ) => {
     useScanStore.setState({ marks });
     return render(
         <GroupCard
             number={number}
             group={group}
+            list={list}
             media={mediaOf(group.files)}
             onToggle={onToggle}
             onKeepBestOnly={onKeepBestOnly}
@@ -134,12 +135,30 @@ describe("GroupCard", () => {
         expect(tile("/p/IMG_0.jpg").firstElementChild).toHaveClass("aspect-4/3", "w-full");
     });
 
+    it("spans the full width in the list layout, wrapping 160 × 120 px tiles rather than gridding them, from 7 files", () => {
+        const files = Array.from({ length: 7 }, (_, i) => image(`IMG_${i}.jpg`));
+        renderCard({ files, best: 0 }, 1, { list: true });
+
+        const card = screen.getByRole("region", { name: "Group 1" });
+        expect(card).toHaveClass("w-full", "shrink-0");
+        expect(card.querySelector(".grid-cols-8")).toBeNull();
+        expect(tile("/p/IMG_0.jpg").parentElement).toHaveClass("flex", "flex-wrap");
+        expect(tile("/p/IMG_0.jpg").firstElementChild).toHaveClass("h-[120px]", "w-40");
+    });
+
+    it("spans the full width in the list layout with only 2 files", () => {
+        renderCard({ files: [image("a.jpg"), image("b.jpg")], best: 0 }, 1, { list: true });
+
+        expect(screen.getByRole("region", { name: "Group 1" })).toHaveClass("w-full");
+    });
+
     it("falls back to the icon of the file's kind without a scanned file", () => {
         const files = [image("a.jpg"), image("b.jpg")];
         render(
             <GroupCard
                 number={2}
                 group={{ files, best: 0 }}
+                list={false}
                 media={new Map()}
                 onToggle={() => {}}
                 onKeepBestOnly={() => {}}

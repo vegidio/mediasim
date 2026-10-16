@@ -42,6 +42,8 @@ const renderToolbar = (refocused = true) => {
         onAutoSelect: vi.fn(),
         onChooseRules: vi.fn(),
         refocus: vi.fn(() => refocused),
+        layout: "cards" as const,
+        onLayoutChange: vi.fn(),
     };
     render(<GroupsToolbar summary={SUMMARY} marking={marking} />);
     return marking;

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import type { MediaFile } from "@/ipc/thumbs";
 import { autoSelect, fileCount, type GroupView, keepBestOnly, markedFiles, pickBest, visibleGroups } from "@/lib/marks";
 import type { Rule } from "@/lib/rules";
+import { cn } from "@/lib/utils";
+import { useGroupsViewStore } from "@/stores/groupsView";
 import { selectMedia, useScanStore } from "@/stores/scan";
 import { useSettingsStore } from "@/stores/settings";
 import { AutoSelectDialog } from "./AutoSelectDialog";
@@ -94,6 +96,8 @@ export const GroupsScreen = () => {
     const setMarks = useScanStore((state) => state.setMarks);
     const clearMarks = useScanStore((state) => state.clearMarks);
     const rules = useSettingsStore((state) => state.autoSelectRules);
+    const layout = useGroupsViewStore((state) => state.layout);
+    const setLayout = useGroupsViewStore((state) => state.setLayout);
 
     const media = useScanStore(selectMedia);
     // The result's groups less the files removed. A change to the rules moves the best files, and leaves the marks to
@@ -189,6 +193,8 @@ export const GroupsScreen = () => {
                 }
                 {...(found && {
                     marking: {
+                        layout,
+                        onLayoutChange: setLayout,
                         onClear: clearMarks,
                         onAutoSelect: () => setMarks(autoSelect(groups)),
                         onChooseRules: () => setRulesOpen(true),
@@ -208,13 +214,17 @@ export const GroupsScreen = () => {
                     {/* biome-ignore lint/a11y/noStaticElementInteractions: see above. */}
                     <div
                         onClick={onClick}
-                        className="flex min-h-0 flex-1 flex-wrap content-start gap-4 overflow-y-auto p-6"
+                        className={cn(
+                            "flex min-h-0 flex-1 gap-4 overflow-y-auto p-6",
+                            layout === "list" ? "flex-col" : "flex-wrap content-start",
+                        )}
                     >
                         {groups.map((group, index) => (
                             <GroupCard
                                 key={group.files[0]?.path}
                                 number={index + 1}
                                 group={group}
+                                list={layout === "list"}
                                 media={media}
                                 onToggle={toggleMark}
                                 // Read at the click, so a mark toggled elsewhere doesn't re-render every card.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GroupsToolbar } from "./GroupsToolbar";
 
@@ -7,7 +7,35 @@ vi.mock("@/ipc/scan", () => ({ startScan: vi.fn(), cancelScan: vi.fn() }));
 const SUMMARY = "18 similar files in 7 groups · 48 scanned · threshold 85%";
 
 describe("GroupsToolbar", () => {
-    const marking = () => ({ onClear: vi.fn(), onAutoSelect: vi.fn(), onChooseRules: vi.fn(), refocus: vi.fn() });
+    const marking = () => ({
+        onClear: vi.fn(),
+        onAutoSelect: vi.fn(),
+        onChooseRules: vi.fn(),
+        refocus: vi.fn(),
+        layout: "cards" as const,
+        onLayoutChange: vi.fn(),
+    });
+
+    it("shows the layout toggle just before Clear marks, with the current layout checked", () => {
+        render(<GroupsToolbar summary={SUMMARY} marking={{ ...marking(), layout: "list" }} />);
+
+        const toggle = screen.getByRole("radiogroup", { name: "Group layout" });
+        const cards = within(toggle).getByRole("radio", { name: "Cards" });
+        const list = within(toggle).getByRole("radio", { name: "List" });
+        expect(toggle.nextElementSibling).toBe(screen.getByRole("button", { name: "Clear marks" }));
+        expect(cards).toHaveAttribute("aria-checked", "false");
+        expect(list).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("calls onLayoutChange with the layout clicked, and not when the checked one is clicked again", () => {
+        const handlers = marking();
+        render(<GroupsToolbar summary={SUMMARY} marking={handlers} />);
+
+        fireEvent.click(screen.getByRole("radio", { name: "Cards" }));
+        expect(handlers.onLayoutChange).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole("radio", { name: "List" }));
+        expect(handlers.onLayoutChange).toHaveBeenCalledExactlyOnceWith("list");
+    });
 
     it("shows Clear marks and the Auto-select split button after the summary, each calling its handler", () => {
         const handlers = marking();
@@ -43,6 +71,7 @@ describe("GroupsToolbar", () => {
         expect(screen.queryByRole("button", { name: "Clear marks" })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "Auto-select" })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "More auto-select options" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("radiogroup", { name: "Group layout" })).not.toBeInTheDocument();
     });
 
     it("fades Auto-select and disables both its halves when asked, so the chevron opens no menu", () => {

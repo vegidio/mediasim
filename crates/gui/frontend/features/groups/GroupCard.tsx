@@ -13,6 +13,8 @@ type GroupCardProps = {
     /** The group's number, from 1. */
     number: number;
     group: GroupView;
+    /** Whether the card is a full-width row of the list layout, its tiles wrapping, rather than a card of the cards layout. */
+    list: boolean;
     /** The scanned files by path, for their thumbnails. */
     media: ReadonlyMap<string, MediaFile>;
     /** Marks the file at `path`, or unmarks it when it is marked. */
@@ -32,12 +34,13 @@ type GroupCardProps = {
 };
 
 /**
- * One group of similar files: its number, size and "Keep best only", then its files, in a row or, from 7 files, in an
- * 8-column grid.
+ * One group of similar files: its number, size and "Keep best only", then its files: in the cards layout in a row or,
+ * from 7 files, in an 8-column grid; in the list layout across the full width, wrapping onto more rows.
  */
 export const GroupCard = ({
     number,
     group: { files, best },
+    list,
     media,
     onToggle,
     onKeepBestOnly,
@@ -47,7 +50,7 @@ export const GroupCard = ({
     onOpen,
     onKey,
 }: GroupCardProps) => {
-    const large = files.length >= LARGE_GROUP;
+    const large = !list && files.length >= LARGE_GROUP;
     const type = files[0]?.type ?? "image";
 
     return (
@@ -55,7 +58,8 @@ export const GroupCard = ({
             aria-label={`Group ${number}`}
             className={cn(
                 "flex flex-col gap-3.5 rounded-[14px] border border-border bg-card px-5 pt-4 pb-5",
-                large && "w-full",
+                (large || list) && "w-full",
+                list && "shrink-0",
             )}
         >
             <div className="flex items-center gap-2.5">
@@ -71,7 +75,11 @@ export const GroupCard = ({
                     Keep best only
                 </Button>
             </div>
-            <div className={cn(large ? "grid grid-cols-8 gap-x-3 gap-y-4" : "flex gap-3")}>
+            <div
+                className={cn(
+                    large ? "grid grid-cols-8 gap-x-3 gap-y-4" : list ? "flex flex-wrap gap-x-3 gap-y-4" : "flex gap-3",
+                )}
+            >
                 {files.map((file, index) => {
                     const identity = media.get(file.path)?.identity;
                     return (
