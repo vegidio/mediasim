@@ -25,7 +25,7 @@ const MEMORY_BUDGET: u64 = 256 << 20;
 ///
 /// `bytes` being serialized as a byte string rather than a sequence did not change it: postcard writes both as a
 /// length followed by the bytes, so entries written before read back unchanged.
-const KEY_VERSION: &str = "thumb-v1";
+const KEY_VERSION: &str = "thumb-v2";
 
 /// An encoded thumbnail, as it crosses to the window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

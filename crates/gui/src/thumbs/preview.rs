@@ -11,6 +11,8 @@ use image::{DynamicImage, RgbImage};
 use media::{FrameExtractor, Interval, Resolution};
 use mediasim::MediaType;
 
+use super::orientation::orientation;
+
 /// How far into a video its preview frame is taken, as a fraction of the duration.
 const PREVIEW_POSITION: u32 = 10;
 
@@ -39,7 +41,8 @@ pub enum PreviewError {
 ///
 /// The picture's longer edge equals `bound` and its aspect ratio is kept; a picture that already fits is returned at
 /// its own size, never enlarged. An image keeps any transparency it has. A video whose duration is unknown or zero
-/// gives its first frame. Pixels are used as stored: EXIF orientation and video rotation are not applied.
+/// gives its first frame. An image is turned upright first, by its EXIF orientation or, for AVIF, its `irot` and `imir`
+/// transforms, so the bound applies to the picture as it is meant to be seen; a video's rotation is not applied.
 ///
 /// # Errors
 ///
@@ -57,7 +60,9 @@ pub fn preview(path: &Path, bound: NonZeroU32) -> Result<DynamicImage, PreviewEr
 
 fn image_preview(path: &Path, bound: NonZeroU32) -> Result<DynamicImage, PreviewError> {
     // Sniffed from the magic bytes rather than the extension, so a PNG named `.jpg` still decodes.
-    let img = rust_sak::image::decode_bytes(&std::fs::read(path)?)?;
+    let bytes = std::fs::read(path)?;
+    let mut img = rust_sak::image::decode_bytes(&bytes)?;
+    img.apply_orientation(orientation(&bytes));
 
     Ok(rust_sak::image::fit(&img, bound).into_owned())
 }
@@ -140,6 +145,34 @@ mod tests {
         assert_eq!(preview.dimensions(), (100, 50));
         assert_eq!(preview.get_pixel(10, 25).0[3], 255);
         assert_eq!(preview.get_pixel(90, 25).0[3], 0);
+    }
+
+    #[test]
+    fn an_avif_is_turned_upright_by_its_irot() {
+        // rotated.avif stores 48×24, red on the left and blue on the right, with `irot` 3: a clockwise quarter turn.
+        let preview = preview(&fixture("rotated.avif"), bound(400)).unwrap().to_rgb8();
+
+        assert_eq!(preview.dimensions(), (24, 48));
+        let [r, _, b] = preview.get_pixel(12, 4).0;
+        assert!(r > 200 && b < 50, "the top is red, got {:?}", preview.get_pixel(12, 4));
+    }
+
+    #[test]
+    fn a_jpeg_is_turned_upright_by_its_exif_orientation() {
+        let dir = mk_temp_dir("mediasim-thumbs-").unwrap();
+        let path = dir.path().join("rotated.jpg");
+        let mut jpeg = Vec::new();
+        DynamicImage::ImageRgb8(RgbImage::new(40, 20))
+            .write_to(&mut std::io::Cursor::new(&mut jpeg), image::ImageFormat::Jpeg)
+            .unwrap();
+        // An APP1 segment right after SOI, with one IFD entry: Orientation (0x0112), a SHORT, 6.
+        let exif: &[u8] = b"Exif\0\0MM\0\x2a\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01\0\x06\0\0\0\0\0\0";
+        let length = u16::try_from(exif.len() + 2).unwrap().to_be_bytes();
+        std::fs::write(&path, [&jpeg[..2], &[0xFF, 0xE1], &length, exif, &jpeg[2..]].concat()).unwrap();
+
+        let preview = preview(&path, bound(400)).unwrap();
+
+        assert_eq!(preview.dimensions(), (20, 40));
     }
 
     #[test]

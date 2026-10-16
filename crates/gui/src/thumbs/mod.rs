@@ -6,6 +6,7 @@
 
 mod cache;
 pub mod commands;
+mod orientation;
 mod preview;
 mod serve;
 
