@@ -1,34 +1,22 @@
-//! How an image's stored pixels must be turned to stand upright, as its file declares: an EXIF orientation for JPEG,
-//! PNG and TIFF, or the `irot`/`imir` transforms of an AVIF's primary item.
+//! How an image's stored pixels must be turned to stand upright, as its file declares: the `irot`/`imir` transforms
+//! of an AVIF's primary item.
 //!
-//! The decoders behind `rust_sak::image` return pixels as stored and leave this to the caller.
+//! `rust_sak::image` already applies the EXIF orientation of JPEG, PNG and TIFF, but returns AVIF pixels as stored
+//! and leaves this to the caller.
 
-use std::io::Cursor;
-
-use image::ImageReader;
 use image::metadata::Orientation;
 use rust_sak::image::ImageFormat;
 
-/// How the image encoded in `bytes` must be turned to stand upright, or [`Orientation::NoTransforms`] when its file
-/// declares nothing or can't be read.
+/// How the image decoded from `bytes` must still be turned to stand upright, or [`Orientation::NoTransforms`] when its
+/// file declares nothing or can't be read.
 ///
-/// HEIF is decoded upright by libheif already, and BMP, GIF and WebP are taken as stored.
+/// Only AVIF needs turning: the EXIF formats come back upright from `rust_sak::image`, HEIF is decoded upright by
+/// libheif, and WebP is taken as stored.
 pub(super) fn orientation(bytes: &[u8]) -> Orientation {
     match ImageFormat::from_magic(bytes) {
-        Some(ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::Tiff) => exif_orientation(bytes),
         Some(ImageFormat::Avif) => heif_transforms(bytes).unwrap_or(Orientation::NoTransforms),
         _ => Orientation::NoTransforms,
     }
-}
-
-/// The EXIF orientation the `image` crate reads from `bytes`, which only parses the headers.
-fn exif_orientation(bytes: &[u8]) -> Orientation {
-    ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .ok()
-        .and_then(|reader| reader.into_decoder().ok())
-        .and_then(|mut decoder| image::ImageDecoder::orientation(&mut decoder).ok())
-        .unwrap_or(Orientation::NoTransforms)
 }
 
 /// The `irot` and `imir` properties of the primary item of the ISO-BMFF file in `bytes`, composed in the order its

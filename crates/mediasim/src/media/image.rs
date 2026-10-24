@@ -28,7 +28,8 @@ pub(super) fn load(path: &Path, cancel: Option<&CancelToken>) -> Result<Decoded,
 }
 
 /// Decodes the image at `path` as [`rust_sak::image::decode_bytes`] decodes its contents, with the same format
-/// detection, codecs and limits.
+/// detection, codecs and limits, except that pixels come back as stored: `decode_bytes` applies a JPEG, PNG or TIFF's
+/// EXIF orientation, and this does not.
 ///
 /// The formats the `image` crate decodes are streamed from the file, so the encoded file is never held in memory next
 /// to the decoded image; `decode_bytes` hands them to the same decoder. AVIF, HEIF and WebP go to `rust-sak`'s own

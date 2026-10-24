@@ -41,8 +41,8 @@ pub enum PreviewError {
 ///
 /// The picture's longer edge equals `bound` and its aspect ratio is kept; a picture that already fits is returned at
 /// its own size, never enlarged. An image keeps any transparency it has. A video whose duration is unknown or zero
-/// gives its first frame. An image is turned upright first, by its EXIF orientation or, for AVIF, its `irot` and `imir`
-/// transforms, so the bound applies to the picture as it is meant to be seen; a video's rotation is not applied.
+/// gives its first frame. An image is turned upright first, by its EXIF orientation (which the decoder applies) or, for
+/// AVIF, its `irot` and `imir` transforms, so the bound applies to the picture as it is meant to be seen; a video's rotation is not applied.
 ///
 /// # Errors
 ///
